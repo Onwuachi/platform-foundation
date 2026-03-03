@@ -1,46 +1,37 @@
-CloudOps Lab – Immutable Edge + Container Runtime Platform
+# Platform Foundation – Immutable Edge + Container Runtime
 
-A production-style, immutable infrastructure platform built with:
+A production-style infrastructure platform built using immutable infrastructure principles and disciplined cloud engineering patterns.
 
-Packer (AMI baking)
+---
 
-Terraform (Infrastructure as Code)
+## 🔧 Stack
 
-HAProxy (Edge reverse proxy)
+- **Packer** – Hardened AMI baking  
+- **Terraform** – Infrastructure as Code  
+- **HAProxy** – Edge reverse proxy + TLS termination  
+- **Docker** – Application runtime  
+- **Let’s Encrypt** – Automated TLS lifecycle  
+- **AWS SSM Parameter Store** – AMI version tracking  
+- **Amazon ECR** – Container registry  
 
-Docker (Application runtime)
+---
 
-Let’s Encrypt (Automated TLS)
+## 🎯 Platform Objectives
 
-AWS SSM Parameter Store (AMI version tracking)
+- Build hardened, repeatable AMIs
+- Separate build-time from run-time logic
+- Terminate TLS strictly at the edge
+- Run containerized workloads behind HAProxy
+- Eliminate manual server mutation
+- Enforce deterministic infrastructure replacement
+- Maintain cost-aware cloud discipline
+- Evolve architecture in controlled, documented phases
 
-Amazon ECR (Container registry)
+---
 
-This repository demonstrates a phased DevOps architecture focused on:
+# 🧱 Current Architecture (Phase 3 – Stable)
 
-Immutability
-
-Operational correctness
-
-Clean separation of concerns
-
-Safe production patterns
-
-🎯 Platform Goals
-
-Build hardened, repeatable AMIs
-
-Separate build-time and run-time logic
-
-Terminate TLS at the edge
-
-Run applications as containers behind HAProxy
-
-Eliminate manual server mutation
-
-Enable controlled phased evolution
-
-🧱 Current Architecture (Phase  3)
+```
                 Internet
                     │
                     ▼
@@ -57,123 +48,232 @@ Enable controlled phased evolution
           │ 127.0.0.1:3000     │ → Platform API (Docker)
           │ 127.0.0.1:8080     │ → Hugo (nginx container)
           └────────────────────┘
-Public Exposure
+```
 
-Ports: 80, 443 only
+### Public Surface Area
 
-Containers bound to localhost
+Only the following ports are exposed:
 
-No direct backend exposure
+- **80** (HTTP → redirected to HTTPS)
+- **443** (TLS)
 
-📦 Phase Breakdown
-✅ Phase 1 – Infrastructure Foundation
+All containers bind to:
 
-Packer-built Ubuntu 22.04 AMI
+```
+127.0.0.1
+```
 
-HAProxy installed and validated at build time
+No backend services are publicly reachable.
 
-Dummy certificate baked to pass config validation
+---
 
-Let’s Encrypt issued at first boot
+# 📦 Phase Evolution
 
-Certbot auto-renewal with HAProxy reload hook
+---
 
-Deterministic 503 response
+## ✅ Phase 1 – Infrastructure Foundation  
+**Tag:** `phase-1-infra-stable`
 
-Tag:
+Established immutable infrastructure baseline.
 
-phase-1-infra-stable
-✅ Phase 2 – Containerized Application Runtime (Current)
+### Delivered
 
-Phase 2 transitions from static infrastructure to application runtime.
+- Ubuntu 22.04 hardened AMI built with Packer
+- HAProxy installed and validated at image build time
+- Dummy certificate baked to validate configuration
+- Let’s Encrypt certificate issued at first boot
+- Certbot renewal timer enabled
+- Renewal deploy hook reloads HAProxy safely
+- Deterministic 503 baseline response
 
-Additions
+### Principle Reinforced
 
-Docker installed in AMI
+> Validate infrastructure during image build — not at runtime.
 
-systemd-managed containers
+---
 
-Platform API container (Node.js)
+## ✅ Phase 2 – Containerized Runtime  
+**Tag:** `phase-2-app-backends`
 
-Hugo static site served via nginx container
+Introduced application lifecycle management using containers.
 
-Health checks (/ready)
+### Delivered
 
-HAProxy backend routing
+- Docker installed in AMI
+- systemd-managed container services
+- Platform API container (Node.js)
+- Hugo static site served via nginx container
+- Health endpoint (`/ready`)
+- HAProxy backend routing
+- ECR authentication via IAM role
+- AMI ID stored in SSM Parameter Store
 
-ECR authentication via IAM role
+### Runtime Flow
 
-Immutable AMI updates via SSM parameter
-
-Runtime Model
-
+```
 systemd
-→ docker pull
-→ docker run
-→ health check
-→ HAProxy reverse proxy
+ → docker pull
+ → docker run
+ → health check
+ → HAProxy reverse proxy
+```
 
-All container images are pulled at runtime.
-No application artifacts are baked into the AMI.
+Application artifacts are **never baked into the AMI**.
 
-🔐 TLS Strategy
-Stage	Certificate	Purpose
-AMI Build	Dummy self-signed	Validate HAProxy config
-First Boot	Let’s Encrypt	Real domain cert
-Renewal	systemd timer + deploy hook	Auto rebuild PEM + reload HAProxy
+### Principle Reinforced
+
+> Infrastructure and application runtime must remain independent layers.
+
+---
+
+## ✅ Phase 3 – Edge Routing Hardening & Immutable Replacement  
+**Tag:** `phase-3-edge-observability-stable`  
+**Closed:** March 2026  
+
+Phase 3 strengthened edge routing correctness and validated full immutable replacement discipline.
+
+---
+
+### 🔐 HAProxy Routing Hardening
+
+Corrected structural configuration issues:
+
+- Removed duplicate `default_backend`
+- Enforced deterministic routing model:
+
+```
+/api     → platform_api
+/ready   → platform_api
+/        → hugo_backend
+```
+
+All HAProxy configuration resides inside the AMI.
+
+No runtime rewriting.  
+No user_data mutation.
+
+### Principle Reinforced
+
+> Edge configuration belongs in the image layer.
+
+---
+
+### ♻ Immutable Replacement Validation
+
+Executed full rebuild cycle:
+
+```
+Packer build
+ → AMI stored in SSM
+ → Terraform apply
+ → EC2 destroyed
+ → EC2 recreated
+ → Elastic IP reattached
+```
+
+Terraform output confirmed:
+
+```
+2 destroyed
+2 added
+```
+
+No SSH fixes.  
+No hot patches.  
+No configuration drift.
+
+### Principle Reinforced
+
+> Fix images, not servers.
+
+---
+
+### ⚙ Runtime Hardening
+
+- `Restart=always` validated in systemd
+- ECR login pipe wrapped correctly with `/bin/sh -c`
+- Health checks enforced at HAProxy layer
+- Clean service grouping via `ops.target`
+- TLS renewal hook verified
+
+---
+
+# 🏗 Immutable AMI Lifecycle
+
+1. Packer builds hardened image
+2. AMI ID stored in:
+
+```
+/devopslab/ami/ops/latest
+```
+
+3. Terraform reads SSM parameter
+4. `terraform apply` replaces EC2 when AMI changes
+
+Servers are disposable.
+
+---
+
+# 🚀 Deployment Model
+
+## Infrastructure Pipeline
+
+```
+packer build
+   ↓
+AMI ID → SSM
+   ↓
+terraform apply
+   ↓
+EC2 replacement (if required)
+```
+
+## Application Pipeline
+
+```
+CI builds container
+   ↓
+Push to Amazon ECR
+   ↓
+Instance pulls image at service start
+   ↓
+systemd manages lifecycle
+```
+
+---
+
+# 🔐 TLS Strategy
+
+| Stage       | Certificate Type        | Purpose |
+|------------|------------------------|----------|
+| AMI Build  | Dummy self-signed cert | Validate HAProxy config |
+| First Boot | Let’s Encrypt cert     | Production TLS |
+| Renewal    | systemd timer + hook   | Rebuild PEM + reload HAProxy |
 
 Certbot runs twice daily via:
 
+```
 certbot.timer
+```
 
 Renewal hook:
 
+```
 /etc/letsencrypt/renewal-hooks/deploy/haproxy
+```
 
-This:
+Ensures:
 
-Rebuilds PEM bundle
+- PEM bundle rebuilt
+- Correct permissions applied
+- HAProxy reload
+- Zero downtime
 
-Applies correct permissions
+---
 
-Reloads HAProxy
+# 🛠 Repository Structure
 
-Avoids downtime
-
-🏗 Immutable AMI Lifecycle
-
-Packer builds hardened image
-
-AMI ID stored in SSM:
-
-/devopslab/ami/ops/latest
-
-Terraform reads SSM parameter
-
-terraform apply replaces EC2 if AMI changes
-
-Instance boots cleanly
-
-No in-place mutation.
-
-🚀 Deployment Flow
-Infrastructure
-packer build
-↓
-AMI ID → SSM
-↓
-terraform apply
-↓
-EC2 replacement (if AMI changed)
-Application
-CI builds container
-↓
-Push to ECR
-↓
-Instance pulls image at service start
-↓
-systemd manages lifecycle
-🛠 Repository Structure
+```
 infra/
 ├── packer/
 │   └── ops/
@@ -186,167 +286,81 @@ infra/
 opt/
 └── scripts/
     └── hugo.sh
-🧪 Validation
+```
+
+---
+
+# 🧪 Validation
+
+```
 curl -Iv https://onwuachi.com
+```
 
 Expected:
 
-Valid Let's Encrypt certificate
+- Valid Let's Encrypt certificate
+- HTTP 200 response
+- No exposed container ports
 
-200 or backend response
+---
 
-No direct container exposure
+# 🧠 Engineering Principles
 
-🧠 Design Principles
+- Infrastructure before applications
+- Immutable > mutable
+- Containers are disposable
+- Edge terminates TLS
+- Health checks everywhere
+- Minimal public attack surface
+- Deterministic rebuild discipline
+- Cost awareness without architectural shortcuts
 
-Infra before apps
+---
 
-Immutable > mutable
+# ⚠️ Known Constraints (Intentional)
 
-Containers are disposable
+- Single-node runtime
+- No autoscaling
+- No blue/green deployment
+- No centralized metrics pipeline
+- No alerting system
+- Observability not yet isolated
 
-Edge terminates TLS
+These are addressed in Phase 4.
 
-Health checks everywhere
+---
 
-Minimal public attack surface
+# 🔜 Phase 4 – Private Observability Isolation (Planned)
 
-Phase isolation
+Next evolution:
 
-⚠️ Known Limitations (Intentional)
+- Dedicated private EC2 instance
+- Private subnet only
+- No public IP
+- No Elastic IP
+- Prometheus + Grafana isolated
+- Node exporter integration
+- HAProxy metrics endpoint
+- Scheduled stop/start workflows
+- Cost-aware lifecycle automation
 
-No centralized logging
+Goal:
 
-No metrics aggregation
+> Separate monitoring from edge runtime while preserving cost discipline.
 
-No autoscaling
+---
 
-Single-node runtime
+# 📌 Current Status
 
-No blue/green deployment
+**Current Phase:** 3 – Edge Routing Hardened  
+**Default Branch:** `main`  
+**Latest Stable Tag:** `phase-3-edge-observability-stable`
 
-No alerting
+---
 
-These are addressed in Phase 3.
+# 👤 Author
 
-🔜 Phase 3 – Observability & Cost Control (Planned)
+Derrick C. Onwuachi  
+Cloud / DevOps Engineer  
 
-Prometheus
-
-Grafana
-
-Node exporter
-
-HAProxy metrics
-
-CloudWatch alarms
-
-Cost allocation tagging
-
-Budget alerts
-
-📌 Status
-
-
-tatus
-Current Phase: 3 – Edge Routing Hardening Stable
-
-Tag:
-phase-3-edge-observability-stable
-
-Branch:
-main
-
-------------------------------------------
-✅ Phase 3 – Edge Routing Hardening & Immutable Replacement Validation
-
-Tag: phase-3-edge-observability-stable
-Closed: March 2026
-
-Objective
-
-Harden HAProxy multi-backend routing and validate full immutable infrastructure replacement without manual mutation.
-
-What Changed
-HAProxy Routing Correction
-
-Removed duplicate default_backend
-
-Defined deterministic routing model:
-
-/api     → platform_api
-/ready   → platform_api
-/        → hugo_backend
-
-Principle reinforced:
-
-HAProxy configuration belongs in the AMI, not in user_data.
-
-Full Immutable Replacement Cycle
-
-Executed clean rebuild flow:
-
-Packer build
-→ AMI stored in SSM
-→ Terraform apply
-→ EC2 destroyed
-→ EC2 recreated
-→ EIP reattached
-
-Terraform confirmed:
-
-2 destroyed
-2 added
-
-No in-place modification. No SSH patching.
-
-Runtime Hardening
-
-systemd restart policies validated
-
-ECR login pipe wrapped correctly with /bin/sh -c
-
-Health checks enforced
-
-ops.target grouping stabilized
-
-Public Surface Area
-
-Only exposed ports:
-
-80
-443
-
-All containers remain bound to 127.0.0.1.
-
-TLS automated via Certbot + renewal hook.
-
-Status After Phase 3
-
-Hugo returns 200
-
-API health routing validated
-
-TLS valid
-
-Immutable rebuild confirmed
-
-Deferred to Phase 4
-
-Prometheus
-
-Grafana
-
-Private observability node
-
-Cost-based stop/start workflows
-
-Alerting
-
-------------------------------------------
-👤 Author
-
-Derrick C. Onwuachi
-Cloud / DevOps Engineer
-
-This repository reflects a structured, production-minded infrastructure evolution.
+This repository reflects a production-minded infrastructure evolution emphasizing immutability, operational correctness, and responsible cloud architecture.
