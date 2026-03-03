@@ -11,3 +11,7 @@ node_modules/
 # OS + Editor
 .DS_Store
 *.swp
+
+
+# Python enviroment 
+.venv/

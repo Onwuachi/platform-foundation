@@ -35,7 +35,7 @@ resource "aws_iam_role" "github_oidc_role" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
 
             # Restrict to your repo (replace these as needed!)
-            "token.actions.githubusercontent.com:sub" = "repo:trainbus/devops-lab-week1:ref:refs/heads/main"
+            "token.actions.githubusercontent.com:sub" = "repo:Onwuachi/platform-foundation:ref:refs/heads/main"
           }
         }
       }

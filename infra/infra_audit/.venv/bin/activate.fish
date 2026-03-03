@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV /home/derrick/cicd/devops-lab-week1/infra/infra_audit/.venv
+set -gx VIRTUAL_ENV /home/derrick/cicd/platform-foundation/infra/infra_audit/.venv
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/"bin $PATH
