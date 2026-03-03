@@ -354,7 +354,56 @@ Goal:
 
 **Current Phase:** 3 – Edge Routing Hardened  
 **Default Branch:** `main`  
-**Latest Stable Tag:** `phase-3-edge-observability-stable`
+**Latest Stable Tag:** `phase-3-namespace-converged`
+
+---
+
+🏷 Phase 3.1 – GitHub OIDC Namespace Convergence
+
+Tag: phase-3-namespace-converged
+Closed: March 2026
+
+Aligned IAM trust relationship with repository canonical namespace.
+
+What Changed
+
+Updated OIDC condition:
+
+repo:trainbus/devops-lab-week1
+
+→
+
+repo:Onwuachi/platform-foundation
+
+Terraform plan confirmed in-place IAM role update:
+
+~ assume_role_policy modified
+
+Followed by full immutable instance replacement to validate no drift.
+
+Why This Matters
+
+Eliminates legacy lab namespace
+
+Ensures CI/CD trust is tied to canonical repository
+
+Prevents OIDC token mismatch failures
+
+Removes hidden technical debt from early lab scaffolding
+
+Validation Performed
+terraform apply
+→ IAM role updated
+→ EC2 destroyed
+→ EC2 recreated
+→ EIP reattached
+
+Outputs confirmed successful convergence:
+
+Apply complete! Resources: 2 added, 1 changed, 2 destroyed.
+Principle Reinforced
+
+Identity boundaries must reflect production ownership — not training artifacts.
 
 ---
 
