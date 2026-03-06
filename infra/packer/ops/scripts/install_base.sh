@@ -17,7 +17,8 @@ apt-get install -y \
   curl \
   unzip \
   gnupg \
-  lsb-release
+  lsb-release \ 
+  sysstat 
 
 #################################
 # AWS CLI v2 (REQUIRED FOR ECR)

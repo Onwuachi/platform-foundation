@@ -77,6 +77,7 @@ build {
       "scripts/install_dummy_cert.sh",
       "scripts/install_certbot.sh",
       "scripts/install_renew_hook.sh",
+      "scripts/install_blackbox_exporter.sh",
       "scripts/systemd.sh",
       "scripts/docker.sh",
       "scripts/hugo.sh"
@@ -165,9 +166,38 @@ provisioner "shell" {
     "sudo mv /tmp/prometheus.service /etc/systemd/system/prometheus.service",
     "sudo systemctl daemon-reload",
     "sudo systemctl enable node_exporter.service",
-    "sudo systemctl enable prometheus.service"
+    "sudo systemctl enable prometheus.service",
+    "sudo systemctl enable grafana.service"
   ]
 }
+
+
+############
+# blackbox_exporter provisioning
+##############
+provisioner "file" {
+  source      = "files/blackbox.yml"
+  destination = "/tmp/blackbox.yml"
+}
+
+####Move blackbox_exporter config + service
+
+provisioner "file" {
+  source      = "systemd/blackbox-exporter.service"
+  destination = "/tmp/blackbox-exporter.service"
+}
+
+provisioner "shell" {
+  inline = [
+    "sudo mv /tmp/blackbox.yml /opt/blackbox/blackbox.yml",
+    "sudo mv /tmp/blackbox-exporter.service /etc/systemd/system/blackbox-exporter.service",
+    "sudo systemctl daemon-reload",
+    "sudo systemctl enable blackbox-exporter.service"
+  ]
+}
+
+
+
 
   ################################
   # Post-Processors

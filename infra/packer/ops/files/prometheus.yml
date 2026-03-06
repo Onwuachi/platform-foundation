@@ -19,3 +19,22 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets: ['127.0.0.1:8404']
+
+  - job_name: 'blackbox_https'
+    metrics_path: /probe
+    params:
+      module: [https]
+
+    static_configs:
+      - targets:
+        - https://onwuachi.com
+
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+
+      - source_labels: [__param_target]
+        target_label: instance
+
+      - target_label: __address__
+        replacement: localhost:9115
