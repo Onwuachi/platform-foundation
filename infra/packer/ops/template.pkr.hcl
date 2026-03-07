@@ -157,6 +157,11 @@ provisioner "file" {
   destination = "/tmp/prometheus.service"
 }
 
+provisioner "file" {
+  source      = "systemd/grafana.service"
+  destination = "/tmp/grafana.service"
+}
+
 ################################
 # Move systemd units into place
 ################################
@@ -164,6 +169,7 @@ provisioner "shell" {
   inline = [
     "sudo mv /tmp/node_exporter.service /etc/systemd/system/node_exporter.service",
     "sudo mv /tmp/prometheus.service /etc/systemd/system/prometheus.service",
+    "sudo mv /tmp/grafana.service /etc/systemd/system/grafana.service",
     "sudo systemctl daemon-reload",
     "sudo systemctl enable node_exporter.service",
     "sudo systemctl enable prometheus.service",

@@ -14,7 +14,9 @@ ExecStart=/usr/bin/docker run \
   prom/prometheus:v2.51.2 \
   --config.file=/etc/prometheus/prometheus.yml \
   --storage.tsdb.path=/prometheus \
-  --storage.tsdb.retention.time=15d
+  --storage.tsdb.retention.time=15d \
+  --storage.tsdb.wal-compression \
+  --log.level=info 
 
 ExecStop=/usr/bin/docker stop prometheus
 Restart=always

@@ -407,6 +407,69 @@ Identity boundaries must reflect production ownership — not training artifacts
 
 ---
 
+Observability Layer (Phase 3.2)
+
+The platform includes a lightweight observability stack baked into the immutable AMI.
+
+Prometheus runs in a containerized deployment model with persistent
+host-backed storage mounted at /opt/prometheus/data.
+
+
+Components:
+
+Component	Purpose
+Node Exporter	Host metrics
+Prometheus	Metrics collection
+Blackbox Exporter	TLS + endpoint probing
+Grafana	Visualization
+
+Metrics are stored locally:
+
+/opt/prometheus/data
+
+Grafana dashboards persist in:
+
+/opt/grafana/data
+
+Prometheus configuration:
+
+/opt/prometheus/prometheus.yml
+
+Blackbox probes validate:
+
+TLS certificate expiry
+
+HTTP readiness endpoints
+
+edge availability
+
+Prometheus storage optimizations:
+
+--storage.tsdb.wal-compression
+--storage.tsdb.retention.time=15d
+
+These reduce disk IO and control EBS growth.
+
+Important folders: 
+infra/
+ ├ packer/
+ │   └ ops/
+ │       ├ template.pkr.hcl
+ │       ├ scripts/
+ │       ├ files/
+ │       │   ├ prometheus.yml
+ │       │   ├ blackbox.yml
+ │       │   └ rules/
+ │       │        └ instance_down.yml
+ │       └ systemd/
+ │           ├ prometheus.service
+ │           ├ grafana.service
+ │           ├ node_exporter.service
+ │           └ blackbox-exporter.service
+
+
+---
+
 # 👤 Author
 
 Derrick C. Onwuachi  
