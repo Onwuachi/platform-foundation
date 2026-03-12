@@ -1,6 +1,21 @@
 # Platform Foundation – Immutable Edge + Container Runtime
 
 A production-style infrastructure platform built using immutable infrastructure principles and disciplined cloud engineering patterns.
+---
+
+### Platform Architecture Diagram (Pending completion)  
+
+Internet
+   ↓
+Route53
+   ↓
+HAProxy
+   ↓
+Docker services
+   ↓
+Prometheus metrics
+   ↓
+Grafana dashboards
 
 ---
 

@@ -1,7 +1,13 @@
 [Unit]
 Description=Ops Stack Entry Point
-Wants=platform-api.service hugo.service prometheus.service grafana.service haproxy.service
-After=platform-api.service hugo.service
+Requires=network-online.target docker.service
+After=network-online.target docker.service
+
+Wants=platform-api.service
+Wants=hugo.service
+Wants=prometheus.service
+Wants=grafana.service
+Wants=haproxy.service
 
 [Install]
 WantedBy=multi-user.target

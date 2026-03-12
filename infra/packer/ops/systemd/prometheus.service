@@ -1,7 +1,8 @@
 [Unit]
 Description=Prometheus
 Requires=docker.service
-After=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
 
 [Service]
 ExecStartPre=-/usr/bin/docker rm -f prometheus

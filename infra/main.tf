@@ -37,6 +37,7 @@ module "ops" {
   key_name             = var.key_name
   ec2_name             = "ops-01"
   instance_type        = "t3.micro"
+  
 
   #admin_ui_ip  = module.admin_ui.admin_ui_public_ip
   #wordpress_ip = module.wordpress.wordpress_public_ip
@@ -47,6 +48,7 @@ module "ops" {
 
   domain      = "ops.onwuachi.com"
   root_domain = "onwuachi.com"
+  environment = var.environment
 
   aws_region     = var.aws_region
   aws_account_id = var.aws_account_id
