@@ -16,7 +16,7 @@ EnvironmentFile=/etc/platform/api.env
 
 ExecStartPre=-/usr/bin/docker rm -f platform-api
 
-ExecStartPre=/bin/sh -c '/usr/bin/aws ecr get-login-password --region us-east-1 \
+ExecStartPre=/bin/sh -c '/usr/local/bin/aws ecr get-login-password --region us-east-1 \
   | /usr/bin/docker login --username AWS --password-stdin \
     046685909731.dkr.ecr.us-east-1.amazonaws.com'
 
