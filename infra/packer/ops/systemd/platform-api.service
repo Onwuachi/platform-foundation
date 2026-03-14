@@ -18,12 +18,13 @@ ExecStartPre=-/usr/bin/docker rm -f platform-api
 
 ExecStartPre=/bin/sh -c '/usr/local/bin/aws ecr get-login-password --region us-east-1 \
   | /usr/bin/docker login --username AWS --password-stdin \
-    123456789012.dkr.ecr.us-east-1.amazonaws.com'
+    046685909731.dkr.ecr.us-east-1.amazonaws.com'
 
 ExecStartPre=/usr/bin/docker pull ${IMAGE_URI}
 
 ExecStart=/usr/bin/docker run \
   --name platform-api \
+  --restart=no \
   -p 127.0.0.1:${PORT}:3000 \
   -e NODE_ENV=${NODE_ENV} \
   ${IMAGE_URI}

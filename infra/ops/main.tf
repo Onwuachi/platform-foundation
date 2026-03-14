@@ -16,7 +16,7 @@ resource "aws_instance" "ops" {
   iam_instance_profile        = var.iam_instance_profile
   key_name                    = var.key_name
   associate_public_ip_address = true
-
+  
   ################################
   # Root Volume
   ################################
@@ -94,9 +94,9 @@ sleep 10
 
 
 ################################
-# One-time cert issuance (standalone)
+# One-time cert issuance (standalone)  (*********right now using  --staging  but remove when actually in production****************)
 ################################
-if [ ! -d /etc/letsencrypt/live/onwuachi.com ]; then
+if [ ! -f /etc/letsencrypt/live/onwuachi.com/fullchain.pem ]; then
   systemctl stop haproxy || true
 
   certbot certonly \
@@ -105,9 +105,10 @@ if [ ! -d /etc/letsencrypt/live/onwuachi.com ]; then
     --agree-tos \
     --email admin@onwuachi.com \
     -d onwuachi.com \
-    -d www.onwuachi.com
+    -d www.onwuachi.com || true
+    --staging || true
 
-  systemctl start haproxy
+  systemctl start haproxy || true
 fi
 
 
@@ -145,7 +146,27 @@ systemctl start ops.target
 haproxy -c -f /etc/haproxy/haproxy.cfg
 systemctl start haproxy
 
-########
+######## Pushgateway 
+#######################
+echo "Waiting for Pushgateway..."
+
+for i in {1..20}; do
+  if curl -sf http://localhost:9091/-/ready >/dev/null; then
+    echo "Pushgateway ready"
+    break
+  fi
+  sleep 3
+done
+
+INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+AMI_ID=$(curl -s http://169.254.169.254/latest/meta-data/ami-id)
+REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
+
+cat <<EOF | curl --data-binary @- http://localhost:9091/metrics/job/deploy
+deploy_event{service="platform",env="${var.environment}",instance="$INSTANCE_ID",ami="$AMI_ID",region="$REGION"} 1
+EOF
+
+###############################
 echo "=== OPS bootstrap complete ==="
 EOT
 
@@ -153,7 +174,7 @@ EOT
 
   tags = {
     Name        = var.ec2_name
-    Environment = "dev"
+    Environment = var.environment
     Owner       = "derrick"
     Role        = "ops"
     BuiltBy     = "packer"
@@ -195,3 +216,5 @@ resource "aws_route53_record" "www" {
   ttl     = 60
   records = [aws_eip.ops.public_ip]
 }
+
+

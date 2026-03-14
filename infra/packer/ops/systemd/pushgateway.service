@@ -1,0 +1,15 @@
+[Unit]
+Description=Prometheus Pushgateway
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+User=pushgateway
+Group=pushgateway
+ExecStart=/usr/local/bin/pushgateway \
+  --persistence.file=/var/lib/pushgateway/metrics \
+  --persistence.interval=5m
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
