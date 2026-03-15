@@ -34,8 +34,8 @@ source "amazon-ebs" "ops" {
   ssh_username                = "ubuntu"
   associate_public_ip_address = true
 
-  ami_name        = "${var.ami_name}-{{timestamp}}"
-  force_deregister = true
+  ami_name              = "${var.ami_name}-{{timestamp}}"
+  force_deregister      = true
   force_delete_snapshot = true
 
   source_ami_filter {
@@ -71,6 +71,7 @@ build {
   provisioner "shell" {
     execute_command = "sudo -E bash '{{ .Path }}'"
     scripts = [
+      "scripts/install_monitoring_users.sh",
       "scripts/install_base.sh",
       "scripts/install_swap.sh",
       "scripts/install_haproxy.sh",
@@ -80,121 +81,184 @@ build {
       "scripts/install_blackbox_exporter.sh",
       "scripts/systemd.sh",
       "scripts/docker.sh",
-      "scripts/hugo.sh"
+      "scripts/hugo.sh",
+      "scripts/install_pushgateway.sh",
+      "scripts/hardening.sh"
     ]
   }
 
 
-################################
-# Hugo Build (Baked into AMI)
-################################
-#provisioner "shell" {
-#  execute_command = "sudo -E bash '{{ .Path }}'"
-#  script = "scripts/hugo.sh"
-#}
+  ############ Phase 3 – Observability ############
 
-############ Phase 3 – Observability ############
+  ################################
+  # Install Node Exporter (host binary)
+  ################################
+  provisioner "shell" {
+    execute_command = "sudo -E bash '{{ .Path }}'"
+    script          = "scripts/install_node_exporter.sh"
+  }
 
-################################
-# Install Node Exporter (host binary)
-################################
-provisioner "shell" {
-  execute_command = "sudo -E bash '{{ .Path }}'"
-  script = "scripts/install_node_exporter.sh"
-}
+  ################################
+  # Create Prometheus directories (root-owned)
+  ################################
+  provisioner "shell" {
+    execute_command = "sudo -E bash '{{ .Path }}'"
+    script          = "scripts/install_prometheus_dirs.sh"
+  }
 
-################################
-# Create Prometheus directories (root-owned)
-################################
-provisioner "shell" {
-  execute_command = "sudo -E bash '{{ .Path }}'"
-  script = "scripts/install_prometheus_dirs.sh"
-}
+  ################################
+  # Create Grafana directories
+  ################################
+  provisioner "shell" {
+    execute_command = "sudo -E bash '{{ .Path }}'"
+    script          = "scripts/install_grafana_dirs.sh"
+  }
 
-################################
-# Create Grafana directories
-################################
-provisioner "shell" {
-  execute_command = "sudo -E bash '{{ .Path }}'"
-  script = "scripts/install_grafana_dirs.sh"
-}
+  provisioner "file" {
+    source      = "files/grafana"
+    destination = "/tmp/grafana"
+  }
 
-################################
-# Upload Prometheus config to /tmp (avoid SCP permission issue)
-################################
-provisioner "file" {
-  source      = "files/prometheus.yml"
-  destination = "/tmp/prometheus.yml"
-}
+  provisioner "shell" {
+    inline = [
+      "sudo mkdir -p /etc/grafana/provisioning",
+      "sudo mkdir -p /opt/grafana/dashboards",
 
-provisioner "file" {
-  source      = "files/rules"
-  destination = "/tmp/rules"
-}
+      "sudo cp -r /tmp/grafana/provisioning/* /etc/grafana/provisioning/",
+      "sudo cp -r /tmp/grafana/dashboards/* /opt/grafana/dashboards/",
 
-################################
-# Move Prometheus config into protected directory
-################################
-provisioner "shell" {
-  inline = [
-    "sudo mv /tmp/prometheus.yml /opt/prometheus/prometheus.yml",
-    "sudo mkdir -p /opt/prometheus/rules",
-    "sudo mv /tmp/rules/* /opt/prometheus/rules/",
-    "sudo rm -rf /tmp/rules"
-  ]
-}
+      "sudo chown -R 472:472 /opt/grafana"
+    ]
+  }
 
-################################
-# Upload systemd units (safe location)
-################################
-provisioner "file" {
-  source      = "systemd/node_exporter.service"
-  destination = "/tmp/node_exporter.service"
-}
+  ################################
+  # Upload Prometheus config to /tmp (avoid SCP permission issue)
+  ################################
+  provisioner "file" {
+    source      = "files/prometheus.yml"
+    destination = "/tmp/prometheus.yml"
+  }
 
-provisioner "file" {
-  source      = "systemd/prometheus.service"
-  destination = "/tmp/prometheus.service"
-}
+  provisioner "file" {
+    source      = "files/rules"
+    destination = "/tmp/rules"
+  }
 
-################################
-# Move systemd units into place
-################################
-provisioner "shell" {
-  inline = [
-    "sudo mv /tmp/node_exporter.service /etc/systemd/system/node_exporter.service",
-    "sudo mv /tmp/prometheus.service /etc/systemd/system/prometheus.service",
-    "sudo systemctl daemon-reload",
-    "sudo systemctl enable node_exporter.service",
-    "sudo systemctl enable prometheus.service",
-    "sudo systemctl enable grafana.service"
-  ]
-}
+  ################################
+  # Move Prometheus config into protected directory
+  ################################
+  provisioner "shell" {
+    inline = [
+      "sudo mv /tmp/prometheus.yml /opt/prometheus/prometheus.yml",
+      "sudo mkdir -p /opt/prometheus/rules",
+      "sudo mv /tmp/rules/* /opt/prometheus/rules/",
+      "sudo rm -rf /tmp/rules"
+    ]
+  }
+
+  ################################
+  # Upload systemd units (safe location)
+  ################################
+  provisioner "file" {
+    source      = "systemd/node_exporter.service"
+    destination = "/tmp/node_exporter.service"
+  }
+
+  provisioner "file" {
+    source      = "systemd/prometheus.service"
+    destination = "/tmp/prometheus.service"
+  }
+
+  provisioner "file" {
+    source      = "systemd/grafana.service"
+    destination = "/tmp/grafana.service"
+  }
+
+  provisioner "file" {
+    source      = "systemd/platform-api.service"
+    destination = "/tmp/platform-api.service"
+  }
+  ###############################
+  ## Update Platform API service
+  ###############################
+
+  provisioner "file" {
+    source      = "systemd/platform-update.service"
+    destination = "/tmp/platform-update.service"
+  }
+
+  provisioner "file" {
+    source      = "systemd/platform-update.timer"
+    destination = "/tmp/platform-update.timer"
+  }
+
+  provisioner "file" {
+    source      = "scripts/platform-update.sh"
+    destination = "/tmp/platform-update.sh"
+  }
+
+  provisioner "shell" {
+    inline = [
+      "sudo mv /tmp/platform-update.sh /usr/local/bin/platform-update.sh",
+      "sudo chmod +x /usr/local/bin/platform-update.sh",
+
+      "sudo mv /tmp/platform-update.service /etc/systemd/system/",
+      "sudo mv /tmp/platform-update.timer /etc/systemd/system/",
+
+      "sudo systemctl daemon-reload",
+      "sudo systemctl enable --now platform-update.timer"
+    ]
+  }
+  ################################
+  # Move systemd units into place
+  ## Will move to sudo cp /tmp/systemd/*.service /etc/systemd/system/  but for now display what's happening! 
+  ################################
+
+  provisioner "shell" {
+    inline = [
+      "sudo mkdir -p /etc/platform",
+      "sudo bash -c 'cat > /etc/platform/api.env <<EOF\nIMAGE_URI=046685909731.dkr.ecr.us-east-1.amazonaws.com/api:latest\nPORT=3000\nNODE_ENV=production\nEOF'",
+
+      "sudo mv /tmp/node_exporter.service /etc/systemd/system/node_exporter.service",
+      "sudo mv /tmp/prometheus.service /etc/systemd/system/prometheus.service",
+      "sudo mv /tmp/grafana.service /etc/systemd/system/grafana.service",
+      "sudo mv /tmp/systemd/pushgateway.service /etc/systemd/system/pushgateway.service",
+      "sudo mv /tmp/platform-api.service /etc/systemd/system/platform-api.service",
+
+      "sudo systemctl daemon-reload",
+
+      "sudo systemctl enable node_exporter.service",
+      "sudo systemctl enable prometheus.service",
+      "sudo systemctl enable grafana.service",
+      "sudo systemctl enable pushgateway.service",
+      "sudo systemctl enable platform-api.service"
+    ]
+  }
 
 
-############
-# blackbox_exporter provisioning
-##############
-provisioner "file" {
-  source      = "files/blackbox.yml"
-  destination = "/tmp/blackbox.yml"
-}
+  ############
+  # blackbox_exporter provisioning
+  ##############
+  provisioner "file" {
+    source      = "files/blackbox.yml"
+    destination = "/tmp/blackbox.yml"
+  }
 
-####Move blackbox_exporter config + service
+  ####Move blackbox_exporter config + service
 
-provisioner "file" {
-  source      = "systemd/blackbox-exporter.service"
-  destination = "/tmp/blackbox-exporter.service"
-}
+  provisioner "file" {
+    source      = "systemd/blackbox-exporter.service"
+    destination = "/tmp/blackbox-exporter.service"
+  }
 
-provisioner "shell" {
-  inline = [
-    "sudo mv /tmp/blackbox.yml /opt/blackbox/blackbox.yml",
-    "sudo mv /tmp/blackbox-exporter.service /etc/systemd/system/blackbox-exporter.service",
-    "sudo systemctl daemon-reload",
-    "sudo systemctl enable blackbox-exporter.service"
-  ]
-}
+  provisioner "shell" {
+    inline = [
+      "sudo mv /tmp/blackbox.yml /opt/blackbox/blackbox.yml",
+      "sudo mv /tmp/blackbox-exporter.service /etc/systemd/system/blackbox-exporter.service",
+      "sudo systemctl daemon-reload",
+      "sudo systemctl enable blackbox-exporter.service"
+    ]
+  }
 
 
 

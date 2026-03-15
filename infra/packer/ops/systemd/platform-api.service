@@ -1,25 +1,17 @@
 [Unit]
 Description=Platform API
-Wants=network-online.target
-After=network-online.target docker.service
+After=docker.service network-online.target
 Requires=docker.service
-StartLimitIntervalSec=60
-StartLimitBurst=3
 
 [Service]
-Type=simple
 Restart=always
 RestartSec=5
-TimeoutStartSec=120
 
 EnvironmentFile=/etc/platform/api.env
 
 ExecStartPre=-/usr/bin/docker rm -f platform-api
-
-ExecStartPre=/bin/sh -c '/usr/local/bin/aws ecr get-login-password --region us-east-1 \
-  | /usr/bin/docker login --username AWS --password-stdin \
-    123456789012.dkr.ecr.us-east-1.amazonaws.com'
-
+ExecStartPre=/usr/local/bin/aws ecr get-login-password --region us-east-1 \
+  | docker login --username AWS --password-stdin 046685909731.dkr.ecr.us-east-1.amazonaws.com
 ExecStartPre=/usr/bin/docker pull ${IMAGE_URI}
 
 ExecStart=/usr/bin/docker run \
@@ -31,4 +23,4 @@ ExecStart=/usr/bin/docker run \
 ExecStop=/usr/bin/docker stop platform-api
 
 [Install]
-WantedBy=ops.target
+WantedBy=multi-user.target

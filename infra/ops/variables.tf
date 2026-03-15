@@ -56,3 +56,11 @@ variable "aws_account_id" {
 variable "image_tag" {
   type = string
 }
+
+
+variable "environment" {
+  description = "Deployment environment"
+  type        = string
+  default     = "dev"
+}
+
