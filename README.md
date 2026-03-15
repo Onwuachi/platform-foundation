@@ -63,6 +63,136 @@ Grafana dashboards
           │ 127.0.0.1:3000     │ → Platform API (Docker)
           │ 127.0.0.1:8080     │ → Hugo (nginx container)
           └────────────────────┘
+
+---
+Phase 3.2 
+
+                    GitHub
+                      │
+                      │ push
+                      ▼
+               GitHub Actions
+                (CI Pipeline)
+                      │
+                      │ docker build
+                      ▼
+                     ECR
+        (Elastic Container Registry)
+                      │
+                      │ docker pull
+                      ▼
+                 EC2 Host
+           ┌─────────────────┐
+           │    systemd      │
+           │ (orchestrator)  │
+           └────────┬────────┘
+                    │
+                    ▼
+                 Docker
+        ┌──────────┼──────────┐
+        │          │          │
+        ▼          ▼          ▼
+    platform-api  hugo    grafana
+                               │
+                               ▼
+                           prometheus
+
+
+In front of everything:
+
+Internet
+   │
+   ▼
+HAProxy
+   │
+   ├── /api      → platform-api container
+   ├── /metrics  → prometheus
+   └── /         → hugo
+
+
+---
+User Browser
+     │
+     ▼
+https://onwuachi.com/api
+     │
+     ▼
+DNS
+     │
+     ▼
+EC2 Public IP
+     │
+     ▼
+HAProxy
+     │
+     ▼
+platform-api container
+     │
+     ▼
+Node API server
+     │
+     ▼
+JSON response
+
+---
+
+Edge Layer
+   HAProxy
+        │
+Service Layer
+   Docker containers
+        │
+Application Layer
+   Node API / Hugo / Grafana
+        │
+Host Layer
+   systemd
+        │
+Infrastructure
+   EC2 / Terraform / Packer
+
+---
+CLI
+ │
+ │ platform deploy api
+ ▼
+platform script
+ │
+ ├─ docker build
+ ├─ docker push
+ ├─ ssh
+ │
+ ▼
+EC2 server
+ │
+ ├─ systemd restart
+ │
+ ▼
+docker container
+ │
+ ▼
+node express api
+ │
+ ▼
+haproxy
+ │
+ ▼
+internet
+---
+
+platform-foundation
+├─ apps
+│   └─ billing
+│   └─ api
+│
+├─ infra
+│   ├─ packer
+│   └─ terraform
+│
+├─ tools
+│   └─ platform
+
+
 ```
 
 ### Public Surface Area
@@ -422,7 +552,7 @@ Identity boundaries must reflect production ownership — not training artifacts
 
 ---
 
-Observability Layer (Phase 3.2)
+Observability Layer Prep (Phase 3.2)
 
 The platform includes a lightweight observability stack baked into the immutable AMI.
 
