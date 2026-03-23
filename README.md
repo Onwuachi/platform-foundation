@@ -615,6 +615,17 @@ infra/
 
 ---
 
+## Platform State (S3-backed)
+
+- Source of truth: EC2 (/opt/platform)
+- Synced to S3 via aws s3 sync
+- Versioning enabled for recovery
+- Lifecycle rules:
+  - Noncurrent versions expire after 3 days
+  - Delete markers cleaned automatically
+- Sync uses --delete for parity
+
+---
 # 👤 Author
 
 Derrick C. Onwuachi  

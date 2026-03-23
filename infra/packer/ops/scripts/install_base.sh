@@ -87,6 +87,8 @@ chmod 755 /var/www/certbot
 
 ###Base Directory for platform API
 mkdir -p /etc/platform
+mkdir -p /etc/platform/services
+mkdir -p /etc/haproxy/services
 
 cat >/etc/platform/api.env <<EOF
 IMAGE_URI=046685909731.dkr.ecr.us-east-1.amazonaws.com/api:latest

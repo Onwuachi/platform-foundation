@@ -10,15 +10,12 @@ RestartSec=5
 EnvironmentFile=/etc/platform/api.env
 
 ExecStartPre=-/usr/bin/docker rm -f platform-api
-ExecStartPre=/usr/local/bin/aws ecr get-login-password --region us-east-1 \
-  | docker login --username AWS --password-stdin 046685909731.dkr.ecr.us-east-1.amazonaws.com
+ExecStartPre=/bin/sh -c '/usr/local/bin/aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 046685909731.dkr.ecr.us-east-1.amazonaws.com'
+ExecStartPre=/bin/sh -c '/usr/local/bin/aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 046685909731.dkr.ecr.us-east-1.amazonaws.com'
+
 ExecStartPre=/usr/bin/docker pull ${IMAGE_URI}
 
-ExecStart=/usr/bin/docker run \
-  --name platform-api \
-  -p 127.0.0.1:${PORT}:3000 \
-  -e NODE_ENV=${NODE_ENV} \
-  ${IMAGE_URI}
+ExecStart=/usr/bin/docker run --name platform-api -p 127.0.0.1:${PORT}:3000 -e NODE_ENV=${NODE_ENV} ${IMAGE_URI}
 
 ExecStop=/usr/bin/docker stop platform-api
 

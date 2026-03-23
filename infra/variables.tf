@@ -84,7 +84,7 @@ variable "enable_admin_ui" {
 }
 
 variable "enable_secrets_manager" {
-  type = bool
+  type    = bool
   default = false
 }
 

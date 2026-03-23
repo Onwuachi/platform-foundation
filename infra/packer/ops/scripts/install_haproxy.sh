@@ -17,6 +17,8 @@ apt-get install -y haproxy certbot python3
 mkdir -p /etc/haproxy
 mkdir -p /etc/haproxy/certs
 mkdir -p /etc/haproxy/services
+# placeholder
+touch /etc/haproxy/services/_placeholder.cfg
 
 # Create systemd override to include dynamic service configs
 mkdir -p /etc/systemd/system/haproxy.service.d
@@ -29,7 +31,6 @@ ExecStart=/usr/sbin/haproxy -Ws \
   -f /etc/haproxy/haproxy.cfg \
   -f /etc/haproxy/services/
 
-sudo systemctl daemon-reload
 EOF
 
 # ------------------------------------------------------------
@@ -57,16 +58,21 @@ frontend http_in
 frontend https_in
   bind *:443 ssl crt /etc/haproxy/certs/onwuachi.com.pem
 
+  # platform core routes
   acl is_api path_beg /api
   acl is_ready path /ready
-
   use_backend platform_api if is_api or is_ready
-  #default_backend hugo_backend
-  default_backend dummy_backend
+
+  # 🚀 dynamic routing (THIS IS YOUR PLATFORM ENGINE)
+  use_backend %[path,field(2,/)]_backend
+  #use_backend %[path,regsub(^/([^/]+).*,\1)]_backend   ## Next Level
+
+  #default_backend dummy_backend
+  default_backend hugo_backend
 
 backend dummy_backend
   mode http
-  http-request return status 503 content-type text/plain lf-string "Phase 3.2...platform API is not ready yet. Please try again later."
+  http-request return status 503 content-type text/plain lf-string "Service initializing...Platform engineering takes time..check with devops"
 
 backend platform_api
   option httpchk GET /ready
@@ -98,6 +104,7 @@ haproxy -c -f /etc/haproxy/haproxy.cfg -f /etc/haproxy/services/
 # ------------------------------------------------------------
 # Enable service but DO NOT start it in AMI build
 # ------------------------------------------------------------
+sudo systemctl daemon-reload
 systemctl enable haproxy
 systemctl stop haproxy || true
 

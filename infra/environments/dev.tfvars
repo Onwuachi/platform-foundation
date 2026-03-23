@@ -3,7 +3,7 @@ aws_region     = "us-east-1"
 key_name       = "onwua_key"
 admin_ip       = "47.12.88.38/32"
 
-environment    = "dev"
+environment = "dev"
 
 vpc_id               = "vpc-0eb5fc6c2f99e5267"
 mongo_uri            = "mongodb://placeholder"

@@ -1,0 +1,12 @@
+[Unit]
+Description=Platform Rehydrate
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/platform-rehydrate.sh
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target

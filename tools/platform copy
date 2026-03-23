@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 set -e
 
 COMMAND=$1
@@ -8,38 +9,19 @@ BASE_PORT=3000
 REGISTRY="046685909731.dkr.ecr.us-east-1.amazonaws.com"
 
 ########################################
-# FUNCTIONS
+# FUNCTIONS (MUST BE BEFORE CASE)
 ########################################
 
 get_port() {
-  ssh -T -i ~/.ssh/onwua_key.pem \
-    -o LogLevel=ERROR \
-    -o StrictHostKeyChecking=no \
-    ubuntu@$HOST <<EOF
-PORT_FILE="/etc/platform/${SERVICE}.port"
-
-if [ -f "\$PORT_FILE" ]; then
-  cat "\$PORT_FILE"
-else
-  COUNT=\$(ls /etc/systemd/system/platform-*.service 2>/dev/null | wc -l)
-  PORT=\$((3000 + COUNT * 10))
-  echo \$PORT | sudo tee "\$PORT_FILE" > /dev/null
-  echo \$PORT
-fi
-EOF
+  ssh -i ~/.ssh/onwua_key.pem ubuntu@$HOST \
+    "ls /etc/systemd/system/platform-*.service 2>/dev/null | wc -l" \
+    | awk -v base=$BASE_PORT '{print base + ($1 * 10)}'
 }
 
 enable_service() {
   PORT=$1
 
-  ssh -T -i ~/.ssh/onwua_key.pem -o LogLevel=ERROR -o StrictHostKeyChecking=no ubuntu@$HOST <<EOF
-
-sudo mkdir -p /etc/platform
-sudo touch /etc/platform/services.list
-
-# Persist service (ONLY ONCE)
-grep -qx "${SERVICE}" /etc/platform/services.list || \
-  echo "${SERVICE}" | sudo tee -a /etc/platform/services.list > /dev/null
+  ssh -i ~/.ssh/onwua_key.pem ubuntu@$HOST <<EOF
 
 if [ ! -f /etc/systemd/system/platform-${SERVICE}.service ]; then
 
@@ -48,7 +30,7 @@ if [ ! -f /etc/systemd/system/platform-${SERVICE}.service ]; then
   sudo tee /etc/haproxy/services/${SERVICE}.cfg > /dev/null <<ROUTE
 backend ${SERVICE}_backend
   http-request replace-path ^/${SERVICE}/?(.*)$ /\1
-  server ${SERVICE}1 127.0.0.1:${PORT} check
+  server ${SERVICE}1 127.0.0.1:$PORT check
 ROUTE
 
   sudo tee /etc/systemd/system/platform-${SERVICE}.service > /dev/null <<SERVICEFILE
@@ -61,14 +43,13 @@ Requires=docker.service
 Restart=always
 
 ExecStartPre=-/usr/bin/docker rm -f platform-${SERVICE}
-ExecStartPre=/bin/sh -c '/usr/local/bin/aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${REGISTRY}'
 
-ExecStartPre=/usr/bin/docker pull ${REGISTRY}/${SERVICE}:latest
+ExecStartPre=/usr/bin/docker pull $REGISTRY/${SERVICE}:latest
 
-ExecStart=/usr/bin/docker run \\
-  --name platform-${SERVICE} \\
-  -p 127.0.0.1:${PORT}:3000 \\
-  ${REGISTRY}/${SERVICE}:latest
+ExecStart=/usr/bin/docker run \
+  --name platform-${SERVICE} \
+  -p 127.0.0.1:${PORT}:3000 \
+  $REGISTRY/${SERVICE}:latest
 
 ExecStop=/usr/bin/docker stop platform-${SERVICE}
 
@@ -78,24 +59,18 @@ SERVICEFILE
 
   sudo systemctl daemon-reload
   sudo systemctl enable platform-${SERVICE}
+  ssh ... "sudo haproxy -c -f /etc/haproxy/haproxy.cfg -f /etc/haproxy/services/" || exit 1
 
 fi
 
 sudo systemctl restart platform-${SERVICE}
-
-# Validate HAProxy BEFORE reload
-if sudo haproxy -c -f /etc/haproxy/haproxy.cfg -f /etc/haproxy/services/; then
-  sudo systemctl reload haproxy
-else
-  echo "❌ HAProxy config invalid — not reloading"
-  exit 1
-fi
+sudo systemctl reload haproxy
 
 EOF
 }
 
 ########################################
-# COMMANDS
+# COMMAND ROUTER
 ########################################
 
 case "$COMMAND" in
@@ -106,12 +81,12 @@ deploy)
   ROOT=$(git rev-parse --show-toplevel)
   SERVICE_DIR="$ROOT/apps/${SERVICE}/service"
 
-  if [ ! -d "$SERVICE_DIR" ]; then
+  if [ ! -d "${SERVICE}_DIR" ]; then
     echo "Service directory not found"
     exit 1
   fi
 
-  cd "$SERVICE_DIR"
+  cd ${SERVICE}_DIR
 
   docker build -t ${SERVICE} .
   docker tag ${SERVICE}:latest $REGISTRY/${SERVICE}:latest
@@ -121,15 +96,15 @@ deploy)
 
   docker push $REGISTRY/${SERVICE}:latest
 
- PORT=$(get_port | tail -n1 | tr -dc '0-9')
+  PORT_FILE="/etc/platform/${SERVICE}.port"
 
   enable_service $PORT
 
   echo "Waiting for health..."
 
   for i in {1..20}; do
-    STATUS=$(ssh -T -i ~/.ssh/onwua_key.pem -o LogLevel=ERROR -o StrictHostKeyChecking=no ubuntu@$HOST \
-      "curl -s http://127.0.0.1:${PORT}/ready || true")
+    STATUS=$(ssh -i ~/.ssh/onwua_key.pem ubuntu@$HOST \
+      "curl -s http://127.0.0.1:$PORT/ready || true")
 
     if [[ $STATUS == *"ready"* ]]; then
       echo "✅ Deployment healthy"
@@ -143,17 +118,17 @@ deploy)
 ;;
 
 logs)
-  ssh -T -i ~/.ssh/onwua_key.pem -o LogLevel=ERROR -o StrictHostKeyChecking=no ubuntu@$HOST \
+  ssh -i ~/.ssh/onwua_key.pem ubuntu@$HOST \
     "docker logs -f platform-${SERVICE}"
 ;;
 
 status)
-  ssh -T -i ~/.ssh/onwua_key.pem -o LogLevel=ERROR -o StrictHostKeyChecking=no ubuntu@$HOST \
+  ssh -i ~/.ssh/onwua_key.pem ubuntu@$HOST \
     "systemctl status platform-${SERVICE}"
 ;;
 
 restart)
-  ssh -T -i ~/.ssh/onwua_key.pem -o LogLevel=ERROR -o StrictHostKeyChecking=no ubuntu@$HOST \
+  ssh -i ~/.ssh/onwua_key.pem ubuntu@$HOST \
     "sudo systemctl restart platform-${SERVICE}"
 ;;
 
@@ -164,7 +139,10 @@ ssh)
 *)
   echo "Usage:"
   echo "platform deploy <service>"
+  echo "platform logs <service>"
+  echo "platform status <service>"
+  echo "platform restart <service>"
+  echo "platform ssh"
 ;;
 
 esac
-

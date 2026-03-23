@@ -332,7 +332,70 @@
       "artifact_id": "us-east-1:ami-09f845262bff9c8a5",
       "packer_run_uuid": "dc109507-4172-5668-434a-54b99fc46ffc",
       "custom_data": null
+    },
+    {
+      "name": "ops",
+      "builder_type": "amazon-ebs",
+      "build_time": 1774137552,
+      "files": null,
+      "artifact_id": "us-east-1:ami-06d896e9500a3f8fe",
+      "packer_run_uuid": "1c95a5ca-64c8-5c1a-54d9-4a2ded2a0bbb",
+      "custom_data": null
+    },
+    {
+      "name": "ops",
+      "builder_type": "amazon-ebs",
+      "build_time": 1774187612,
+      "files": null,
+      "artifact_id": "us-east-1:ami-05e6f738e4012b655",
+      "packer_run_uuid": "f7798690-1d49-da56-6ada-e1e8a17a6a7b",
+      "custom_data": null
+    },
+    {
+      "name": "ops",
+      "builder_type": "amazon-ebs",
+      "build_time": 1774196073,
+      "files": null,
+      "artifact_id": "us-east-1:ami-0366886b043cf30b8",
+      "packer_run_uuid": "4acdb517-60be-e654-063c-838dcf8210e2",
+      "custom_data": null
+    },
+    {
+      "name": "ops",
+      "builder_type": "amazon-ebs",
+      "build_time": 1774198753,
+      "files": null,
+      "artifact_id": "us-east-1:ami-022a168abcd7e6ac2",
+      "packer_run_uuid": "f82aaa75-0d10-0c1e-a71f-9b5b1c9a6f06",
+      "custom_data": null
+    },
+    {
+      "name": "ops",
+      "builder_type": "amazon-ebs",
+      "build_time": 1774217605,
+      "files": null,
+      "artifact_id": "us-east-1:ami-075175198e7757568",
+      "packer_run_uuid": "ca0cadc0-1915-f7f8-a926-86cfdf496873",
+      "custom_data": null
+    },
+    {
+      "name": "ops",
+      "builder_type": "amazon-ebs",
+      "build_time": 1774222215,
+      "files": null,
+      "artifact_id": "us-east-1:ami-082feb3e22af51f6f",
+      "packer_run_uuid": "11bc2b0d-b18f-8309-8890-4077cb28ba14",
+      "custom_data": null
+    },
+    {
+      "name": "ops",
+      "builder_type": "amazon-ebs",
+      "build_time": 1774243233,
+      "files": null,
+      "artifact_id": "us-east-1:ami-048227713779ce1de",
+      "packer_run_uuid": "670722ff-0abd-6fbd-9634-dc122de60351",
+      "custom_data": null
     }
   ],
-  "last_run_uuid": "dc109507-4172-5668-434a-54b99fc46ffc"
+  "last_run_uuid": "670722ff-0abd-6fbd-9634-dc122de60351"
 }

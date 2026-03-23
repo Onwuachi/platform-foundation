@@ -79,8 +79,9 @@ build {
       "scripts/install_certbot.sh",
       "scripts/install_renew_hook.sh",
       "scripts/install_blackbox_exporter.sh",
-      "scripts/systemd.sh",
       "scripts/docker.sh",
+      "scripts/systemd.sh",
+      "scripts/platform-rehydrate.sh",
       "scripts/hugo.sh",
       "scripts/install_pushgateway.sh",
       "scripts/hardening.sh"
@@ -260,6 +261,32 @@ build {
     ]
   }
 
+
+
+##################
+# Plaform Rehydrate
+####################### 
+provisioner "file" {
+  source      = "scripts/platform-rehydrate.sh"
+  destination = "/tmp/platform-rehydrate.sh"
+}
+
+provisioner "file" {
+  source      = "systemd/platform-rehydrate.service"
+  destination = "/tmp/platform-rehydrate.service"
+}
+
+provisioner "shell" {
+  inline = [
+    "sudo mv /tmp/platform-rehydrate.sh /usr/local/bin/platform-rehydrate.sh",
+    "sudo chmod +x /usr/local/bin/platform-rehydrate.sh",
+
+    "sudo mv /tmp/platform-rehydrate.service /etc/systemd/system/",
+
+    "sudo systemctl daemon-reload",
+    "sudo systemctl enable platform-rehydrate.service"
+  ]
+}
 
 
 
