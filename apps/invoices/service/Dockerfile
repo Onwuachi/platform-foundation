@@ -6,6 +6,6 @@ COPY package*.json ./
 
 RUN npm install --only=production
 
-COPY src ./src
+COPY . .
 
-CMD ["node","src/index.js"]
+CMD ["node", "index.js"]

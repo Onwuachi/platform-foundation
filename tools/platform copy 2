@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -ex
+set -e
 
 COMMAND=$1
 SERVICE=$2
@@ -32,10 +32,7 @@ EOF
 enable_service() {
   PORT=$1
 
-  ssh -T -i ~/.ssh/onwua_key.pem \
-    -o LogLevel=ERROR \
-    -o StrictHostKeyChecking=no \
-    ubuntu@$HOST <<EOF
+  ssh -T -i ~/.ssh/onwua_key.pem -o LogLevel=ERROR -o StrictHostKeyChecking=no ubuntu@$HOST <<EOF
 
 sudo mkdir -p /etc/platform
 sudo touch /etc/platform/services.list
@@ -70,7 +67,6 @@ ExecStartPre=/usr/bin/docker pull ${REGISTRY}/${SERVICE}:latest
 
 ExecStart=/usr/bin/docker run \\
   --name platform-${SERVICE} \\
-  -e PORT=${PORT} \\
   -p 127.0.0.1:${PORT}:3000 \\
   ${REGISTRY}/${SERVICE}:latest
 
@@ -95,9 +91,16 @@ else
   exit 1
 fi
 
+
+if sudo haproxy -c -f /etc/haproxy/haproxy.cfg -f /etc/haproxy/services/; then
+  sudo systemctl reload haproxy
+else
+  echo "❌ HAProxy config invalid — not reloading"
+  exit 1
+fi
+
 echo "Syncing platform state to S3..."
 sudo aws s3 sync /opt/platform s3://platform-api-services/platform/ --delete
-
 EOF
 }
 
@@ -107,121 +110,22 @@ EOF
 
 case "$COMMAND" in
 
-create)
-  if [ -z "$SERVICE" ]; then
-    echo "❌ Usage: platform create <service>"
-    exit 1
-  fi
-
-  ROOT=$(git rev-parse --show-toplevel)
-  SERVICE_DIR="$ROOT/apps/${SERVICE}/service"
-
-  if [ -d "$SERVICE_DIR" ]; then
-    echo "⚠️ Service already exists: $SERVICE"
-    exit 1
-  fi
-
-  echo "Creating service scaffold for: $SERVICE"
-
-  mkdir -p "$SERVICE_DIR"
-
-  ########################################
-  # Dockerfile
-  ########################################
-  cat > "$SERVICE_DIR/Dockerfile" <<EOF
-FROM node:20-alpine
-
-WORKDIR /app
-
-COPY package*.json ./
-
-RUN npm install --only=production
-
-COPY . .
-
-CMD ["node", "index.js"]
-EOF
-
-  ########################################
-  # index.js
-  ########################################
-  cat > "$SERVICE_DIR/index.js" <<EOF
-const PORT = process.env.PORT || 3000;
-
-require('http')
-  .createServer((req, res) => {
-    if (req.url === '/ready') return res.end('ready');
-    res.end('${SERVICE} service');
-  })
-  .listen(PORT);
-
-console.log("${SERVICE} running on port " + PORT);
-EOF
-
-  ########################################
-  # package.json
-  ########################################
-  cat > "$SERVICE_DIR/package.json" <<EOF
-{
-  "name": "${SERVICE}",
-  "version": "1.0.0",
-  "main": "index.js",
-  "dependencies": {}
-}
-EOF
-
-  echo "✅ Service created at: apps/${SERVICE}/service"
-  echo ""
-  echo "Next step:"
-  echo "  platform deploy ${SERVICE}"
-;;
-
 deploy)
   echo "Deploying ${SERVICE}"
 
   ROOT=$(git rev-parse --show-toplevel)
   SERVICE_DIR="$ROOT/apps/${SERVICE}/service"
 
+
   if [ ! -d "$SERVICE_DIR" ]; then
     echo "❌ Service directory not found: $SERVICE_DIR"
     echo "Available services:"
     ls "$ROOT/apps"
-    exit 1
+  exit 1
   fi
 
-  ########################################
-  # 🔥 NEW: ECR AUTO-CREATE
-  ########################################
+  cd "$SERVICE_DIR"
 
-  aws ecr describe-repositories \
-    --repository-names "$SERVICE" \
-    --region us-east-1 >/dev/null 2>&1
-
-  if [ $? -ne 0 ]; then
-    echo "ECR repo not found. Creating..."
-    aws ecr create-repository \
-      --repository-name "$SERVICE" \
-      --region us-east-1 >/dev/null
-  fi
-
-  ########################################
- echo "DEBUG: SERVICE_DIR=$SERVICE_DIR"
- ls -la "$SERVICE_DIR"
-
- cd "$SERVICE_DIR"
-
-# Ensure ECR repo exists
-  aws ecr describe-repositories \
-    --repository-names "$SERVICE" \
-    --region us-east-1 >/dev/null 2>&1
-
-  if [ $? -ne 0 ]; then
-    echo "ECR repo not found. Creating..."
-    aws ecr create-repository \
-      --repository-name "$SERVICE" \
-      --region us-east-1
-  fi
-  
   docker build -t ${SERVICE} .
   docker tag ${SERVICE}:latest $REGISTRY/${SERVICE}:latest
 
@@ -230,17 +134,14 @@ deploy)
 
   docker push $REGISTRY/${SERVICE}:latest
 
-  PORT=$(get_port | tail -n1 | tr -dc '0-9')
+ PORT=$(get_port | tail -n1 | tr -dc '0-9')
 
   enable_service $PORT
 
   echo "Waiting for health..."
 
   for i in {1..20}; do
-    STATUS=$(ssh -T -i ~/.ssh/onwua_key.pem \
-      -o LogLevel=ERROR \
-      -o StrictHostKeyChecking=no \
-      ubuntu@$HOST \
+    STATUS=$(ssh -T -i ~/.ssh/onwua_key.pem -o LogLevel=ERROR -o StrictHostKeyChecking=no ubuntu@$HOST \
       "curl -s http://127.0.0.1:${PORT}/ready || true")
 
     if [[ $STATUS == *"ready"* ]]; then
@@ -279,3 +180,4 @@ ssh)
 ;;
 
 esac
+
