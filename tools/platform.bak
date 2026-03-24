@@ -1,0 +1,239 @@
+#!/usr/bin/env bash
+
+COMMAND=$1
+SERVICE=$2
+HOST="54.81.77.41"
+BASE_PORT=3000
+### Confirm ROOT and SERVICE DIR 
+#ROOT="$HOME/cicd/platform-foundation"
+#SERVICE_DIR="$ROOT/apps/$SERVICE/service"
+
+
+REGISTRY="046685909731.dkr.ecr.us-east-1.amazonaws.com"
+
+case "$COMMAND" in
+
+enable)
+    echo "Enabling service on server: $SERVICE"
+    
+    PORT=$((BASE_PORT + $(ls apps | wc -l)*10))
+
+    ssh -i ~/.ssh/onwua_key.pem ubuntu@$HOST <<EOF
+
+sudo mkdir -p /etc/haproxy/services
+
+sudo tee /etc/haproxy/services/$SERVICE.cfg > /dev/null <<ROUTE
+backend ${SERVICE}_backend
+  http-request replace-path ^/${SERVICE}/?(.*)$ /\1
+  server ${SERVICE}1 127.0.0.1:$PORT check
+ROUTE
+
+
+sudo tee /etc/systemd/system/platform-$SERVICE.service > /dev/null <<SERVICEFILE
+[Unit]
+Description=Platform $SERVICE
+After=docker.service
+Requires=docker.service
+
+[Service]
+Restart=always
+
+ExecStartPre=-/usr/bin/docker rm -f platform-$SERVICE
+
+ExecStartPre=/bin/sh -c '/usr/local/bin/aws ecr get-login-password --region us-east-1 | /usr/bin/docker login --username AWS --password-stdin $REGISTRY'
+
+ExecStartPre=/usr/bin/docker pull $REGISTRY/$SERVICE:latest
+
+ExecStart=/usr/bin/docker run \
+  --name platform-$SERVICE \
+  -p 127.0.0.1:$PORT:3000 \
+  $REGISTRY/$SERVICE:latest
+
+ExecStop=/usr/bin/docker stop platform-$SERVICE
+
+[Install]
+WantedBy=multi-user.target
+SERVICEFILE
+
+sudo systemctl daemon-reload
+sudo systemctl enable platform-$SERVICE
+sudo systemctl reload haproxy
+
+EOF
+
+    echo "Service enabled"
+    ;;
+
+deploy)
+    echo "Deploying $SERVICE"
+
+    ROOT=$(git rev-parse --show-toplevel)
+    SERVICE_DIR="$ROOT/apps/$SERVICE/service"
+
+    if [ ! -d "$SERVICE_DIR" ]; then
+        echo "Service directory not found: $SERVICE_DIR"
+        exit 1
+    fi
+
+    cd $SERVICE_DIR
+
+    echo "Building container..."
+    docker build -t $SERVICE .
+
+    echo "Tagging image..."
+    docker tag $SERVICE:latest $REGISTRY/$SERVICE:latest
+
+    echo "Logging into ECR..."
+    aws ecr get-login-password --region us-east-1 | \
+        docker login --username AWS --password-stdin $REGISTRY
+
+    echo "Ensuring ECR repo exists..."
+
+    aws ecr describe-repositories \
+      --repository-names $SERVICE \
+      --region us-east-1 >/dev/null 2>&1 || {
+      
+    aws ecr create-repository \
+      --repository-name $SERVICE \
+      --region us-east-1
+
+    echo "Applying lifecycle policy..."
+    
+    aws ecr put-lifecycle-policy \
+      --repository-name $SERVICE \
+      --region us-east-1 \
+      --lifecycle-policy-text '{
+        "rules": [
+          {
+            "rulePriority": 1,
+            "description": "Keep last 10 images",
+            "selection": {
+            "tagStatus": "any",
+            "countType": "imageCountMoreThan",
+            "countNumber": 10
+          },
+          "action": {
+            "type": "expire"
+          }
+        }
+      ]
+    }'
+}
+    echo "Pushing image..."
+    docker push $REGISTRY/$SERVICE:latest
+
+
+
+
+    echo "Restarting service on server..."
+    ssh -i ~/.ssh/onwua_key.pem ubuntu@$HOST \
+	"sudo systemctl restart platform-$SERVICE"
+
+    echo "Waiting for service readiness..."
+
+    for i in {1..20}; do
+      STATUS=$(ssh -i ~/.ssh/onwua_key.pem ubuntu@$HOST \
+        "curl -s http://127.0.0.1:$PORT/ready || true")
+
+      if [[ $STATUS == *"ready"* ]]; then
+        echo "Deployment healthy"
+	exit 0
+        fi
+
+	sleep 2
+      done
+
+      echo "Deployment failed: service never became ready"
+      exit 1
+
+    echo "Deploy complete"
+    ;;
+
+logs)
+    ssh -i ~/.ssh/onwua_key.pem ubuntu@$HOST \
+        "docker logs -f platform-$SERVICE"
+    ;;
+
+status)
+    ssh -i ~/.ssh/onwua_key.pem ubuntu@$HOST \
+        "systemctl status platform-$SERVICE"
+    ;;
+
+restart)
+    ssh -i ~/.ssh/onwua_key.pem ubuntu@$HOST \
+        "sudo systemctl restart platform-$SERVICE"
+    ;;
+
+ssh)
+    ssh -i ~/.ssh/onwua_key.pem ubuntu@$HOST
+    ;;
+
+add)
+    echo "Creating new service: $SERVICE"
+
+    ROOT=$(git rev-parse --show-toplevel)
+    SERVICE_DIR="$ROOT/apps/$SERVICE/service"
+
+    if [ -d "$SERVICE_DIR" ]; then
+        echo "Service already exists"
+        exit 1
+    fi
+
+    mkdir -p "$SERVICE_DIR/src"
+
+    cat > "$SERVICE_DIR/src/index.js" <<EOF
+const express = require("express");
+const app = express();
+
+app.get("/health",(req,res)=>{
+  res.json({status:"ok"});
+});
+
+app.get("/ready",(req,res)=>{
+  res.json({status:"ready"});
+});
+
+app.listen(3000,()=>{
+  console.log("$SERVICE service running");
+});
+EOF
+
+    cat > "$SERVICE_DIR/package.json" <<EOF
+{
+  "name": "$SERVICE",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
+EOF
+
+    cat > "$SERVICE_DIR/Dockerfile" <<EOF
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm install --only=production
+
+COPY src ./src
+
+CMD ["node","src/index.js"]
+EOF
+
+    echo "Service created at:"
+    echo "$SERVICE_DIR"
+    ;;
+
+*)
+    echo "Usage:"
+    echo "platform deploy <service>"
+    echo "platform logs <service>"
+    echo "platform status <service>"
+    echo "platform restart <service>"
+    echo "platform ssh"
+    ;;
+
+esac

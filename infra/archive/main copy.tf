@@ -30,12 +30,12 @@ resource "aws_instance" "ops" {
   associate_public_ip_address = true
 
   user_data = templatefile("${path.module}/cloud-init/ops.sh.tpl", {
-    domain          = var.domain
-    admin_ui_ip     = var.admin_ui_ip
-    wordpress_ip    = var.wordpress_ip
-    node_app_ip     = var.node_app_ip
-    aws_region      = var.aws_region
-    aws_account_id  = var.aws_account_id
+    domain         = var.domain
+    admin_ui_ip    = var.admin_ui_ip
+    wordpress_ip   = var.wordpress_ip
+    node_app_ip    = var.node_app_ip
+    aws_region     = var.aws_region
+    aws_account_id = var.aws_account_id
   })
 
   tags = {

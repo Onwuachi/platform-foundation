@@ -26,3 +26,30 @@ resource "aws_iam_instance_profile" "ec2_profile" {
   name = "${var.project_name}-instance-profile"
   role = aws_iam_role.ec2_ssm_role.name
 }
+
+
+resource "aws_iam_role_policy" "ops_s3" {
+  role = aws_iam_role.ec2_ssm_role.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket"
+        ]
+        Resource = "arn:aws:s3:::platform-api-services"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ]
+        Resource = "arn:aws:s3:::platform-api-services/*"
+      }
+    ]
+  })
+}

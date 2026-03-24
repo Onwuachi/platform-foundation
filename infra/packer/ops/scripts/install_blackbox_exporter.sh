@@ -10,8 +10,10 @@ curl -LO https://github.com/prometheus/blackbox_exporter/releases/download/v${BL
 
 tar xzf blackbox_exporter-${BLACKBOX_VERSION}.linux-amd64.tar.gz
 
-mv blackbox_exporter-${BLACKBOX_VERSION}.linux-amd64/blackbox_exporter .
+mv blackbox_exporter-${BLACKBOX_VERSION}.linux-amd64/blackbox_exporter /opt/blackbox/blackbox_exporter
 
-chmod +x blackbox_exporter
+chmod +x /opt/blackbox/blackbox_exporter
+
+chown -R blackbox:blackbox /opt/blackbox
 
 rm -rf blackbox_exporter-${BLACKBOX_VERSION}.linux-amd64*

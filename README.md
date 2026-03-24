@@ -1,6 +1,21 @@
 # Platform Foundation – Immutable Edge + Container Runtime
 
 A production-style infrastructure platform built using immutable infrastructure principles and disciplined cloud engineering patterns.
+---
+
+### Platform Architecture Diagram (Pending completion)  
+
+Internet
+   ↓
+Route53
+   ↓
+HAProxy
+   ↓
+Docker services
+   ↓
+Prometheus metrics
+   ↓
+Grafana dashboards
 
 ---
 
@@ -48,6 +63,136 @@ A production-style infrastructure platform built using immutable infrastructure 
           │ 127.0.0.1:3000     │ → Platform API (Docker)
           │ 127.0.0.1:8080     │ → Hugo (nginx container)
           └────────────────────┘
+
+---
+Phase 3.2 
+
+                    GitHub
+                      │
+                      │ push
+                      ▼
+               GitHub Actions
+                (CI Pipeline)
+                      │
+                      │ docker build
+                      ▼
+                     ECR
+        (Elastic Container Registry)
+                      │
+                      │ docker pull
+                      ▼
+                 EC2 Host
+           ┌─────────────────┐
+           │    systemd      │
+           │ (orchestrator)  │
+           └────────┬────────┘
+                    │
+                    ▼
+                 Docker
+        ┌──────────┼──────────┐
+        │          │          │
+        ▼          ▼          ▼
+    platform-api  hugo    grafana
+                               │
+                               ▼
+                           prometheus
+
+
+In front of everything:
+
+Internet
+   │
+   ▼
+HAProxy
+   │
+   ├── /api      → platform-api container
+   ├── /metrics  → prometheus
+   └── /         → hugo
+
+
+---
+User Browser
+     │
+     ▼
+https://onwuachi.com/api
+     │
+     ▼
+DNS
+     │
+     ▼
+EC2 Public IP
+     │
+     ▼
+HAProxy
+     │
+     ▼
+platform-api container
+     │
+     ▼
+Node API server
+     │
+     ▼
+JSON response
+
+---
+
+Edge Layer
+   HAProxy
+        │
+Service Layer
+   Docker containers
+        │
+Application Layer
+   Node API / Hugo / Grafana
+        │
+Host Layer
+   systemd
+        │
+Infrastructure
+   EC2 / Terraform / Packer
+
+---
+CLI
+ │
+ │ platform deploy api
+ ▼
+platform script
+ │
+ ├─ docker build
+ ├─ docker push
+ ├─ ssh
+ │
+ ▼
+EC2 server
+ │
+ ├─ systemd restart
+ │
+ ▼
+docker container
+ │
+ ▼
+node express api
+ │
+ ▼
+haproxy
+ │
+ ▼
+internet
+---
+
+platform-foundation
+├─ apps
+│   └─ billing
+│   └─ api
+│
+├─ infra
+│   ├─ packer
+│   └─ terraform
+│
+├─ tools
+│   └─ platform
+
+
 ```
 
 ### Public Surface Area
@@ -407,6 +552,80 @@ Identity boundaries must reflect production ownership — not training artifacts
 
 ---
 
+Observability Layer Prep (Phase 3.2)
+
+The platform includes a lightweight observability stack baked into the immutable AMI.
+
+Prometheus runs in a containerized deployment model with persistent
+host-backed storage mounted at /opt/prometheus/data.
+
+
+Components:
+
+Component	Purpose
+Node Exporter	Host metrics
+Prometheus	Metrics collection
+Blackbox Exporter	TLS + endpoint probing
+Grafana	Visualization
+
+Metrics are stored locally:
+
+/opt/prometheus/data
+
+Grafana dashboards persist in:
+
+/opt/grafana/data
+
+Prometheus configuration:
+
+/opt/prometheus/prometheus.yml
+
+Blackbox probes validate:
+
+TLS certificate expiry
+
+HTTP readiness endpoints
+
+edge availability
+
+Prometheus storage optimizations:
+
+--storage.tsdb.wal-compression
+--storage.tsdb.retention.time=15d
+
+These reduce disk IO and control EBS growth.
+
+Important folders: 
+infra/
+ ├ packer/
+ │   └ ops/
+ │       ├ template.pkr.hcl
+ │       ├ scripts/
+ │       ├ files/
+ │       │   ├ prometheus.yml
+ │       │   ├ blackbox.yml
+ │       │   └ rules/
+ │       │        └ instance_down.yml
+ │       └ systemd/
+ │           ├ prometheus.service
+ │           ├ grafana.service
+ │           ├ node_exporter.service
+ │           └ blackbox-exporter.service
+
+
+---
+
+## Platform State (S3-backed)
+
+- Source of truth: EC2 (/opt/platform)
+- Synced to S3 via aws s3 sync
+- Versioning enabled for recovery
+- Lifecycle rules:
+  - Noncurrent versions expire after 3 days
+  - Delete markers cleaned automatically
+- Sync uses --delete for parity
+
+---
 # 👤 Author
 
 Derrick C. Onwuachi  

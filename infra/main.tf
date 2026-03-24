@@ -12,8 +12,8 @@ module "security" {
 }
 
 module "web" {
-  count                = var.enable_web ? 1 : 0
-  source               = "./web"
+  count  = var.enable_web ? 1 : 0
+  source = "./web"
 
   vpc_id               = module.shared.vpc_id
   subnet_id            = element(module.shared.public_subnets, 0)
@@ -38,15 +38,17 @@ module "ops" {
   ec2_name             = "ops-01"
   instance_type        = "t3.micro"
 
+
   #admin_ui_ip  = module.admin_ui.admin_ui_public_ip
   #wordpress_ip = module.wordpress.wordpress_public_ip
   #node_app_ip  = module.app.app_public_ip
-  admin_ui_ip = var.enable_admin_ui ? module.admin_ui[0].admin_ui_public_ip : null
+  admin_ui_ip  = var.enable_admin_ui ? module.admin_ui[0].admin_ui_public_ip : null
   wordpress_ip = var.enable_wordpress ? module.wordpress[0].wordpress_public_ip : null
-  node_app_ip = var.enable_node_api ? module.app[0].app_public_ip : null
+  node_app_ip  = var.enable_node_api ? module.app[0].app_public_ip : null
 
   domain      = "ops.onwuachi.com"
   root_domain = "onwuachi.com"
+  environment = var.environment
 
   aws_region     = var.aws_region
   aws_account_id = var.aws_account_id
@@ -71,13 +73,13 @@ resource "aws_route53_record" "ops" {
   name    = "ops.onwuachi.com"
   type    = "A"
   ttl     = 60
-  records = [module.ops.ops_public_ip]   # Correct once ops module outputs EIP
+  records = [module.ops.ops_public_ip] # Correct once ops module outputs EIP
 }
 
 
 module "wordpress" {
-  count              = var.enable_wordpress ? 1 : 0
-  source             = "./wordpress"
+  count  = var.enable_wordpress ? 1 : 0
+  source = "./wordpress"
 
   vpc_id             = module.shared.vpc_id
   subnet_id          = element(module.shared.public_subnets, 0)
@@ -94,8 +96,8 @@ module "wordpress" {
 }
 
 module "app" {
-  count                = var.enable_node_api ? 1 : 0
-  source               = "./app"
+  count  = var.enable_node_api ? 1 : 0
+  source = "./app"
 
   vpc_id               = module.shared.vpc_id
   subnet_id            = element(module.shared.public_subnets, 0)
@@ -113,8 +115,8 @@ module "app" {
 }
 
 module "admin_ui" {
-  count                = var.enable_admin_ui ? 1 : 0
-  source               = "./admin-ui-instance"
+  count  = var.enable_admin_ui ? 1 : 0
+  source = "./admin-ui-instance"
 
   subnet_id            = element(module.shared.public_subnets, 1)
   sg_id                = module.security.ops_sg_id
