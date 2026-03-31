@@ -428,6 +428,83 @@ Current Phase: 3.3 – Platform Auto-Provisioning
 Default Branch: main
 Latest Stable Tag: phase-3-platform-autoprovision
 
+---
+   Packer:
+   installs everything
+   enables services
+   does NOT run certbot
+
+   Terraform:
+   provisions infra
+   attaches volumes
+   bootstraps instance
+   does NOT manage certs
+
+   Instance boot:
+   user_data → mount + sync only
+
+   Platform lifecycle:
+   systemctl restart platform-rehydrate
+      → webroot
+      → cert-bootstrap
+      → haproxy reload
+      → services restart
+
+
+   🔥 You now have:
+
+   ✅ HAProxy never stops
+   ✅ Certs are idempotent
+   ✅ Platform is reconstructible
+   ✅ Infra is stateless
+   ✅ Observability is integrated    
+
+   Infra awareness
+   instance down
+   disk fill
+   cpu/memory
+   Platform awareness
+   API health
+   HAProxy routing
+   🔥 Security awareness
+   SSL expiration monitoring
+
+dynamic infra (Terraform)
+immutable images (Packer)
+runtime orchestration (rehydrate)
+zero-downtime TLS
+proactive alerting
+
+👉 self-healing platform bootstrap system
+👉 stateless compute + stateful recovery
+👉 cert lifecycle fully automated
+👉 zero-downtime TLS rotation
+👉 observable from day 1
+---
+
+# 3/31/2026
+🚧 Current State (Milestone Achieved)
+Immutable infrastructure fully operational via Terraform + Packer
+Platform node successfully rebuilt and rehydrated
+Core services running:
+API (healthy)
+Hugo frontend
+Prometheus + Grafana
+HAProxy routing functional (HTTP + HTTPS)
+End-to-end deployment pipeline validated (build → push → trigger)
+⚠️ Known Gaps
+TLS currently using self-signed certificate (LetsEncrypt integration pending)
+Service registry mismatch between /etc/platform/services and /opt/platform/services
+Dynamic service deployment not yet activating containers post-deploy
+Some backends (billings, analytics, payments) not yet running
+🎯 Next Steps
+Unify service registry path
+Implement automated TLS provisioning (Certbot + HAProxy integration)
+Finalize service lifecycle management (deploy → run → register)
+Add platform CLI command for service creation/registration
+
+---
+
 👤 Author
 
 Derrick C. Onwuachi

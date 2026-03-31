@@ -7,9 +7,6 @@ packer {
   }
 }
 
-############################
-# Variables
-############################
 variable "region" {
   type    = string
   default = "us-east-1"
@@ -25,9 +22,6 @@ variable "ami_keep_last" {
   default = 2
 }
 
-############################
-# Source AMI
-############################
 source "amazon-ebs" "ops" {
   region                      = var.region
   instance_type               = "t3.small"
@@ -50,15 +44,12 @@ source "amazon-ebs" "ops" {
   }
 }
 
-############################
-# Build
-############################
 build {
   name    = "ops-image"
   sources = ["source.amazon-ebs.ops"]
 
   ################################
-  # Upload systemd directory
+  # File provisioning
   ################################
   provisioner "file" {
     source      = "systemd"
@@ -66,7 +57,7 @@ build {
   }
 
   ################################
-  # Base + Core Installs
+  # Shell provisioning
   ################################
   provisioner "shell" {
     execute_command = "sudo -E bash '{{ .Path }}'"
@@ -86,25 +77,31 @@ build {
   }
 
   ################################
-  # Observability
+  # Node Exporter
   ################################
   provisioner "shell" {
     execute_command = "sudo -E bash '{{ .Path }}'"
-    script          = "scripts/install_node_exporter.sh"
-  }
-
-  provisioner "shell" {
-    execute_command = "sudo -E bash '{{ .Path }}'"
-    script          = "scripts/install_prometheus_dirs.sh"
-  }
-
-  provisioner "shell" {
-    execute_command = "sudo -E bash '{{ .Path }}'"
-    script          = "scripts/install_grafana_dirs.sh"
+    script = "scripts/install_node_exporter.sh"
   }
 
   ################################
-  # Grafana files
+  # Prometheus directories
+  ################################
+  provisioner "shell" {
+    execute_command = "sudo -E bash '{{ .Path }}'"
+    script = "scripts/install_prometheus_dirs.sh"
+  }
+
+  ################################
+  # Grafana directories
+  ################################
+  provisioner "shell" {
+    execute_command = "sudo -E bash '{{ .Path }}'"
+    script = "scripts/install_grafana_dirs.sh"
+  }
+
+  ################################
+  # Grafana Config
   ################################
   provisioner "file" {
     source      = "files/grafana"
@@ -122,7 +119,7 @@ build {
   }
 
   ################################
-  # Prometheus config
+  # Prometheus Config
   ################################
   provisioner "file" {
     source      = "files/prometheus.yml"
@@ -138,90 +135,24 @@ build {
     inline = [
       "sudo mv /tmp/prometheus.yml /opt/prometheus/prometheus.yml",
       "sudo mkdir -p /opt/prometheus/rules",
-      "sudo mv /tmp/rules/* /opt/prometheus/rules/",
+      "sudo mv /tmp/rules/* /opt/prometheus/rules/ || true",
       "sudo rm -rf /tmp/rules"
     ]
   }
 
   ################################
-  # Systemd core services
-  ################################
-  provisioner "file" {
-    source      = "systemd/node_exporter.service"
-    destination = "/tmp/node_exporter.service"
-  }
-
-  provisioner "file" {
-    source      = "systemd/prometheus.service"
-    destination = "/tmp/prometheus.service"
-  }
-
-  provisioner "file" {
-    source      = "systemd/grafana.service"
-    destination = "/tmp/grafana.service"
-  }
-
-  provisioner "file" {
-    source      = "systemd/platform-api.service"
-    destination = "/tmp/platform-api.service"
-  }
-
-provisioner "file" {
-  source      = "systemd/hugo.service"
-  destination = "/tmp/hugo.service"
-}
-
-provisioner "shell" {
-  inline = [
-    "sudo mv /tmp/hugo.service /etc/systemd/system/hugo.service",
-    "sudo systemctl daemon-reload",
-    "sudo systemctl enable hugo"
-  ]
-}
-
-
-  ################################
-  # Platform Update Timer
-  ################################
-  provisioner "file" {
-    source      = "systemd/platform-update.service"
-    destination = "/tmp/platform-update.service"
-  }
-
-  provisioner "file" {
-    source      = "systemd/platform-update.timer"
-    destination = "/tmp/platform-update.timer"
-  }
-
-  provisioner "file" {
-    source      = "scripts/platform-update.sh"
-    destination = "/tmp/platform-update.sh"
-  }
-
-  provisioner "shell" {
-    inline = [
-      "sudo mv /tmp/platform-update.sh /usr/local/bin/platform-update.sh",
-      "sudo chmod +x /usr/local/bin/platform-update.sh",
-      "sudo mv /tmp/platform-update.service /etc/systemd/system/",
-      "sudo mv /tmp/platform-update.timer /etc/systemd/system/",
-      "sudo systemctl daemon-reload",
-      "sudo systemctl enable --now platform-update.timer"
-    ]
-  }
-
-  ################################
-  # Enable services
+  # Systemd services
   ################################
   provisioner "shell" {
     inline = [
       "sudo mkdir -p /etc/platform",
       "sudo bash -c 'cat > /etc/platform/api.env <<EOF\nIMAGE_URI=046685909731.dkr.ecr.us-east-1.amazonaws.com/api:latest\nPORT=3000\nNODE_ENV=production\nEOF'",
 
-      "sudo mv /tmp/node_exporter.service /etc/systemd/system/",
-      "sudo mv /tmp/prometheus.service /etc/systemd/system/",
-      "sudo mv /tmp/grafana.service /etc/systemd/system/",
-      "sudo mv /tmp/systemd/pushgateway.service /etc/systemd/system/",
-      "sudo mv /tmp/platform-api.service /etc/systemd/system/",
+      "sudo mv /tmp/node_exporter.service /etc/systemd/system/node_exporter.service",
+      "sudo mv /tmp/prometheus.service /etc/systemd/system/prometheus.service",
+      "sudo mv /tmp/grafana.service /etc/systemd/system/grafana.service",
+      "sudo mv /tmp/systemd/pushgateway.service /etc/systemd/system/pushgateway.service",
+      "sudo mv /tmp/platform-api.service /etc/systemd/system/platform-api.service",
 
       "sudo systemctl daemon-reload",
 
@@ -234,7 +165,7 @@ provisioner "shell" {
   }
 
   ################################
-  # Blackbox exporter
+  # Blackbox Service
   ################################
   provisioner "file" {
     source      = "files/blackbox.yml"
@@ -248,27 +179,22 @@ provisioner "shell" {
 
   provisioner "shell" {
     inline = [
+      "sudo mkdir -p /opt/blackbox",
       "sudo mv /tmp/blackbox.yml /opt/blackbox/blackbox.yml",
-      "sudo mv /tmp/blackbox-exporter.service /etc/systemd/system/",
+      "sudo mv /tmp/blackbox-exporter.service /etc/systemd/system/blackbox-exporter.service",
       "sudo systemctl daemon-reload",
       "sudo systemctl enable blackbox-exporter.service"
     ]
   }
 
   ################################
-  # HUGO (FIXED)
+  # Hugo Service 
   ################################
   provisioner "shell" {
     inline = [
       "sudo mkdir -p /opt/hugo/site",
-      "sudo mkdir -p /opt/platform/scripts",
       "sudo chown -R ubuntu:ubuntu /opt/hugo"
     ]
-  }
-
-  provisioner "file" {
-    source      = "${path.root}/../../../apps/hugo/site"
-    destination = "/tmp/hugo-site"
   }
 
   provisioner "file" {
@@ -276,46 +202,32 @@ provisioner "shell" {
     destination = "/tmp/build-hugo.sh"
   }
 
+  provisioner "file" {
+    source      = "${path.root}/../../../apps/hugo/site"
+    destination = "/tmp/hugo-site"
+  }
+
   provisioner "shell" {
     inline = [
       "sudo mkdir -p /opt/platform/scripts",
-
-      # MOVE FIRST
       "sudo mv /tmp/build-hugo.sh /opt/platform/scripts/build-hugo.sh",
       "sudo chmod +x /opt/platform/scripts/build-hugo.sh",
-
-      # VERIFY
-      "sudo test -f /opt/platform/scripts/build-hugo.sh || (echo 'MISSING HUGO SCRIPT' && exit 1)",
-
-      # THEN sync site
-      "sudo rsync -av --delete /tmp/hugo-site/ /opt/hugo/site/",
-      "sudo rm -rf /tmp/hugo-site",
-
-      # DEBUG
-      "echo '=== HUGO SCRIPT ==='",
-      "ls -la /opt/platform/scripts",
-      "echo '=== HUGO SITE ==='",
-      "ls -la /opt/hugo/site"
-    ]
-  }
-
-  provisioner "shell" {
-    inline = [
-      "sudo /opt/platform/scripts/build-hugo.sh"
+      "sudo cp -r /tmp/hugo-site/* /opt/hugo/site/",
+      "sudo rm -rf /tmp/hugo-site"
     ]
   }
 
   ################################
-  # Hugo sync timer
+  # Hugo Sync
   ################################
-  provisioner "file" {
-    source      = "systemd/hugo-sync.timer"
-    destination = "/tmp/hugo-sync.timer"
-  }
-
   provisioner "file" {
     source      = "systemd/hugo-sync.service"
     destination = "/tmp/hugo-sync.service"
+  }
+
+  provisioner "file" {
+    source      = "systemd/hugo-sync.timer"
+    destination = "/tmp/hugo-sync.timer"
   }
 
   provisioner "shell" {
@@ -351,7 +263,7 @@ provisioner "shell" {
   }
 
   ################################
-  # Post-processors
+  # Post-processors (UNCHANGED)
   ################################
   post-processors {
 
@@ -362,6 +274,7 @@ provisioner "shell" {
     post-processor "shell-local" {
       inline = [
         "AMI_ID=$(jq -r '.builds[-1].artifact_id' manifest.json | cut -d':' -f2)",
+        "if [ -z \"$AMI_ID\" ]; then echo 'ERROR: AMI_ID empty' && exit 1; fi",
         "echo 'New AMI:' $AMI_ID",
         "aws ssm put-parameter --name /devopslab/ami/ops/latest --type String --value \"$AMI_ID\" --overwrite --region ${var.region}"
       ]
@@ -374,12 +287,16 @@ provisioner "shell" {
         "AMI_COUNT=$(echo \"$AMI_LIST\" | wc -w)",
         "KEEP=${var.ami_keep_last}",
         "DELETE_COUNT=$((AMI_COUNT-KEEP))",
-        "if [ \"$DELETE_COUNT\" -le 0 ]; then exit 0; fi",
+        "if [ \"$DELETE_COUNT\" -le 0 ]; then echo 'Nothing to prune'; exit 0; fi",
         "OLD_AMIS=$(echo \"$AMI_LIST\" | awk '{for(i=1;i<=NF-'$KEEP';i++) printf $i\" \"}')",
         "for AMI in $OLD_AMIS; do",
+        "  echo 'Deregistering' $AMI",
         "  SNAPSHOT_ID=$(aws ec2 describe-images --image-ids $AMI --region ${var.region} --query 'Images[0].BlockDeviceMappings[0].Ebs.SnapshotId' --output text)",
         "  aws ec2 deregister-image --image-id $AMI --region ${var.region}",
-        "  if [ \"$SNAPSHOT_ID\" != \"None\" ]; then aws ec2 delete-snapshot --snapshot-id $SNAPSHOT_ID --region ${var.region}; fi",
+        "  if [ \"$SNAPSHOT_ID\" != \"None\" ]; then",
+        "    echo 'Deleting snapshot' $SNAPSHOT_ID",
+        "    aws ec2 delete-snapshot --snapshot-id $SNAPSHOT_ID --region ${var.region}",
+        "  fi",
         "done"
       ]
     }

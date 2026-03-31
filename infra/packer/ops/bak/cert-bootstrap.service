@@ -1,0 +1,13 @@
+sudo tee /etc/systemd/system/bootstrap-cert.service <<EOF
+[Unit]
+Description=Bootstrap Let's Encrypt Certificate
+After=network.target haproxy.service certbot-web.service
+Requires=haproxy.service certbot-web.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/bootstrap-cert.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF

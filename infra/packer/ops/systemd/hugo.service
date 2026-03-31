@@ -1,17 +1,16 @@
 [Unit]
-Description=Hugo Static Site
-Requires=docker.service
+Description=Hugo Static Site (nginx)
 After=docker.service
+Requires=docker.service
 
 [Service]
-ExecStartPre=-/usr/bin/docker rm -f hugo
-ExecStart=/usr/bin/docker run \
-  --name hugo \
-  -p 127.0.0.1:8080:80 \
-  -v /opt/hugo/site/public:/usr/share/nginx/html:ro \
-  nginx:alpine
-ExecStop=/usr/bin/docker stop hugo
 Restart=always
 
+ExecStartPre=-/usr/bin/docker rm -f hugo
+
+ExecStart=/usr/bin/docker run --name hugo -p 127.0.0.1:8080:80 -v /opt/hugo/site/public:/usr/share/nginx/html:ro nginx:alpine
+
+ExecStop=/usr/bin/docker stop hugo
+
 [Install]
-WantedBy=ops.target
+WantedBy=multi-user.target

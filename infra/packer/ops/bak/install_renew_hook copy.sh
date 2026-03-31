@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+set -e
+
+mkdir -p /etc/letsencrypt/renewal-hooks/deploy
+
+cat >/etc/letsencrypt/renewal-hooks/deploy/haproxy <<'EOF'
+#!/usr/bin/env bash
 set -euo pipefail
 
 DOMAIN="onwuachi.com"
@@ -10,3 +16,6 @@ if [ -f "$LIVE/fullchain.pem" ]; then
   chmod 600 "$DEST"
   systemctl reload haproxy
 fi
+EOF
+
+chmod 755 /etc/letsencrypt/renewal-hooks/deploy/haproxy

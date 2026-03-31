@@ -15,5 +15,5 @@ ecr_repo_go        = "hello-docker-go"
 image_tag          = "latest"
 
 #zone_id = "Z05199601Q0J2SB4F0Z80"
-
+#az       = "us-east-1b"
 

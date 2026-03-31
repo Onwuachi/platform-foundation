@@ -1,0 +1,11 @@
+[Unit]
+Description=Certbot Webroot Server
+After=network.target
+
+[Service]
+ExecStart=/opt/platform/bin-util/certbot-webroot.sh
+Restart=always
+User=acme
+
+[Install]
+WantedBy=multi-user.target

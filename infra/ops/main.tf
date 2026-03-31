@@ -1,20 +1,31 @@
 ##############################
-# Read AMI from SSM (Packer writes it)
+# LOCALS (🔥 TAG ENFORCEMENT)
+##############################
+locals {
+  common_tags = {
+    Environment = var.environment
+    Owner       = "derrick"
+    ManagedBy   = "terraform"
+    Project     = "platform"
+  }
+}
+
+##############################
+# Read AMI from SSM
 ##############################
 data "aws_ssm_parameter" "ops_ami" {
   name = "/devopslab/ami/ops/latest"
 }
 
 ##############################
-# Platform-api service state and versioning 
+# S3 Platform State
 ##############################
 resource "aws_s3_bucket" "platform_state" {
   bucket = "platform-api-services"
 
-  tags = {
-    Name        = "platform-state"
-    Environment = var.environment
-  }
+  tags = merge(local.common_tags, {
+    Name = "platform-state"
+  })
 }
 
 resource "aws_s3_bucket_versioning" "platform_state" {
@@ -47,6 +58,58 @@ resource "aws_s3_bucket_lifecycle_configuration" "platform_state" {
   }
 }
 
+
+
+##############################
+# S3 - Hugo Artifacts
+##############################
+resource "aws_s3_bucket" "hugo_artifacts" {
+  bucket = "onwuachi-hugo-artifacts"
+
+  tags = merge(local.common_tags, {
+    Name = "hugo-artifacts"
+  })
+}
+
+##############################
+# hugo_artifacts Versioning
+##############################
+resource "aws_s3_bucket_versioning" "hugo_artifacts" {
+  bucket = aws_s3_bucket.hugo_artifacts.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+##############################
+# hugo_artifacts Block Public Access (IMPORTANT)
+##############################
+resource "aws_s3_bucket_public_access_block" "hugo_artifacts" {
+  bucket = aws_s3_bucket.hugo_artifacts.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+##############################
+# hugo_artifacts Lifecycle (keep it clean)
+##############################
+resource "aws_s3_bucket_lifecycle_configuration" "hugo_artifacts" {
+  bucket = aws_s3_bucket.hugo_artifacts.id
+
+  rule {
+    id     = "cleanup-old-versions"
+    status = "Enabled"
+
+    noncurrent_version_expiration {
+      noncurrent_days = 7
+    }
+  }
+}
+
 ##############################
 # Route53 Zone
 ##############################
@@ -56,7 +119,7 @@ data "aws_route53_zone" "main" {
 }
 
 ##############################
-# EC2 Instance
+# EC2 Instance (STATELESS)
 ##############################
 resource "aws_instance" "ops" {
   ami                         = data.aws_ssm_parameter.ops_ami.value
@@ -78,7 +141,7 @@ resource "aws_instance" "ops" {
   }
 
   ################################
-  # Prometheus Volume (15GB)
+  # Prometheus Volume (Ephemeral)
   ################################
   ebs_block_device {
     device_name           = "/dev/sdf"
@@ -89,18 +152,7 @@ resource "aws_instance" "ops" {
   }
 
   ################################
-  # Platform Volume (5GB, persistent)
-  ################################
-  ebs_block_device {
-    device_name           = "/dev/sdg"
-    volume_size           = 5
-    volume_type           = "gp3"
-    delete_on_termination = false
-    encrypted             = true
-  }
-
-  ################################
-  # USER DATA
+  # USER DATA (DATA PLANE ONLY)
   ################################
   user_data = <<-EOT
 #!/bin/bash
@@ -112,12 +164,12 @@ exec > >(tee -a "$LOG") 2>&1
 echo "=== OPS bootstrap start ==="
 
 ################################
-# VOLUME DETECTION (SAFE)
+# VOLUME DETECTION
 ################################
 
 get_device_by_size() {
   TARGET_SIZE=$1
-  TOLERANCE=104857600   # 100MB
+  TOLERANCE=104857600
 
   for dev in /dev/nvme*n1; do
     SIZE=$(blockdev --getsize64 "$dev")
@@ -141,16 +193,11 @@ setup_volume () {
 
   for i in {1..10}; do
     [ -e "$DEVICE" ] && break
-    echo "Waiting for $DEVICE..."
     sleep 3
   done
 
-
   if ! file -s "$DEVICE" | grep -q filesystem; then
-    echo "Formatting $DEVICE..."
     mkfs.xfs "$DEVICE"
-  else
-    echo "$DEVICE already has filesystem, skipping format"
   fi
 
   mkdir -p "$MOUNT"
@@ -162,195 +209,85 @@ setup_volume () {
 }
 
 PROM_DEVICE=$(get_device_by_size 16106127360)
-PLATFORM_DEVICE=$(get_device_by_size 5368709120)
+PLATFORM_DEVICE=$(get_device_by_size 5368709120 || true)
+
+if [ -z "$PLATFORM_DEVICE" ]; then
+  echo "⚠️ Platform device not found, skipping mount"
+else
+  setup_volume "$PLATFORM_DEVICE" /opt/platform
+fi
 
 setup_volume "$PROM_DEVICE" /opt/prometheus/data
-setup_volume "$PLATFORM_DEVICE" /opt/platform
+
+if [ -n "$PLATFORM_DEVICE" ]; then
+  setup_volume "$PLATFORM_DEVICE" /opt/platform
+fi
 
 mount -a
+
 chown -R 65534:65534 /opt/prometheus/data
 chown -R ubuntu:ubuntu /opt/platform
 chmod -R 775 /opt/platform
 
 ################################
-# PLATFORM STATE LINK and SYNC
+# PLATFORM SYNC
 ################################
 
-if [ ! -L /etc/platform ]; then
-  rm -rf /etc/platform
-  ln -s /opt/platform /etc/platform
-fi
-
-echo "Platform state:"
-ls -R /opt/platform
-
-
-aws s3 sync s3://platform-api-services/platform/ /opt/platform || true
-
-mkdir -p /opt/platform/services
-
-[ -f /opt/platform/services.list ] || touch /opt/platform/services.list
-
+aws s3 sync s3://platform-api-services/platform/ /opt/platform --exclude "scripts/*" || true
 
 ################################
-# Rebuild HAProxy dynamic services from platform state
+# START PLATFORM
 ################################
 
-echo "Cleaning old HAProxy configs..."
-rm -f /etc/haproxy/services/*.cfg || true
+echo "Running rehydrate..."
+/usr/local/bin/platform-rehydrate.sh
 
-echo "Rebuilding HAProxy dynamic configs..."
-
-SERVICES_FILE="/opt/platform/services.list"
-SERVICES_DIR="/etc/haproxy/services"
-
-mkdir -p "$SERVICES_DIR"
-
-if [ -f "$SERVICES_FILE" ]; then
-  while read -r svc; do
-    [ -z "$svc" ] && continue
-
-    PORT_FILE="/opt/platform/$${svc}.port"
-    
-    if [ -f "$PORT_FILE" ]; then
-      PORT=$(cat "$PORT_FILE")
-
-    cat > "$SERVICES_DIR/$${svc}.cfg" <<EOF
-    backend $${svc}_backend
-      http-request replace-path ^/$${svc}/?(.*)$ /\1
-      server $${svc}1 127.0.0.1:$${PORT} check
-    EOF
-
-      echo "Rebuilt config for $svc → port $PORT"
-    fi
-  done < "$SERVICES_FILE"
-fi
-
-echo "=== OPS bootstrap start ==="
-
-################################
-# CERTIFICATE BOOTSTRAP: Stop HAProxy (standalone needs :80)
-################################
-systemctl stop haproxy || true
-
-sleep 10
-
-if [ ! -f /etc/letsencrypt/live/onwuachi.com/fullchain.pem ]; then
-
-  certbot certonly \
-    --standalone \
-    --non-interactive \
-    --agree-tos \
-    --email admin@onwuachi.com \
-    -d onwuachi.com \
-    -d www.onwuachi.com \
-    --deploy-hook "/etc/letsencrypt/renewal-hooks/deploy/haproxy"
-
-fi
-
-################################
-# ENABLE AUTO-RENEW
-################################
-
-systemctl enable certbot.timer
-systemctl start certbot.timer
-
-################################
-# PLATFORM CONFIG
-################################
-
-mkdir -p /etc/platform
-
-cat >/etc/platform/api.env <<EOF
-IMAGE_URI=${var.aws_account_id}.dkr.ecr.${var.aws_region}.amazonaws.com/api:latest
-PORT=3000
-NODE_ENV=production
-EOF
-
-aws ecr get-login-password --region ${var.aws_region} \
- | docker login --username AWS --password-stdin \
-   ${var.aws_account_id}.dkr.ecr.${var.aws_region}.amazonaws.com
-
-################################
-# START PLATFORM SERVICES
-################################
 
 systemctl daemon-reexec
+systemctl start haproxy
+systemctl start hugo
 systemctl start ops.target
 
-##################################
-# wait
-###################################
-echo "Waiting for platform services to be ready..."
-
-for i in {1..30}; do
-  if curl -sf http://localhost:3000/ready >/dev/null; then
-    echo "API ready"
-    break
-  fi
-  sleep 2
-done
-
-for i in {1..30}; do
-  if curl -sf http://localhost:8080 >/dev/null; then
-    echo "Hugo ready"
-    break
-  fi
-  sleep 2
-done
-
-################################
-# START HAPROXY (after cert exists)
-################################
-
-haproxy -c -f /etc/haproxy/haproxy.cfg
-systemctl start haproxy
-
-
-################################
-# PLATFORM STATE SYNC Backup
-################################
-echo "Backing up platform state to S3..."
-
-aws s3 sync /opt/platform s3://platform-api-services/platform/ --delete
-
-################################
-# PUSH DEPLOY METRIC
-################################
-
-for i in {1..20}; do
-  curl -sf http://localhost:9091/-/ready && break
-  sleep 3
-done
-
-INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-AMI_ID=$(curl -s http://169.254.169.254/latest/meta-data/ami-id)
-REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
-
-cat <<EOF | curl --data-binary @- http://localhost:9091/metrics/job/deploy
-deploy_event{service="platform",env="${var.environment}",instance="$INSTANCE_ID",ami="$AMI_ID",region="$REGION"} 1
-EOF
-
 echo "=== OPS bootstrap complete ==="
-
 EOT
 
   user_data_replace_on_change = true
 
-  tags = {
-    Name        = var.ec2_name
-    Environment = var.environment
-    Owner       = "derrick"
-    Role        = "ops"
-    BuiltBy     = "packer"
-  }
+  tags = merge(local.common_tags, {
+    Name  = var.ec2_name
+    Role  = "ops"
+    BuiltBy = "packer"
+  })
+}
+
+##############################
+# 🔥 PERSISTENT PLATFORM VOLUME
+##############################
+resource "aws_ebs_volume" "platform" {
+  availability_zone = aws_instance.ops.availability_zone
+  size              = 5
+  type              = "gp3"
+
+  tags = merge(local.common_tags, {
+    Name    = "platform-persistent"
+    Purpose = "platform-state"
+    Persist = "true"
+  })
+}
+
+resource "aws_volume_attachment" "platform" {
+  device_name = "/dev/sdg"
+  volume_id   = aws_ebs_volume.platform.id
+  instance_id = aws_instance.ops.id
 }
 
 ##############################
 # Elastic IP
 ##############################
 resource "aws_eip" "ops" {
-  tags = { Name = "ops-eip" }
+  tags = merge(local.common_tags, {
+    Name = "ops-eip"
+  })
 }
 
 resource "aws_eip_association" "ops" {
@@ -376,3 +313,4 @@ resource "aws_route53_record" "www" {
   ttl     = 60
   records = [aws_eip.ops.public_ip]
 }
+

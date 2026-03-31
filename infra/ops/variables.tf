@@ -64,3 +64,11 @@ variable "environment" {
   default     = "dev"
 }
 
+
+#variable "az" {
+#  description = "Availability Zone for resources"
+#  type        = string
+#}
+
+
+
