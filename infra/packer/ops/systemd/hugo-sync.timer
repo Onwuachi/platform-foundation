@@ -1,0 +1,11 @@
+# systemd/hugo-sync.timer
+[Unit]
+Description=Run Hugo Sync Every 2 Minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=2min
+Unit=hugo-sync.service
+
+[Install]
+WantedBy=timers.target

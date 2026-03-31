@@ -58,7 +58,7 @@ build {
   sources = ["source.amazon-ebs.ops"]
 
   ################################
-  # Upload systemd directory
+  # File provisioning
   ################################
   provisioner "file" {
     source      = "systemd"
@@ -66,7 +66,7 @@ build {
   }
 
   ################################
-  # Base + Core Installs
+  # Shell provisioning
   ################################
   provisioner "shell" {
     execute_command = "sudo -E bash '{{ .Path }}'"
@@ -85,27 +85,33 @@ build {
     ]
   }
 
+
+  ############ Phase 3 – Observability ############
+
   ################################
-  # Observability
+  # Install Node Exporter (host binary)
   ################################
   provisioner "shell" {
     execute_command = "sudo -E bash '{{ .Path }}'"
     script          = "scripts/install_node_exporter.sh"
   }
 
+  ################################
+  # Create Prometheus directories (root-owned)
+  ################################
   provisioner "shell" {
     execute_command = "sudo -E bash '{{ .Path }}'"
     script          = "scripts/install_prometheus_dirs.sh"
   }
 
+  ################################
+  # Create Grafana directories
+  ################################
   provisioner "shell" {
     execute_command = "sudo -E bash '{{ .Path }}'"
     script          = "scripts/install_grafana_dirs.sh"
   }
 
-  ################################
-  # Grafana files
-  ################################
   provisioner "file" {
     source      = "files/grafana"
     destination = "/tmp/grafana"
@@ -115,14 +121,16 @@ build {
     inline = [
       "sudo mkdir -p /etc/grafana/provisioning",
       "sudo mkdir -p /opt/grafana/dashboards",
+
       "sudo cp -r /tmp/grafana/provisioning/* /etc/grafana/provisioning/",
       "sudo cp -r /tmp/grafana/dashboards/* /opt/grafana/dashboards/",
+
       "sudo chown -R 472:472 /opt/grafana"
     ]
   }
 
   ################################
-  # Prometheus config
+  # Upload Prometheus config to /tmp (avoid SCP permission issue)
   ################################
   provisioner "file" {
     source      = "files/prometheus.yml"
@@ -134,6 +142,9 @@ build {
     destination = "/tmp/rules"
   }
 
+  ################################
+  # Move Prometheus config into protected directory
+  ################################
   provisioner "shell" {
     inline = [
       "sudo mv /tmp/prometheus.yml /opt/prometheus/prometheus.yml",
@@ -144,7 +155,7 @@ build {
   }
 
   ################################
-  # Systemd core services
+  # Upload systemd units (safe location)
   ################################
   provisioner "file" {
     source      = "systemd/node_exporter.service"
@@ -165,24 +176,10 @@ build {
     source      = "systemd/platform-api.service"
     destination = "/tmp/platform-api.service"
   }
+  ###############################
+  ## Update Platform API service
+  ###############################
 
-provisioner "file" {
-  source      = "systemd/hugo.service"
-  destination = "/tmp/hugo.service"
-}
-
-provisioner "shell" {
-  inline = [
-    "sudo mv /tmp/hugo.service /etc/systemd/system/hugo.service",
-    "sudo systemctl daemon-reload",
-    "sudo systemctl enable hugo"
-  ]
-}
-
-
-  ################################
-  # Platform Update Timer
-  ################################
   provisioner "file" {
     source      = "systemd/platform-update.service"
     destination = "/tmp/platform-update.service"
@@ -202,26 +199,31 @@ provisioner "shell" {
     inline = [
       "sudo mv /tmp/platform-update.sh /usr/local/bin/platform-update.sh",
       "sudo chmod +x /usr/local/bin/platform-update.sh",
+
       "sudo mv /tmp/platform-update.service /etc/systemd/system/",
       "sudo mv /tmp/platform-update.timer /etc/systemd/system/",
+
       "sudo systemctl daemon-reload",
       "sudo systemctl enable --now platform-update.timer"
     ]
   }
 
+
   ################################
-  # Enable services
+  # Move systemd units into place
+  ## Will move to sudo cp /tmp/systemd/*.service /etc/systemd/system/  but for now display what's happening! 
   ################################
+
   provisioner "shell" {
     inline = [
       "sudo mkdir -p /etc/platform",
       "sudo bash -c 'cat > /etc/platform/api.env <<EOF\nIMAGE_URI=046685909731.dkr.ecr.us-east-1.amazonaws.com/api:latest\nPORT=3000\nNODE_ENV=production\nEOF'",
 
-      "sudo mv /tmp/node_exporter.service /etc/systemd/system/",
-      "sudo mv /tmp/prometheus.service /etc/systemd/system/",
-      "sudo mv /tmp/grafana.service /etc/systemd/system/",
-      "sudo mv /tmp/systemd/pushgateway.service /etc/systemd/system/",
-      "sudo mv /tmp/platform-api.service /etc/systemd/system/",
+      "sudo mv /tmp/node_exporter.service /etc/systemd/system/node_exporter.service",
+      "sudo mv /tmp/prometheus.service /etc/systemd/system/prometheus.service",
+      "sudo mv /tmp/grafana.service /etc/systemd/system/grafana.service",
+      "sudo mv /tmp/systemd/pushgateway.service /etc/systemd/system/pushgateway.service",
+      "sudo mv /tmp/platform-api.service /etc/systemd/system/platform-api.service",
 
       "sudo systemctl daemon-reload",
 
@@ -233,13 +235,16 @@ provisioner "shell" {
     ]
   }
 
-  ################################
-  # Blackbox exporter
-  ################################
+
+  ############
+  # blackbox_exporter provisioning
+  ##############
   provisioner "file" {
     source      = "files/blackbox.yml"
     destination = "/tmp/blackbox.yml"
   }
+
+  ####Move blackbox_exporter config + service
 
   provisioner "file" {
     source      = "systemd/blackbox-exporter.service"
@@ -249,109 +254,129 @@ provisioner "shell" {
   provisioner "shell" {
     inline = [
       "sudo mv /tmp/blackbox.yml /opt/blackbox/blackbox.yml",
-      "sudo mv /tmp/blackbox-exporter.service /etc/systemd/system/",
+      "sudo mv /tmp/blackbox-exporter.service /etc/systemd/system/blackbox-exporter.service",
       "sudo systemctl daemon-reload",
       "sudo systemctl enable blackbox-exporter.service"
     ]
   }
 
+
+#####################
+# HUGO 
+#####################
+
+# Ensure directories exist
+provisioner "shell" {
+  inline = [
+    "sudo mkdir -p /opt/hugo/site",
+    "sudo mkdir -p /opt/platform/scripts",
+    "sudo chown -R ubuntu:ubuntu /opt/hugo"
+  ]
+}
+
+# Upload Hugo site FIRST
+provisioner "file" {
+  source      = "${path.root}/../../../apps/hugo/site"
+  destination = "/tmp/hugo-site"
+}
+
+# THEN move it
+provisioner "shell" {
+  inline = [
+    "sudo rsync -av --delete /tmp/hugo-site/ /opt/hugo/site/",
+    "sudo rm -rf /tmp/hugo-site"
+  ]
+}
+
+
+# Move EVERYTHING in one step (idempotent-safe)
+provisioner "shell" {
+  inline = [
+    # Move script safely
+    "if [ -f /tmp/build-hugo.sh ]; then sudo mv /tmp/build-hugo.sh /opt/platform/scripts/build-hugo.sh; fi",
+    "sudo chmod +x /opt/platform/scripts/build-hugo.sh || true",
+
+    # Move site
+    "sudo rsync -av --delete /tmp/hugo-site/ /opt/hugo/site/",
+    "sudo rm -rf /tmp/hugo-site",
+
+    # Debug visibility
+    "echo '=== HUGO SCRIPT ==='",
+    "ls -la /opt/platform/scripts",
+    "echo '=== HUGO SITE ==='",
+    "ls -la /opt/hugo/site"
+  ]
+}
+
+
+provisioner "file" {
+  source      = "${path.root}/../../../apps/hugo/site"
+  destination = "/tmp/hugo-site"
+}
+
+
+sudo test -f /opt/platform/scripts/build-hugo.sh || (echo "MISSING HUGO SCRIPT" && exit 1)
+
+
+sudo systemctl daemon-reload
+sudo systemctl enable hugo
+
+
+######################
+# Hugo Sync
+######################
+provisioner "file" {
+  source      = "systemd/hugo-sync.timer"
+  destination = "/tmp/hugo-sync.timer"
+}
+
+provisioner "file" {
+  source      = "systemd/hugo-sync.service"
+  destination = "/tmp/hugo-sync.service"
+}
+
+
+provisioner "shell" {
+  inline = [
+    "sudo mv /tmp/hugo-sync.service /etc/systemd/system/",
+    "sudo mv /tmp/hugo-sync.timer /etc/systemd/system/",
+
+    "sudo systemctl daemon-reload",
+    "sudo systemctl enable --now hugo-sync.timer"
+  ]
+}
+
+
+
+##################
+# Plaform Rehydrate
+####################### 
+provisioner "file" {
+  source      = "scripts/platform-rehydrate.sh"
+  destination = "/tmp/platform-rehydrate.sh"
+}
+
+provisioner "file" {
+  source      = "systemd/platform-rehydrate.service"
+  destination = "/tmp/platform-rehydrate.service"
+}
+
+provisioner "shell" {
+  inline = [
+    "sudo mv /tmp/platform-rehydrate.sh /usr/local/bin/platform-rehydrate.sh",
+    "sudo chmod +x /usr/local/bin/platform-rehydrate.sh",
+
+    "sudo mv /tmp/platform-rehydrate.service /etc/systemd/system/",
+
+    "sudo systemctl daemon-reload",
+    "sudo systemctl enable platform-rehydrate.service"
+  ]
+}
+
+
+
   ################################
-  # HUGO (FIXED)
-  ################################
-  provisioner "shell" {
-    inline = [
-      "sudo mkdir -p /opt/hugo/site",
-      "sudo mkdir -p /opt/platform/scripts",
-      "sudo chown -R ubuntu:ubuntu /opt/hugo"
-    ]
-  }
-
-  provisioner "file" {
-    source      = "${path.root}/../../../apps/hugo/site"
-    destination = "/tmp/hugo-site"
-  }
-
-  provisioner "file" {
-    source      = "scripts/build-hugo.sh"
-    destination = "/tmp/build-hugo.sh"
-  }
-
-  provisioner "shell" {
-    inline = [
-      "sudo mkdir -p /opt/platform/scripts",
-
-      # MOVE FIRST
-      "sudo mv /tmp/build-hugo.sh /opt/platform/scripts/build-hugo.sh",
-      "sudo chmod +x /opt/platform/scripts/build-hugo.sh",
-
-      # VERIFY
-      "sudo test -f /opt/platform/scripts/build-hugo.sh || (echo 'MISSING HUGO SCRIPT' && exit 1)",
-
-      # THEN sync site
-      "sudo rsync -av --delete /tmp/hugo-site/ /opt/hugo/site/",
-      "sudo rm -rf /tmp/hugo-site",
-
-      # DEBUG
-      "echo '=== HUGO SCRIPT ==='",
-      "ls -la /opt/platform/scripts",
-      "echo '=== HUGO SITE ==='",
-      "ls -la /opt/hugo/site"
-    ]
-  }
-
-  provisioner "shell" {
-    inline = [
-      "sudo /opt/platform/scripts/build-hugo.sh"
-    ]
-  }
-
-  ################################
-  # Hugo sync timer
-  ################################
-  provisioner "file" {
-    source      = "systemd/hugo-sync.timer"
-    destination = "/tmp/hugo-sync.timer"
-  }
-
-  provisioner "file" {
-    source      = "systemd/hugo-sync.service"
-    destination = "/tmp/hugo-sync.service"
-  }
-
-  provisioner "shell" {
-    inline = [
-      "sudo mv /tmp/hugo-sync.service /etc/systemd/system/",
-      "sudo mv /tmp/hugo-sync.timer /etc/systemd/system/",
-      "sudo systemctl daemon-reload",
-      "sudo systemctl enable --now hugo-sync.timer"
-    ]
-  }
-
-  ################################
-  # Platform Rehydrate
-  ################################
-  provisioner "file" {
-    source      = "scripts/platform-rehydrate.sh"
-    destination = "/tmp/platform-rehydrate.sh"
-  }
-
-  provisioner "file" {
-    source      = "systemd/platform-rehydrate.service"
-    destination = "/tmp/platform-rehydrate.service"
-  }
-
-  provisioner "shell" {
-    inline = [
-      "sudo mv /tmp/platform-rehydrate.sh /usr/local/bin/platform-rehydrate.sh",
-      "sudo chmod +x /usr/local/bin/platform-rehydrate.sh",
-      "sudo mv /tmp/platform-rehydrate.service /etc/systemd/system/",
-      "sudo systemctl daemon-reload",
-      "sudo systemctl enable platform-rehydrate.service"
-    ]
-  }
-
-  ################################
-  # Post-processors
+  # Post-Processors
   ################################
   post-processors {
 
@@ -359,14 +384,17 @@ provisioner "shell" {
       output = "manifest.json"
     }
 
+    # Update SSM with latest AMI
     post-processor "shell-local" {
       inline = [
         "AMI_ID=$(jq -r '.builds[-1].artifact_id' manifest.json | cut -d':' -f2)",
+        "if [ -z \"$AMI_ID\" ]; then echo 'ERROR: AMI_ID empty' && exit 1; fi",
         "echo 'New AMI:' $AMI_ID",
         "aws ssm put-parameter --name /devopslab/ami/ops/latest --type String --value \"$AMI_ID\" --overwrite --region ${var.region}"
       ]
     }
 
+    # 🔥 Automatic AMI Cleanup
     post-processor "shell-local" {
       inline = [
         "echo 'Pruning old AMIs...'",
@@ -374,12 +402,16 @@ provisioner "shell" {
         "AMI_COUNT=$(echo \"$AMI_LIST\" | wc -w)",
         "KEEP=${var.ami_keep_last}",
         "DELETE_COUNT=$((AMI_COUNT-KEEP))",
-        "if [ \"$DELETE_COUNT\" -le 0 ]; then exit 0; fi",
+        "if [ \"$DELETE_COUNT\" -le 0 ]; then echo 'Nothing to prune'; exit 0; fi",
         "OLD_AMIS=$(echo \"$AMI_LIST\" | awk '{for(i=1;i<=NF-'$KEEP';i++) printf $i\" \"}')",
         "for AMI in $OLD_AMIS; do",
+        "  echo 'Deregistering' $AMI",
         "  SNAPSHOT_ID=$(aws ec2 describe-images --image-ids $AMI --region ${var.region} --query 'Images[0].BlockDeviceMappings[0].Ebs.SnapshotId' --output text)",
         "  aws ec2 deregister-image --image-id $AMI --region ${var.region}",
-        "  if [ \"$SNAPSHOT_ID\" != \"None\" ]; then aws ec2 delete-snapshot --snapshot-id $SNAPSHOT_ID --region ${var.region}; fi",
+        "  if [ \"$SNAPSHOT_ID\" != \"None\" ]; then",
+        "    echo 'Deleting snapshot' $SNAPSHOT_ID",
+        "    aws ec2 delete-snapshot --snapshot-id $SNAPSHOT_ID --region ${var.region}",
+        "  fi",
         "done"
       ]
     }

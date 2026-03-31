@@ -1,0 +1,64 @@
+name: platform-cleanup-ebs
+
+on:
+  schedule:
+    - cron: "0 6 * * 0"
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::046685909731:role/github-oidc-role
+
+      - name: Cleanup orphaned volumes safely
+        run: |
+          set -euo pipefail
+
+          echo "=== EBS Cleanup Started ==="
+
+          CUTOFF=$(date -d '3 days ago' +%s)
+
+          aws ec2 describe-volumes \
+            --filters Name=status,Values=available \
+            --query "Volumes[*].[VolumeId,CreateTime,Tags]" \
+            --output json | jq -c '.[]' | while read vol; do
+
+            VOL_ID=$(echo "$vol" | jq -r '.[0]')
+            VOL_TIME=$(date -d "$(echo "$vol" | jq -r '.[1]')" +%s)
+            TAGS=$(echo "$vol" | jq -r '.[2]')
+
+            ########################################
+            # 🧠 PROTECTION RULES (IMPORTANT)
+            ########################################
+
+            # Skip Terraform-managed volumes
+            if echo "$TAGS" | grep -q "ManagedBy.*terraform"; then
+              echo "Skipping Terraform-managed volume: $VOL_ID"
+              continue
+            fi
+
+            # Skip persistent platform volumes
+            if echo "$TAGS" | grep -q "platform-persistent"; then
+              echo "Skipping platform volume: $VOL_ID"
+              continue
+            fi
+
+            ########################################
+            # Age-based cleanup
+            ########################################
+            if [ "$VOL_TIME" -lt "$CUTOFF" ]; then
+              echo "Deleting orphaned volume: $VOL_ID"
+              aws ec2 delete-volume --volume-id "$VOL_ID"
+            else
+              echo "Skipping recent volume: $VOL_ID"
+            fi
+
+          done
+
+          echo "=== Cleanup Complete ==="

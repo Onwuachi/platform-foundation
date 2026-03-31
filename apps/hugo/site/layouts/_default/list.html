@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Onwuachi Platform</title>
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 2rem;
+    background: #f4f4f9;
+    color: #333;
+    transition: all 0.6s ease;
+  }
+
+  h1 { color: #007acc; }
+
+  .badge {
+    display: inline-block;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    color: white;
+    font-weight: bold;
+    font-size: 0.9rem;
+    margin-right: 0.5rem;
+  }
+
+  .badge-packer { background-color: #28a745; }
+  .badge-commit { background-color: #007bff; }
+  .badge-timestamp { background-color: #6c757d; }
+
+  .side-note {
+    font-size: 0.9rem;
+    color: #555;
+    margin-top: 2rem;
+  }
+
+  .side-note a { color: #007acc; }
+
+  #themeToggle {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    padding: 0.5rem 1rem;
+    background: #007acc;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .highlight-section {
+    margin-top: 2rem;
+    padding: 1rem;
+    border-left: 4px solid #007acc;
+    background: rgba(0, 122, 204, 0.05);
+  }
+</style>
+
+<script>
+function applyTheme(night){
+  document.body.style.background = night ? "#1e1e2f" : "#f4f4f9";
+  document.body.style.color = night ? "#f5f5f5" : "#333";
+}
+
+function initTheme(){
+  let hour = new Date().getHours();
+  let night = (hour < 6 || hour >= 18);
+
+  let saved = localStorage.getItem("theme");
+  if(saved) night = saved === "night";
+
+  applyTheme(night);
+
+  document.getElementById("themeToggle").onclick = () => {
+    night = !night;
+    localStorage.setItem("theme", night ? "night" : "day");
+    applyTheme(night);
+  };
+}
+
+window.onload = initTheme;
+</script>
+</head>
+
+<body>
+
+<button id="themeToggle">Toggle Theme</button>
+
+<h1>Onwuachi's Platform – Immutable Infrastructure</h1>
+
+<p><strong>Enterprise-grade platform engineering focused on reliability, automation, and operational excellence.</strong></p>
+
+<p>Stop owning fires 🔥 and start owning modules 🚀</p>
+
+<!-- 🔹 BUILD METADATA (STATIC FOR NOW) -->
+<div>
+  <span class="badge badge-packer">Packer: phase-3-platform-autoprovision</span>
+  <span class="badge badge-commit">Commit: unknown</span>
+  <span class="badge badge-timestamp">Built: runtime</span>
+</div>
+
+<!-- 🔹 CORE PLATFORM -->
+<div class="side-note">
+  <p><a href="https://github.com/Onwuachi/platform-foundation.git">Platform Repository</a></p>
+
+  <p><strong>Platform Capabilities</strong></p>
+  <ul>
+    <li>Immutable AMI-based infrastructure (Packer)</li>
+    <li>Terraform-driven environment provisioning</li>
+    <li>Dynamic service routing (HAProxy)</li>
+    <li>Containerized workloads (Docker)</li>
+    <li>Observability stack (Prometheus, Grafana, Pushgateway)</li>
+  </ul>
+</div>
+
+<!-- 🔹 ARCHITECTURE -->
+<div class="side-note">
+  <p><strong>Platform Architecture</strong></p>
+
+  <img src="/images/platform-architecture.png"
+       style="width:100%; max-width:900px; border-radius:8px;" />
+
+  <p style="margin-top:1rem;">
+    End-to-end platform architecture showing CI/CD, immutable infrastructure,
+    observability, and automated lifecycle management.
+  </p>
+</div>
+
+<!-- 🔹 PLATFORM / SRE LEARNING -->
+<div class="side-note highlight-section">
+  <p><strong>Platform Engineering & SRE 📡</strong></p>
+  <ul>
+    <li><a href="https://www.youtube.com/results?search_query=platform+engineering+explained">Platform Engineering (YouTube)</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=site+reliability+engineering+explained">Site Reliability Engineering (YouTube)</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=sre+production+systems+google">Google SRE Talks</a></li>
+  </ul>
+</div>
+
+<!-- 🔹 CURRENT READING -->
+<div class="side-note">
+  <p><strong>Currently Reading 📚</strong></p>
+  <ul>
+    <li><a href="https://sre.google/workbook/table-of-contents/">Google SRE Workbook</a></li>
+  </ul>
+</div>
+
+
+<!-- 🔹 NEWS -->
+<div class="side-note highlight-section">
+  <p><strong>News</strong></p>
+  <ul>
+    <li><a href="https://www.reuters.com/">Reuters</a></li>
+    <li><a href="https://www.bbc.com/news">BBC</a></li>
+    <li><a href="https://apnews.com/">Associated Press</a></li>
+    <li><a href="https://www.youtube.com/feed/trending">YouTube Trending</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=devops+news">DevOps News (YouTube)</a></li>
+  </ul>
+</div>
+
+
+<!-- 🔹 FUN / CULTURE -->
+<div class="side-note highlight-section">
+  <p><strong>Onwuachi’s Current Hits 🎬🔥</strong></p>
+  <ul>
+    <li>Naruto</li>
+    <li>Bleach</li>
+    <li>One Piece</li>
+  </ul>
+</div>
+
+
+<!-- 🔹 RESOURCES / THROWBACKS -->
+<div class="side-note">
+  <p><strong>As Platform Implementation Continues...</strong></p>
+  <ul>
+    <li><a href="https://myanimelist.net/topanime.php">MyAnimeList</a></li>
+    <li><a href="https://www.crunchyroll.com/">Crunchyroll</a></li>
+    <li><a href="https://www.animenewsnetwork.com/">Anime News Network</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=batman+dark+knight+rises+bane+scene">Bane Clips</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=doug+cartoon+episodes">Doug (Cartoon)</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=rugrats+cartoon+episodes">Rugrats</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=transformers+cartoon+episodes">Transformers</a></li>
+  </ul>
+</div>
+
+<!-- 🔥 PERSONALITY / CULTURE -->
+<div class="side-note highlight-section">
+  <p><strong>Onwuachi’s Current Hits 🎬🔥</strong></p>
+  <ul>
+    <li><a href="https://www.youtube.com/results?search_query=naruto+shippuden+best+fights">Naruto Shippuden</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=bleach+best+moments">Bleach</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=demon+slayer+best+scenes">Demon Slayer</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=trigun+anime+scenes">Trigun</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=cowboy+bebop+best+episodes">Cowboy Bebop</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=one+piece+best+moments">One Piece</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=attack+on+titan+best+scenes">Attack on Titan</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=code+geass+best+moments">Code Geass</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=gundam+anime+scenes">Gundam</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=fullmetal+alchemist+brotherhood+best+moments">Fullmetal Alchemist: Brotherhood</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=dragon+ball+z+best+fights">Dragon Ball Z</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=fire+force+shinra+fights">Fire Force �<</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=hells+paradise+anime+scenes">Hell’s Paradise</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=fairy+tail+best+moments">Fairy Tail</a></li>
+  </ul>
+</div>
+
+<div style="margin-top: 3rem; text-align: center;">
+  <p><i>"You merely adopted the darkness; I was born in it."</i></p>
+</div>
+
+</body>
+</html>

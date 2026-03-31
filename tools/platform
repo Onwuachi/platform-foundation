@@ -1,104 +1,89 @@
 #!/usr/bin/env bash
-set -ex
+set -euo pipefail
 
-COMMAND=$1
-SERVICE=$2
-HOST="54.81.77.41"
-BASE_PORT=3000
+########################################
+# CONFIG
+########################################
+
+TAG_KEY="Role"
+TAG_VALUE="ops"
+REGION="us-east-1"
 REGISTRY="046685909731.dkr.ecr.us-east-1.amazonaws.com"
 
+COMMAND="${1:-}"
+SERVICE="${2:-}"
+
 ########################################
-# FUNCTIONS
+# HELP
 ########################################
 
-get_port() {
-  ssh -T -i ~/.ssh/onwua_key.pem \
-    -o LogLevel=ERROR \
-    -o StrictHostKeyChecking=no \
-    ubuntu@$HOST <<EOF
-PORT_FILE="/etc/platform/${SERVICE}.port"
-
-if [ -f "\$PORT_FILE" ]; then
-  cat "\$PORT_FILE"
-else
-  COUNT=\$(ls /etc/systemd/system/platform-*.service 2>/dev/null | wc -l)
-  PORT=\$((3000 + COUNT * 10))
-  echo \$PORT | sudo tee "\$PORT_FILE" > /dev/null
-  echo \$PORT
-fi
+usage() {
+  cat <<EOF
+Usage:
+  platform up
+  platform down
+  platform rehydrate
+  platform deploy <service>
+  platform restart <service>
+  platform logs <service>
+  platform status <service>
+  platform shell
 EOF
+  exit 1
 }
 
-enable_service() {
-  PORT=$1
+########################################
+# GET INSTANCE IDS BY TAG
+########################################
 
-  ssh -T -i ~/.ssh/onwua_key.pem \
-    -o LogLevel=ERROR \
-    -o StrictHostKeyChecking=no \
-    ubuntu@$HOST <<EOF
+get_instance_ids() {
+  aws ec2 describe-instances \
+    --region "$REGION" \
+    --filters "Name=tag:${TAG_KEY},Values=${TAG_VALUE}" \
+    --query "Reservations[].Instances[].InstanceId" \
+    --output text
+}
 
-sudo mkdir -p /etc/platform
-sudo touch /etc/platform/services.list
+########################################
+# WAIT FOR INSTANCE RUNNING
+########################################
 
-# Persist service (ONLY ONCE)
-grep -qx "${SERVICE}" /etc/platform/services.list || \
-  echo "${SERVICE}" | sudo tee -a /etc/platform/services.list > /dev/null
+wait_for_running() {
+  echo "Waiting for instance to be running..."
 
-if [ ! -f /etc/systemd/system/platform-${SERVICE}.service ]; then
+  for i in {1..30}; do
+    STATE=$(aws ec2 describe-instances \
+      --region "$REGION" \
+      --filters "Name=tag:${TAG_KEY},Values=${TAG_VALUE}" \
+      --query "Reservations[].Instances[].State.Name" \
+      --output text)
 
-  echo "Creating service..."
+    if [[ "$STATE" == "running" ]]; then
+      echo "Instance is running"
+      return
+    fi
 
-  sudo tee /etc/haproxy/services/${SERVICE}.cfg > /dev/null <<ROUTE
-backend ${SERVICE}_backend
-  http-request replace-path ^/${SERVICE}/?(.*)$ /\1
-  server ${SERVICE}1 127.0.0.1:${PORT} check
-ROUTE
+    sleep 5
+  done
 
-  sudo tee /etc/systemd/system/platform-${SERVICE}.service > /dev/null <<SERVICEFILE
-[Unit]
-Description=Platform ${SERVICE}
-After=docker.service
-Requires=docker.service
-
-[Service]
-Restart=always
-
-ExecStartPre=-/usr/bin/docker rm -f platform-${SERVICE}
-ExecStartPre=/bin/sh -c '/usr/local/bin/aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${REGISTRY}'
-
-ExecStartPre=/usr/bin/docker pull ${REGISTRY}/${SERVICE}:latest
-
-ExecStart=/usr/bin/docker run \\
-  --name platform-${SERVICE} \\
-  -e PORT=${PORT} \\
-  -p 127.0.0.1:${PORT}:3000 \\
-  ${REGISTRY}/${SERVICE}:latest
-
-ExecStop=/usr/bin/docker stop platform-${SERVICE}
-
-[Install]
-WantedBy=multi-user.target
-SERVICEFILE
-
-  sudo systemctl daemon-reload
-  sudo systemctl enable platform-${SERVICE}
-
-fi
-
-sudo systemctl restart platform-${SERVICE}
-
-# Validate HAProxy BEFORE reload
-if sudo haproxy -c -f /etc/haproxy/haproxy.cfg -f /etc/haproxy/services/; then
-  sudo systemctl reload haproxy
-else
-  echo "❌ HAProxy config invalid — not reloading"
+  echo "❌ Instance did not reach running state"
   exit 1
-fi
+}
 
-echo "Syncing platform state to S3..."
-sudo aws s3 sync /opt/platform s3://platform-api-services/platform/ --delete
+########################################
+# SSM EXEC
+########################################
 
-EOF
+ssm_exec() {
+  local CMD="$1"
+
+  aws ssm send-command \
+    --region "$REGION" \
+    --targets "Key=tag:${TAG_KEY},Values=${TAG_VALUE}" \
+    --document-name "AWS-RunShellScript" \
+    --parameters "commands=$CMD" \
+    --query "Command.CommandId" \
+    --output text
 }
 
 ########################################
@@ -107,175 +92,188 @@ EOF
 
 case "$COMMAND" in
 
-create)
-  if [ -z "$SERVICE" ]; then
-    echo "❌ Usage: platform create <service>"
+########################################
+# UP
+########################################
+
+up)
+  IDS=$(get_instance_ids)
+
+  if [ -z "$IDS" ]; then
+    echo "❌ No instances found with tag ${TAG_KEY}=${TAG_VALUE}"
     exit 1
   fi
 
-  ROOT=$(git rev-parse --show-toplevel)
-  SERVICE_DIR="$ROOT/apps/${SERVICE}/service"
+  echo "Starting instance(s): $IDS"
 
-  if [ -d "$SERVICE_DIR" ]; then
-    echo "⚠️ Service already exists: $SERVICE"
-    exit 1
-  fi
+  aws ec2 start-instances \
+    --region "$REGION" \
+    --instance-ids $IDS >/dev/null
 
-  echo "Creating service scaffold for: $SERVICE"
+  wait_for_running
 
-  mkdir -p "$SERVICE_DIR"
+  echo "Rehydrating platform..."
+  ssm_exec "sudo /usr/local/bin/platform-rehydrate.sh"
 
-  ########################################
-  # Dockerfile
-  ########################################
-  cat > "$SERVICE_DIR/Dockerfile" <<EOF
-FROM node:20-alpine
-
-WORKDIR /app
-
-COPY package*.json ./
-
-RUN npm install --only=production
-
-COPY . .
-
-CMD ["node", "index.js"]
-EOF
-
-  ########################################
-  # index.js
-  ########################################
-  cat > "$SERVICE_DIR/index.js" <<EOF
-const PORT = process.env.PORT || 3000;
-
-require('http')
-  .createServer((req, res) => {
-    if (req.url === '/ready') return res.end('ready');
-    res.end('${SERVICE} service');
-  })
-  .listen(PORT);
-
-console.log("${SERVICE} running on port " + PORT);
-EOF
-
-  ########################################
-  # package.json
-  ########################################
-  cat > "$SERVICE_DIR/package.json" <<EOF
-{
-  "name": "${SERVICE}",
-  "version": "1.0.0",
-  "main": "index.js",
-  "dependencies": {}
-}
-EOF
-
-  echo "✅ Service created at: apps/${SERVICE}/service"
-  echo ""
-  echo "Next step:"
-  echo "  platform deploy ${SERVICE}"
+  echo "✅ Platform is UP"
 ;;
 
+########################################
+# DOWN
+########################################
+
+down)
+  echo "Shutting down platform..."
+
+  ssm_exec "sudo systemctl stop ops.target || true"
+
+  sleep 5
+
+  IDS=$(get_instance_ids)
+
+  aws ec2 stop-instances \
+    --region "$REGION" \
+    --instance-ids $IDS >/dev/null
+
+  echo "✅ Platform is DOWN"
+;;
+
+########################################
+# REHYDRATE
+########################################
+
+rehydrate)
+  echo "Running rehydrate..."
+
+  ssm_exec "sudo /usr/local/bin/platform-rehydrate.sh"
+
+  echo "✅ Rehydrate triggered"
+;;
+
+########################################
+# DEPLOY
+########################################
+
 deploy)
-  echo "Deploying ${SERVICE}"
+  if [ -z "$SERVICE" ]; then
+    echo "❌ Usage: platform deploy <service>"
+    exit 1
+  fi
 
   ROOT=$(git rev-parse --show-toplevel)
   SERVICE_DIR="$ROOT/apps/${SERVICE}/service"
 
   if [ ! -d "$SERVICE_DIR" ]; then
-    echo "❌ Service directory not found: $SERVICE_DIR"
-    echo "Available services:"
-    ls "$ROOT/apps"
+    echo "❌ Service not found: $SERVICE"
     exit 1
   fi
 
-  ########################################
-  # 🔥 NEW: ECR AUTO-CREATE
-  ########################################
+  echo "Building Docker image..."
+  cd "$SERVICE_DIR"
 
-  aws ecr describe-repositories \
-    --repository-names "$SERVICE" \
-    --region us-east-1 >/dev/null 2>&1
-
-  if [ $? -ne 0 ]; then
-    echo "ECR repo not found. Creating..."
-    aws ecr create-repository \
-      --repository-name "$SERVICE" \
-      --region us-east-1 >/dev/null
-  fi
-
-  ########################################
- echo "DEBUG: SERVICE_DIR=$SERVICE_DIR"
- ls -la "$SERVICE_DIR"
-
- cd "$SERVICE_DIR"
-
-# Ensure ECR repo exists
-  aws ecr describe-repositories \
-    --repository-names "$SERVICE" \
-    --region us-east-1 >/dev/null 2>&1
-
-  if [ $? -ne 0 ]; then
-    echo "ECR repo not found. Creating..."
-    aws ecr create-repository \
-      --repository-name "$SERVICE" \
-      --region us-east-1
-  fi
-  
   docker build -t ${SERVICE} .
   docker tag ${SERVICE}:latest $REGISTRY/${SERVICE}:latest
 
-  aws ecr get-login-password --region us-east-1 | \
+  echo "Pushing to ECR..."
+
+  aws ecr describe-repositories \
+    --repository-names "$SERVICE" \
+    --region "$REGION" >/dev/null 2>&1 || \
+    aws ecr create-repository \
+      --repository-name "$SERVICE" \
+      --region "$REGION" >/dev/null
+
+  aws ecr get-login-password --region "$REGION" | \
     docker login --username AWS --password-stdin $REGISTRY
 
   docker push $REGISTRY/${SERVICE}:latest
 
-  PORT=$(get_port | tail -n1 | tr -dc '0-9')
+  echo "Deploying via SSM..."
 
-  enable_service $PORT
+  ssm_exec "sudo systemctl restart platform-${SERVICE} || true"
 
-  echo "Waiting for health..."
-
-  for i in {1..20}; do
-    STATUS=$(ssh -T -i ~/.ssh/onwua_key.pem \
-      -o LogLevel=ERROR \
-      -o StrictHostKeyChecking=no \
-      ubuntu@$HOST \
-      "curl -s http://127.0.0.1:${PORT}/ready || true")
-
-    if [[ $STATUS == *"ready"* ]]; then
-      echo "✅ Deployment healthy"
-      exit 0
-    fi
-    sleep 2
-  done
-
-  echo "❌ Deployment failed"
-  exit 1
+  echo "✅ Deployment triggered"
 ;;
+
+########################################
+# LOGS
+########################################
 
 logs)
-  ssh -T -i ~/.ssh/onwua_key.pem -o LogLevel=ERROR -o StrictHostKeyChecking=no ubuntu@$HOST \
-    "docker logs -f platform-${SERVICE}"
+  if [ -z "$SERVICE" ]; then
+    echo "❌ Usage: platform logs <service>"
+    exit 1
+  fi
+
+  CMD_ID=$(ssm_exec "sudo journalctl -u platform-${SERVICE} -n 100 --no-pager")
+
+  echo "Command ID: $CMD_ID"
+  echo "👉 Check output in AWS SSM console"
 ;;
+
+########################################
+# STATUS
+########################################
 
 status)
-  ssh -T -i ~/.ssh/onwua_key.pem -o LogLevel=ERROR -o StrictHostKeyChecking=no ubuntu@$HOST \
-    "systemctl status platform-${SERVICE}"
+  if [ -z "$SERVICE" ]; then
+    echo "❌ Usage: platform status <service>"
+    exit 1
+  fi
+
+  CMD_ID=$(ssm_exec "systemctl status platform-${SERVICE} --no-pager")
+
+  echo "Command ID: $CMD_ID"
+  echo "👉 Check output in AWS SSM console"
 ;;
+
+
+########################################
+# DEFAULT
+########################################
+
+########################################
+# RESTART
+########################################
 
 restart)
-  ssh -T -i ~/.ssh/onwua_key.pem -o LogLevel=ERROR -o StrictHostKeyChecking=no ubuntu@$HOST \
-    "sudo systemctl restart platform-${SERVICE}"
+  if [ -z "$SERVICE" ]; then
+    echo "❌ Usage: platform restart <service>"
+    exit 1
+  fi
+
+  echo "Restarting $SERVICE via SSM..."
+
+  CMD_ID=$(ssm_exec "sudo systemctl restart platform-${SERVICE} || true")
+
+  echo "Command ID: $CMD_ID"
+  echo "✅ Restart triggered"
 ;;
 
-ssh)
-  ssh -i ~/.ssh/onwua_key.pem ubuntu@$HOST
+########################################
+# SHELL (SSM SESSION)
+########################################
+
+shell)
+  IDS=$(get_instance_ids)
+
+  if [ -z "$IDS" ]; then
+    echo "❌ No instances found"
+    exit 1
+  fi
+
+  INSTANCE_ID=$(echo "$IDS" | awk '{print $1}')
+
+  echo "Opening SSM shell to $INSTANCE_ID..."
+
+  aws ssm start-session \
+    --region "$REGION" \
+    --target "$INSTANCE_ID"
 ;;
+
 
 *)
-  echo "Usage:"
-  echo "platform deploy <service>"
+  usage
 ;;
 
 esac

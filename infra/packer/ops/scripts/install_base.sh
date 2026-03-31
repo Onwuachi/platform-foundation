@@ -80,10 +80,35 @@ if ! id acme >/dev/null 2>&1; then
     acme
 fi
 
+
+
+#################################
+# SSM AGENT (CRITICAL)
+#################################
+
+echo "=== Installing SSM Agent ==="
+
+if ! snap list | grep -q amazon-ssm-agent; then
+  snap install amazon-ssm-agent --classic
+else
+  snap refresh amazon-ssm-agent
+fi
+
+systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent.service || true
+systemctl restart snap.amazon-ssm-agent.amazon-ssm-agent.service || true
+
+# Fix shell for SSM user
+if id "ssm-user" &>/dev/null; then
+  usermod -s /bin/bash ssm-user || true
+fi
+
+echo "=== SSM READY ==="
+
+
 ###Base Directory for certbot
-mkdir -p /var/www/certbot
-chown -R acme:acme /var/www/certbot
-chmod 755 /var/www/certbot
+#mkdir -p /var/www/certbot
+#chown -R acme:acme /var/www/certbot
+#chmod 755 /var/www/certbot
 
 ###Base Directory for platform API
 mkdir -p /etc/platform

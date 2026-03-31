@@ -428,6 +428,62 @@ Current Phase: 3.3 – Platform Auto-Provisioning
 Default Branch: main
 Latest Stable Tag: phase-3-platform-autoprovision
 
+---
+   Packer:
+   installs everything
+   enables services
+   does NOT run certbot
+
+   Terraform:
+   provisions infra
+   attaches volumes
+   bootstraps instance
+   does NOT manage certs
+
+   Instance boot:
+   user_data → mount + sync only
+
+   Platform lifecycle:
+   systemctl restart platform-rehydrate
+      → webroot
+      → cert-bootstrap
+      → haproxy reload
+      → services restart
+
+
+   🔥 You now have:
+
+   ✅ HAProxy never stops
+   ✅ Certs are idempotent
+   ✅ Platform is reconstructible
+   ✅ Infra is stateless
+   ✅ Observability is integrated    
+
+   Infra awareness
+   instance down
+   disk fill
+   cpu/memory
+   Platform awareness
+   API health
+   HAProxy routing
+   🔥 Security awareness
+   SSL expiration monitoring
+
+dynamic infra (Terraform)
+immutable images (Packer)
+runtime orchestration (rehydrate)
+zero-downtime TLS
+proactive alerting
+
+👉 self-healing platform bootstrap system
+👉 stateless compute + stateful recovery
+👉 cert lifecycle fully automated
+👉 zero-downtime TLS rotation
+👉 observable from day 1
+---
+
+
+
 👤 Author
 
 Derrick C. Onwuachi

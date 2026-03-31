@@ -166,20 +166,6 @@ build {
     destination = "/tmp/platform-api.service"
   }
 
-provisioner "file" {
-  source      = "systemd/hugo.service"
-  destination = "/tmp/hugo.service"
-}
-
-provisioner "shell" {
-  inline = [
-    "sudo mv /tmp/hugo.service /etc/systemd/system/hugo.service",
-    "sudo systemctl daemon-reload",
-    "sudo systemctl enable hugo"
-  ]
-}
-
-
   ################################
   # Platform Update Timer
   ################################
@@ -255,9 +241,10 @@ provisioner "shell" {
     ]
   }
 
-  ################################
-  # HUGO (FIXED)
-  ################################
+#####################
+# HUGO
+#####################
+# Ensure directories exist
   provisioner "shell" {
     inline = [
       "sudo mkdir -p /opt/hugo/site",
@@ -266,32 +253,25 @@ provisioner "shell" {
     ]
   }
 
+  # Upload Hugo site
   provisioner "file" {
     source      = "${path.root}/../../../apps/hugo/site"
     destination = "/tmp/hugo-site"
   }
 
+  # Upload build script (🔥 YOU WERE MISSING THIS)
   provisioner "file" {
     source      = "scripts/build-hugo.sh"
     destination = "/tmp/build-hugo.sh"
   }
 
+  # Move + configure
   provisioner "shell" {
     inline = [
-      "sudo mkdir -p /opt/platform/scripts",
-
-      # MOVE FIRST
+      "sudo rsync -av --delete /tmp/hugo-site/ /opt/hugo/site/",
       "sudo mv /tmp/build-hugo.sh /opt/platform/scripts/build-hugo.sh",
       "sudo chmod +x /opt/platform/scripts/build-hugo.sh",
 
-      # VERIFY
-      "sudo test -f /opt/platform/scripts/build-hugo.sh || (echo 'MISSING HUGO SCRIPT' && exit 1)",
-
-      # THEN sync site
-      "sudo rsync -av --delete /tmp/hugo-site/ /opt/hugo/site/",
-      "sudo rm -rf /tmp/hugo-site",
-
-      # DEBUG
       "echo '=== HUGO SCRIPT ==='",
       "ls -la /opt/platform/scripts",
       "echo '=== HUGO SITE ==='",
@@ -299,9 +279,12 @@ provisioner "shell" {
     ]
   }
 
+  # Validate + enable service
   provisioner "shell" {
     inline = [
-      "sudo /opt/platform/scripts/build-hugo.sh"
+      "sudo test -f /opt/platform/scripts/build-hugo.sh || (echo 'MISSING HUGO SCRIPT' && exit 1)",
+      "sudo systemctl daemon-reload",
+      "sudo systemctl enable hugo || true"
     ]
   }
 

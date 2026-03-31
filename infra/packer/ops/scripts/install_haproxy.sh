@@ -41,6 +41,7 @@ global
   daemon
   maxconn 2048
   log /dev/log local0 info
+  stats socket /run/haproxy/admin.sock mode 660 level admin
 
 defaults
   mode http
@@ -52,36 +53,78 @@ defaults
 
 
 frontend http_in
-  bind *:80
-  http-request redirect scheme https code 301
+    bind *:80
 
+    # rate limiting
+    stick-table type ip size 1m expire 30m
+    http-request track-sc0 src
+    http-request deny if { sc_http_req_rate(0) gt 50 }
+
+    # allow certbot challenges
+    acl acme_challenge path_beg /.well-known/acme-challenge/
+    use_backend certbot_backend if acme_challenge
+
+    # redirect everything else to HTTPS
+    default_backend redirect_https
+
+
+# platform core routes
 frontend https_in
-  bind *:443 ssl crt /etc/haproxy/certs/onwuachi.com.pem
+    bind *:443 ssl crt /etc/haproxy/certs/onwuachi.com.pem
 
-  # platform core routes
-  acl is_api path_beg /api
-  acl is_ready path /ready
-  use_backend platform_api if is_api or is_ready
+    acl is_api path_beg /api
+    acl is_ready path /ready
+    acl is_payments path_beg /payments
+    acl is_analytics path_beg /analytics
+    acl is_billings path_beg /billings
 
-  # 🚀 dynamic routing (THIS IS YOUR PLATFORM ENGINE)
-  use_backend %[path,field(2,/)]_backend
-  #use_backend %[path,regsub(^/([^/]+).*,\1)]_backend   ## Next Level
+    use_backend platform_api if is_api or is_ready
+    use_backend payments_backend if is_payments
+    use_backend analytics_backend if is_analytics
+    use_backend billings_backend if is_billings
 
-  #default_backend dummy_backend
-  default_backend hugo_backend
+    default_backend hugo_backend
 
 backend dummy_backend
   mode http
-  http-request return status 503 content-type text/plain lf-string "Service initializing...Platform engineering takes time..check with devops"
+  http-request return status 503 content-type text/plain lf-string "Service initializing... Platform not ready"
 
 backend platform_api
-  option httpchk GET /ready
-  http-check expect status 200
-  server api1 127.0.0.1:3000 check
+    option httpchk GET /ready
+    http-check expect status 200
+    http-request replace-path ^/api(/.*)? \1
+    server api1 127.0.0.1:3000 check
 
 backend hugo_backend
-  server hugo1 127.0.0.1:8080 check
+    option httpchk GET /
+    http-check expect status 200
+    server hugo1 127.0.0.1:8080 check
+
+backend billings_backend
+    http-request replace-path ^/billings(/.*)? \1
+    server billings 127.0.0.1:3030 check
+
+backend analytics_backend
+    http-request replace-path ^/analytics(/.*)? \1
+    server analytics 127.0.0.1:3040 check
+
+backend payments_backend
+    http-request replace-path ^/payments(/.*)? \1
+    server payments 127.0.0.1:3050 check
+
+backend redirect_https
+    redirect scheme https code 301
+
+backend certbot_backend
+  server certbot 127.0.0.1:8089
 EOF
+
+# ensure permissions
+chmod 644 /etc/haproxy/haproxy.cfg
+
+# debug visibility
+echo "==== FINAL HAPROXY CONFIG ===="
+cat /etc/haproxy/haproxy.cfg
 
 # ------------------------------------------------------------
 # Temporary self-signed cert (replaced by certbot at runtime)
@@ -99,6 +142,7 @@ cat /etc/haproxy/certs/onwuachi.com.crt \
 # ------------------------------------------------------------
 # Validate configuration (critical for AMI builds)
 # ------------------------------------------------------------
+echo "==> Validating HAProxy config"
 haproxy -c -f /etc/haproxy/haproxy.cfg -f /etc/haproxy/services/
 
 # ------------------------------------------------------------

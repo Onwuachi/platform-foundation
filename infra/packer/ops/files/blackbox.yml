@@ -3,7 +3,6 @@ modules:
   https:
     prober: http
     timeout: 5s
-
     http:
       valid_http_versions: ["HTTP/1.1", "HTTP/2"]
       method: GET
@@ -12,3 +11,11 @@ modules:
   tcp_connect:
     prober: tcp
     timeout: 5s
+
+  tls_expiry:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      tls_config:
+        insecure_skip_verify: false
