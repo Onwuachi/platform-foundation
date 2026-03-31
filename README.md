@@ -482,7 +482,28 @@ proactive alerting
 👉 observable from day 1
 ---
 
+# 3/31/2026
+🚧 Current State (Milestone Achieved)
+Immutable infrastructure fully operational via Terraform + Packer
+Platform node successfully rebuilt and rehydrated
+Core services running:
+API (healthy)
+Hugo frontend
+Prometheus + Grafana
+HAProxy routing functional (HTTP + HTTPS)
+End-to-end deployment pipeline validated (build → push → trigger)
+⚠️ Known Gaps
+TLS currently using self-signed certificate (LetsEncrypt integration pending)
+Service registry mismatch between /etc/platform/services and /opt/platform/services
+Dynamic service deployment not yet activating containers post-deploy
+Some backends (billings, analytics, payments) not yet running
+🎯 Next Steps
+Unify service registry path
+Implement automated TLS provisioning (Certbot + HAProxy integration)
+Finalize service lifecycle management (deploy → run → register)
+Add platform CLI command for service creation/registration
 
+---
 
 👤 Author
 
