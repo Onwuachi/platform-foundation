@@ -212,6 +212,81 @@ logs)
 ;;
 
 ########################################
+# REGISTER SERVICE
+########################################
+
+register)
+
+
+  if [ -z "$SERVICE" ] || [ -z "${3:-}" ]; then
+    echo "❌ Usage: platform register <service> <port>"
+    exit 1
+  fi
+
+  PORT="${3}"
+
+
+  if [[ ! "$PORT" =~ ^[0-9]+$ ]]; then
+    echo "❌ Invalid port"
+    exit 1
+  fi
+
+  echo "Registering service: $SERVICE on port $PORT"
+
+  # Create temp script to run on instance
+  read -r -d '' REMOTE_CMD <<EOF
+set -euo pipefail
+
+mkdir -p /opt/platform/services
+
+# Add service if missing
+grep -qx "${SERVICE}" /opt/platform/services/services.list 2>/dev/null || \
+  echo "${SERVICE}" >> /opt/platform/services/services.list
+
+# Write port
+echo "${PORT}" > /opt/platform/services/${SERVICE}.port
+
+# Sync ONLY services dir
+aws s3 sync /opt/platform/services s3://platform-api-services/platform/services
+
+# Rehydrate
+/usr/local/bin/platform-rehydrate.sh
+EOF
+
+  CMD_ID=$(ssm_exec "$REMOTE_CMD")
+
+  echo "Command ID: $CMD_ID"
+  echo "✅ Service registered"
+;;
+
+########################################
+# DEREGISTER SERVICE
+########################################
+
+deregister)
+  if [ -z "$SERVICE" ]; then
+    echo "❌ Usage: platform deregister <service>"
+    exit 1
+  fi
+
+  read -r -d '' REMOTE_CMD <<EOF
+set -euo pipefail
+
+sed -i "/^${SERVICE}$/d" /opt/platform/services/services.list || true
+rm -f /opt/platform/services/${SERVICE}.port
+
+aws s3 sync /opt/platform/services s3://platform-api-services/platform/services
+
+/usr/local/bin/platform-rehydrate.sh
+EOF
+
+  CMD_ID=$(ssm_exec "$REMOTE_CMD")
+
+  echo "Command ID: $CMD_ID"
+  echo "🗑️ Service removed"
+;;
+
+########################################
 # STATUS
 ########################################
 

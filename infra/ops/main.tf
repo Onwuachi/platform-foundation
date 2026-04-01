@@ -233,7 +233,12 @@ chmod -R 775 /opt/platform
 # PLATFORM SYNC
 ################################
 
-aws s3 sync s3://platform-api-services/platform/ /opt/platform --exclude "scripts/*" || true
+mkdir -p /opt/platform/services
+
+aws s3 sync \
+  s3://platform-api-services/platform/services \
+  /opt/platform/services \
+  || true
 
 ################################
 # START PLATFORM
