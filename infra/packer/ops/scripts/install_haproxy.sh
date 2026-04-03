@@ -77,11 +77,15 @@ frontend https_in
     acl is_payments path_beg /payments
     acl is_analytics path_beg /analytics
     acl is_billings path_beg /billings
+    
+    acl host_prom hdr(host) -i prom.onwuachi.com
 
     use_backend platform_api if is_api or is_ready
     use_backend payments_backend if is_payments
     use_backend analytics_backend if is_analytics
     use_backend billings_backend if is_billings
+
+    use_backend prom_backend if host_prom
 
     default_backend hugo_backend
 
@@ -117,6 +121,9 @@ backend redirect_https
 
 backend certbot_backend
   server certbot 127.0.0.1:8089
+
+backend prom_backend
+  server prom1 127.0.0.1:9090
 EOF
 
 # ensure permissions

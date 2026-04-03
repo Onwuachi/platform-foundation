@@ -328,8 +328,25 @@ provisioner "shell" {
   }
 
   ################################
+  # Platform Render HAProxy
+  ################################
+  provisioner "file" {
+    source      = "scripts/platform-render-haproxy.sh"
+    destination = "/tmp/platform-render-haproxy.sh"
+  }
+
+  provisioner "shell" {
+    inline = [
+      "sudo mv /tmp/platform-render-haproxy.sh /usr/local/bin/platform-render-haproxy.sh",
+      "sudo chmod +x /usr/local/bin/platform-render-haproxy.sh"
+    ]
+  }
+
+
+  ################################
   # Platform Rehydrate
   ################################
+
   provisioner "file" {
     source      = "scripts/platform-rehydrate.sh"
     destination = "/tmp/platform-rehydrate.sh"

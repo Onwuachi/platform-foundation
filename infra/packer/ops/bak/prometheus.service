@@ -8,7 +8,7 @@ Wants=network-online.target
 ExecStartPre=-/usr/bin/docker rm -f prometheus
 ExecStart=/usr/bin/docker run \
   --name prometheus \
-  -p 127.0.0.1:9090:9090 \
+  --network host \
   -v /opt/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro \
   -v /opt/prometheus/rules:/etc/prometheus/rules:ro \
   -v /opt/prometheus/data:/prometheus \
@@ -17,7 +17,7 @@ ExecStart=/usr/bin/docker run \
   --storage.tsdb.path=/prometheus \
   --storage.tsdb.retention.time=15d \
   --storage.tsdb.wal-compression \
-  --log.level=info
+  --log.level=info 
 
 ExecStop=/usr/bin/docker stop prometheus
 Restart=always

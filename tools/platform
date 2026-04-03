@@ -27,34 +27,43 @@ Usage:
   platform restart <service>
   platform logs <service>
   platform status <service>
+  platform register <service> <port>
+  platform deregister <service>
   platform shell
 EOF
   exit 1
 }
 
 ########################################
-# GET INSTANCE IDS BY TAG
+# GET INSTANCE
 ########################################
 
-get_instance_ids() {
+get_instance_id() {
   aws ec2 describe-instances \
     --region "$REGION" \
     --filters "Name=tag:${TAG_KEY},Values=${TAG_VALUE}" \
-    --query "Reservations[].Instances[].InstanceId" \
-    --output text
+    --query "Reservations[*].Instances[*].InstanceId" \
+    --output text | awk '{print $1}'
 }
 
+INSTANCE_ID=$(get_instance_id)
+
+if [ -z "$INSTANCE_ID" ]; then
+  echo "❌ No instance found"
+  exit 1
+fi
+
 ########################################
-# WAIT FOR INSTANCE RUNNING
+# WAIT FOR INSTANCE
 ########################################
 
 wait_for_running() {
-  echo "Waiting for instance to be running..."
+  echo "Waiting for instance..."
 
   for i in {1..30}; do
     STATE=$(aws ec2 describe-instances \
       --region "$REGION" \
-      --filters "Name=tag:${TAG_KEY},Values=${TAG_VALUE}" \
+      --instance-ids "$INSTANCE_ID" \
       --query "Reservations[].Instances[].State.Name" \
       --output text)
 
@@ -66,12 +75,12 @@ wait_for_running() {
     sleep 5
   done
 
-  echo "❌ Instance did not reach running state"
+  echo "❌ Instance not ready"
   exit 1
 }
 
 ########################################
-# SSM EXEC
+# SSM EXEC (SINGLE COMMAND)
 ########################################
 
 ssm_exec() {
@@ -79,9 +88,27 @@ ssm_exec() {
 
   aws ssm send-command \
     --region "$REGION" \
-    --targets "Key=tag:${TAG_KEY},Values=${TAG_VALUE}" \
+    --instance-ids "$INSTANCE_ID" \
     --document-name "AWS-RunShellScript" \
-    --parameters "commands=$CMD" \
+    --comment "platform exec" \
+    --parameters "commands=[\"$CMD\"]" \
+    --query "Command.CommandId" \
+    --output text
+}
+
+########################################
+# SSM EXEC (MULTI COMMAND)
+########################################
+
+ssm_exec_multi() {
+  local SCRIPT="$1"
+
+  aws ssm send-command \
+    --region "$REGION" \
+    --instance-ids "$INSTANCE_ID" \
+    --document-name "AWS-RunShellScript" \
+    --comment "platform multi exec" \
+    --parameters "commands=$(printf '%s\n' "$SCRIPT" | jq -R . | jq -s .)" \
     --query "Command.CommandId" \
     --output text
 }
@@ -97,25 +124,18 @@ case "$COMMAND" in
 ########################################
 
 up)
-  IDS=$(get_instance_ids)
-
-  if [ -z "$IDS" ]; then
-    echo "❌ No instances found with tag ${TAG_KEY}=${TAG_VALUE}"
-    exit 1
-  fi
-
-  echo "Starting instance(s): $IDS"
+  echo "Starting instance..."
 
   aws ec2 start-instances \
     --region "$REGION" \
-    --instance-ids $IDS >/dev/null
+    --instance-ids "$INSTANCE_ID" >/dev/null
 
   wait_for_running
 
-  echo "Rehydrating platform..."
+  echo "Rehydrating..."
   ssm_exec "sudo /usr/local/bin/platform-rehydrate.sh"
 
-  echo "✅ Platform is UP"
+  echo "✅ Platform UP"
 ;;
 
 ########################################
@@ -123,19 +143,16 @@ up)
 ########################################
 
 down)
-  echo "Shutting down platform..."
+  echo "Stopping platform..."
 
   ssm_exec "sudo systemctl stop ops.target || true"
-
   sleep 5
-
-  IDS=$(get_instance_ids)
 
   aws ec2 stop-instances \
     --region "$REGION" \
-    --instance-ids $IDS >/dev/null
+    --instance-ids "$INSTANCE_ID" >/dev/null
 
-  echo "✅ Platform is DOWN"
+  echo "✅ Platform DOWN"
 ;;
 
 ########################################
@@ -144,10 +161,8 @@ down)
 
 rehydrate)
   echo "Running rehydrate..."
-
-  ssm_exec "sudo /usr/local/bin/platform-rehydrate.sh"
-
-  echo "✅ Rehydrate triggered"
+  CMD_ID=$(ssm_exec "sudo /usr/local/bin/platform-rehydrate.sh")
+  echo "Command ID: $CMD_ID"
 ;;
 
 ########################################
@@ -163,18 +178,10 @@ deploy)
   ROOT=$(git rev-parse --show-toplevel)
   SERVICE_DIR="$ROOT/apps/${SERVICE}/service"
 
-  if [ ! -d "$SERVICE_DIR" ]; then
-    echo "❌ Service not found: $SERVICE"
-    exit 1
-  fi
-
-  echo "Building Docker image..."
   cd "$SERVICE_DIR"
 
   docker build -t ${SERVICE} .
   docker tag ${SERVICE}:latest $REGISTRY/${SERVICE}:latest
-
-  echo "Pushing to ECR..."
 
   aws ecr describe-repositories \
     --repository-names "$SERVICE" \
@@ -188,36 +195,16 @@ deploy)
 
   docker push $REGISTRY/${SERVICE}:latest
 
-  echo "Deploying via SSM..."
-
   ssm_exec "sudo systemctl restart platform-${SERVICE} || true"
 
-  echo "✅ Deployment triggered"
+  echo "✅ Deployed"
 ;;
 
 ########################################
-# LOGS
-########################################
-
-logs)
-  if [ -z "$SERVICE" ]; then
-    echo "❌ Usage: platform logs <service>"
-    exit 1
-  fi
-
-  CMD_ID=$(ssm_exec "sudo journalctl -u platform-${SERVICE} -n 100 --no-pager")
-
-  echo "Command ID: $CMD_ID"
-  echo "👉 Check output in AWS SSM console"
-;;
-
-########################################
-# REGISTER SERVICE
+# REGISTER
 ########################################
 
 register)
-
-
   if [ -z "$SERVICE" ] || [ -z "${3:-}" ]; then
     echo "❌ Usage: platform register <service> <port>"
     exit 1
@@ -225,51 +212,35 @@ register)
 
   PORT="${3}"
 
+  echo "Registering $SERVICE on $PORT"
 
-  if [[ ! "$PORT" =~ ^[0-9]+$ ]]; then
-    echo "❌ Invalid port"
-    exit 1
-  fi
-
-  echo "Registering service: $SERVICE on port $PORT"
-
-  # Create temp script to run on instance
-  read -r -d '' REMOTE_CMD <<EOF
+  read -r -d '' SCRIPT <<EOF
 set -euo pipefail
 
 mkdir -p /opt/platform/services
 
-# Add service if missing
 grep -qx "${SERVICE}" /opt/platform/services/services.list 2>/dev/null || \
   echo "${SERVICE}" >> /opt/platform/services/services.list
 
-# Write port
 echo "${PORT}" > /opt/platform/services/${SERVICE}.port
 
-# Sync ONLY services dir
 aws s3 sync /opt/platform/services s3://platform-api-services/platform/services
 
-# Rehydrate
 /usr/local/bin/platform-rehydrate.sh
 EOF
 
-  CMD_ID=$(ssm_exec "$REMOTE_CMD")
+  CMD_ID=$(ssm_exec_multi "$SCRIPT")
 
   echo "Command ID: $CMD_ID"
-  echo "✅ Service registered"
+  echo "✅ Registered"
 ;;
 
 ########################################
-# DEREGISTER SERVICE
+# DEREGISTER
 ########################################
 
 deregister)
-  if [ -z "$SERVICE" ]; then
-    echo "❌ Usage: platform deregister <service>"
-    exit 1
-  fi
-
-  read -r -d '' REMOTE_CMD <<EOF
+  read -r -d '' SCRIPT <<EOF
 set -euo pipefail
 
 sed -i "/^${SERVICE}$/d" /opt/platform/services/services.list || true
@@ -280,72 +251,29 @@ aws s3 sync /opt/platform/services s3://platform-api-services/platform/services
 /usr/local/bin/platform-rehydrate.sh
 EOF
 
-  CMD_ID=$(ssm_exec "$REMOTE_CMD")
+  CMD_ID=$(ssm_exec_multi "$SCRIPT")
 
   echo "Command ID: $CMD_ID"
-  echo "🗑️ Service removed"
 ;;
-
-########################################
-# STATUS
-########################################
-
-status)
-  if [ -z "$SERVICE" ]; then
-    echo "❌ Usage: platform status <service>"
-    exit 1
-  fi
-
-  CMD_ID=$(ssm_exec "systemctl status platform-${SERVICE} --no-pager")
-
-  echo "Command ID: $CMD_ID"
-  echo "👉 Check output in AWS SSM console"
-;;
-
-
-########################################
-# DEFAULT
-########################################
 
 ########################################
 # RESTART
 ########################################
 
 restart)
-  if [ -z "$SERVICE" ]; then
-    echo "❌ Usage: platform restart <service>"
-    exit 1
-  fi
-
-  echo "Restarting $SERVICE via SSM..."
-
   CMD_ID=$(ssm_exec "sudo systemctl restart platform-${SERVICE} || true")
-
   echo "Command ID: $CMD_ID"
-  echo "✅ Restart triggered"
 ;;
 
 ########################################
-# SHELL (SSM SESSION)
+# SHELL
 ########################################
 
 shell)
-  IDS=$(get_instance_ids)
-
-  if [ -z "$IDS" ]; then
-    echo "❌ No instances found"
-    exit 1
-  fi
-
-  INSTANCE_ID=$(echo "$IDS" | awk '{print $1}')
-
-  echo "Opening SSM shell to $INSTANCE_ID..."
-
   aws ssm start-session \
     --region "$REGION" \
     --target "$INSTANCE_ID"
 ;;
-
 
 *)
   usage

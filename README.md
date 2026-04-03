@@ -503,6 +503,14 @@ Implement automated TLS provisioning (Certbot + HAProxy integration)
 Finalize service lifecycle management (deploy → run → register)
 Add platform CLI command for service creation/registration
 
+
+---
+4/1/2026
+
+• Implements immutable infrastructure replacement patterns using Terraform and AMI versioning, enabling zero-downtime-style instance rotation
+• Separates infrastructure, runtime, and persistent data layers (EBS, S3, configuration sync)
+• Designs platform for future blue/green and rolling deployment strategies via stateless compute and dynamic routing (HAProxy)
+• Demonstrates deterministic rebuild and self-healing platform patterns using rehydration workflows
 ---
 
 👤 Author

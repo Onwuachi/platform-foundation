@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+exec > >(tee -a /var/log/platform-rehydrate.log) 2>&1
+
 echo "=== Rehydrating platform ==="
 
 DOMAIN="onwuachi.com"
@@ -9,24 +11,11 @@ WEBROOT="/var/www/certbot"
 SERVICES_DIR="/opt/platform/services"
 
 ########################################
-# SAFETY GUARD (RECURSION)
+# SYNC STATE
 ########################################
 
-if find /opt/platform -type d -path "*platform/services/platform*" | grep -q .; then
-  echo "❌ Recursive platform structure detected. Aborting."
-  exit 1
-fi
-
-########################################
-# LETSENCRYPT RATE LIMIT GUARD
-########################################
-
-SKIP_CERTBOT=false
-
-if grep -Eqi "too many certificates|rate limit|429" /var/log/letsencrypt/letsencrypt.log 2>/dev/null; then
-  echo "⚠️ Rate limited — skipping cert request"
-  SKIP_CERTBOT=true
-fi
+mkdir -p "$SERVICES_DIR"
+aws s3 sync s3://platform-api-services/platform/services "$SERVICES_DIR"
 
 ########################################
 # CERT SETUP
@@ -41,19 +30,24 @@ if [ ! -L /etc/letsencrypt ]; then
 fi
 
 ########################################
-# TEMP WEB SERVER
+# TEMP WEB SERVER (SAFE)
 ########################################
 
 cd "$WEBROOT"
-python3 -m http.server 8089 >/var/log/certbot-webroot.log 2>&1 &
-WEBROOT_PID=$!
-sleep 2
+
+if ! lsof -i :8089 >/dev/null 2>&1; then
+  python3 -m http.server 8089 >/dev/null 2>&1 &
+  PID=$!
+  sleep 2
+else
+  PID=""
+fi
 
 ########################################
-# ISSUE CERT
+# ISSUE CERT (ONCE)
 ########################################
 
-if [ "$SKIP_CERTBOT" = false ] && [ ! -f "$CERT_BASE/live/$DOMAIN/fullchain.pem" ]; then
+if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
   certbot certonly \
     --webroot \
     -w "$WEBROOT" \
@@ -61,7 +55,7 @@ if [ "$SKIP_CERTBOT" = false ] && [ ! -f "$CERT_BASE/live/$DOMAIN/fullchain.pem"
     --agree-tos \
     --email admin@$DOMAIN \
     -d $DOMAIN \
-    -d www.$DOMAIN
+    -d www.$DOMAIN || true
 fi
 
 ########################################
@@ -79,50 +73,26 @@ if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
   chmod 600 /etc/haproxy/certs/$DOMAIN.pem
 fi
 
-kill $WEBROOT_PID || true
+[ -n "${PID:-}" ] && kill $PID || true
 
 ########################################
-# HAPROXY CONFIG BUILD
+# RENDER CONFIGS
 ########################################
 
 mkdir -p /etc/haproxy/services
-rm -f /etc/haproxy/services/*.cfg || true
 
-if [ -f "$SERVICES_DIR/services.list" ]; then
-  while read -r svc; do
-    [ -z "$svc" ] && continue
-
-    PORT_FILE="$SERVICES_DIR/${svc}.port"
-
-    if [ -f "$PORT_FILE" ]; then
-      PORT=$(cat "$PORT_FILE")
-
-      cat > "/etc/haproxy/services/${svc}.cfg" <<EOF
-backend ${svc}_backend
-  http-request replace-path ^/${svc}/?(.*)$ /\1
-  server ${svc}1 127.0.0.1:${PORT} check
-EOF
-
-      echo "✔ $svc → $PORT"
-    fi
-  done < "$SERVICES_DIR/services.list"
+if [ -x /usr/local/bin/platform-render-haproxy.sh ]; then
+  /usr/local/bin/platform-render-haproxy.sh
+else
+  echo "❌ Missing renderer"
+  exit 1
 fi
 
 ########################################
-# SAFE RELOAD
+# VALIDATE + RELOAD
 ########################################
 
-haproxy -c -f /etc/haproxy/haproxy.cfg || exit 1
+haproxy -c -f /etc/haproxy/haproxy.cfg -f /etc/haproxy/services/ || exit 1
 systemctl reload haproxy
-
-########################################
-# RESTART SERVICES
-########################################
-
-if [ -f "$SERVICES_DIR/services.list" ]; then
-  while read -r svc; do
-    systemctl restart platform-$svc || true
-  done < "$SERVICES_DIR/services.list"
-fi
 
 echo "=== Rehydrate complete ==="

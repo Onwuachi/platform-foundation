@@ -1,12 +1,10 @@
 [Unit]
 Description=Platform Rehydrate
-After=network-online.target docker.service haproxy.service
-Wants=network-online.target haproxy.service
+After=network.target
 
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/platform-rehydrate.sh
-RemainAfterExit=true
 
 [Install]
 WantedBy=multi-user.target
