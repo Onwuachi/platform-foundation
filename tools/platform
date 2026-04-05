@@ -27,7 +27,7 @@ Usage:
   platform restart <service>
   platform logs <service>
   platform status <service>
-  platform register <service> <port>
+  platform register <service> <port> <domain>
   platform deregister <service>
   platform shell
 EOF
@@ -212,21 +212,23 @@ deploy)
 ########################################
 
 register)
-  if [ -z "$SERVICE" ] || [ -z "${3:-}" ]; then
-    echo "❌ Usage: platform register <service> <port>"
+  SERVICE=$2
+  PORT=$3
+  DOMAIN=$4
+
+  if [ -z "$SERVICE" ] || [ -z "$PORT" ] || [ -z "$DOMAIN" ]; then
+    echo "❌ Usage: platform register <service> <port> <domain>"
     exit 1
   fi
-
-  PORT="${3}"
 
   if [[ ! "$PORT" =~ ^[0-9]+$ ]]; then
     echo "❌ Invalid port"
     exit 1
   fi
 
-  echo "Registering $SERVICE on port $PORT"
+  echo "Registering $SERVICE on port $PORT for $DOMAIN"
 
-  read -r -d '' SCRIPT <<EOF
+  SCRIPT=$(cat <<EOF
 set -euo pipefail
 
 mkdir -p /opt/platform/services
@@ -235,17 +237,20 @@ grep -qx "${SERVICE}" /opt/platform/services/services.list 2>/dev/null || \
   echo "${SERVICE}" >> /opt/platform/services/services.list
 
 echo "${PORT}" > /opt/platform/services/${SERVICE}.port
+echo "${DOMAIN}" > /opt/platform/services/${SERVICE}.domain
 
 aws s3 sync /opt/platform/services s3://platform-api-services/platform/services
 
 /usr/local/bin/platform-rehydrate.sh
 EOF
+)
 
   CMD_ID=$(ssm_exec_multi "$SCRIPT")
 
   echo "Command ID: $CMD_ID"
   echo "✅ Registered"
 ;;
+
 
 ########################################
 # DEREGISTER
@@ -257,16 +262,27 @@ deregister)
     exit 1
   fi
 
-  read -r -d '' SCRIPT <<EOF
+  echo "Deregistering $SERVICE..."
+
+  SCRIPT=$(cat <<EOF
 set -euo pipefail
 
-sed -i "/^${SERVICE}$/d" /opt/platform/services/services.list || true
-rm -f /opt/platform/services/${SERVICE}.port
+SERVICES_DIR="/opt/platform/services"
 
-aws s3 sync /opt/platform/services s3://platform-api-services/platform/services
+if [ ! -f "\$SERVICES_DIR/services.list" ]; then
+  echo "No services defined"
+  exit 0
+fi
+
+sed -i "/^${SERVICE}\$/d" \$SERVICES_DIR/services.list || true
+rm -f \$SERVICES_DIR/${SERVICE}.port
+rm -f \$SERVICES_DIR/${SERVICE}.domain
+
+aws s3 sync \$SERVICES_DIR s3://platform-api-services/platform/services --delete
 
 /usr/local/bin/platform-rehydrate.sh
 EOF
+)
 
   CMD_ID=$(ssm_exec_multi "$SCRIPT")
 
