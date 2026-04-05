@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+IFS=$'\n\t'
 
 ########################################
 # CONFIG
@@ -22,6 +23,10 @@ usage() {
 Usage:
   platform up
   platform down
+  platform state
+  platform state-pull
+  platform list
+  platform describe <service>
   platform rehydrate
   platform deploy <service>
   platform restart <service>
@@ -332,6 +337,26 @@ shell)
   aws ssm start-session \
     --region "$REGION" \
     --target "$INSTANCE_ID"
+;;
+
+
+list)
+  aws s3 ls s3://platform-api-services/platform/services/
+;;
+
+describe)
+  SERVICE=$2
+
+  aws s3 cp s3://platform-api-services/platform/services/${SERVICE}.port -
+  aws s3 cp s3://platform-api-services/platform/services/${SERVICE}.domain -
+;;
+
+state)
+  aws s3 ls s3://platform-api-services/platform/services/
+;;
+
+state-pull)
+  aws s3 sync s3://platform-api-services/platform/services ./services-state
 ;;
 
 ########################################
