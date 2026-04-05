@@ -110,6 +110,21 @@ resource "aws_s3_bucket_lifecycle_configuration" "hugo_artifacts" {
   }
 }
 
+
+##############################
+# Platform State Access
+##############################
+resource "aws_s3_bucket_public_access_block" "platform_state" {
+  bucket = aws_s3_bucket.platform_state.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+
+
 ##############################
 # Route53 Zone
 ##############################
@@ -129,6 +144,10 @@ resource "aws_instance" "ops" {
   iam_instance_profile        = var.iam_instance_profile
   key_name                    = var.key_name
   associate_public_ip_address = true
+
+  depends_on = [
+    aws_s3_bucket.platform_state
+  ]
 
   ################################
   # Root Volume
@@ -164,94 +183,66 @@ exec > >(tee -a "$LOG") 2>&1
 echo "=== OPS bootstrap start ==="
 
 ################################
-# VOLUME DETECTION
+# PROMETHEUS VOLUME (SAFE)
 ################################
 
-get_device_by_size() {
-  TARGET_SIZE=$1
-  TOLERANCE=104857600
+DEVICE="/dev/nvme1n1"
 
-  for dev in /dev/nvme*n1; do
-    SIZE=$(blockdev --getsize64 "$dev")
+for i in {1..10}; do
+  [ -e "$DEVICE" ] && break
+  sleep 3
+done
 
-    LOWER=$((TARGET_SIZE - TOLERANCE))
-    UPPER=$((TARGET_SIZE + TOLERANCE))
-
-    if [ "$SIZE" -ge "$LOWER" ] && [ "$SIZE" -le "$UPPER" ]; then
-      echo "$dev"
-      return
-    fi
-  done
-
-  echo "ERROR: No device found for size $TARGET_SIZE"
-  exit 1
-}
-
-setup_volume () {
-  DEVICE=$1
-  MOUNT=$2
-
-  for i in {1..10}; do
-    [ -e "$DEVICE" ] && break
-    sleep 3
-  done
-
+if [ -e "$DEVICE" ]; then
   if ! file -s "$DEVICE" | grep -q filesystem; then
     mkfs.xfs "$DEVICE"
   fi
 
-  mkdir -p "$MOUNT"
+  mkdir -p /opt/prometheus/data
 
-  if ! grep -q "$MOUNT" /etc/fstab; then
-    UUID=$(blkid -s UUID -o value "$DEVICE")
-    echo "UUID=$UUID $MOUNT xfs defaults,nofail 0 2" >> /etc/fstab
-  fi
-}
+  UUID=$(blkid -s UUID -o value "$DEVICE")
+  grep -q "$UUID" /etc/fstab || \
+    echo "UUID=$UUID /opt/prometheus/data xfs defaults,nofail 0 2" >> /etc/fstab
 
-PROM_DEVICE=$(get_device_by_size 16106127360)
-PLATFORM_DEVICE=$(get_device_by_size 5368709120 || true)
-
-if [ -z "$PLATFORM_DEVICE" ]; then
-  echo "⚠️ Platform device not found, skipping mount"
-else
-  setup_volume "$PLATFORM_DEVICE" /opt/platform
+  mount -a
+  chown -R 65534:65534 /opt/prometheus/data
 fi
-
-setup_volume "$PROM_DEVICE" /opt/prometheus/data
-
-if [ -n "$PLATFORM_DEVICE" ]; then
-  setup_volume "$PLATFORM_DEVICE" /opt/platform
-fi
-
-mount -a
-
-chown -R 65534:65534 /opt/prometheus/data
-chown -R ubuntu:ubuntu /opt/platform
-chmod -R 775 /opt/platform
 
 ################################
-# PLATFORM SYNC
+# PLATFORM DIR (EPHEMERAL)
 ################################
 
 mkdir -p /opt/platform/services
 
-aws s3 sync \
-  s3://platform-api-services/platform/services \
-  /opt/platform/services \
-  || true
+################################
+# WAIT FOR S3 (IMPORTANT)
+################################
+
+echo "Waiting for S3 availability..."
+
+for i in {1..10}; do
+  if aws s3 ls s3://platform-api-services >/dev/null 2>&1; then
+    echo "S3 ready"
+    break
+  fi
+  sleep 3
+done
 
 ################################
-# START PLATFORM
+# INITIAL REHYDRATE
 ################################
 
 echo "Running rehydrate..."
 /usr/local/bin/platform-rehydrate.sh
 
+################################
+# START SERVICES AFTER STATE READY
+################################
 
 systemctl daemon-reexec
-systemctl start haproxy
-systemctl start hugo
-systemctl start ops.target
+
+echo "Starting HAProxy..."
+systemctl restart haproxy
 
 echo "=== OPS bootstrap complete ==="
 EOT
@@ -265,26 +256,7 @@ EOT
   })
 }
 
-##############################
-# 🔥 PERSISTENT PLATFORM VOLUME
-##############################
-resource "aws_ebs_volume" "platform" {
-  availability_zone = aws_instance.ops.availability_zone
-  size              = 5
-  type              = "gp3"
 
-  tags = merge(local.common_tags, {
-    Name    = "platform-persistent"
-    Purpose = "platform-state"
-    Persist = "true"
-  })
-}
-
-resource "aws_volume_attachment" "platform" {
-  device_name = "/dev/sdg"
-  volume_id   = aws_ebs_volume.platform.id
-  instance_id = aws_instance.ops.id
-}
 
 ##############################
 # Elastic IP

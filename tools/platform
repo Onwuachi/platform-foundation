@@ -35,7 +35,7 @@ EOF
 }
 
 ########################################
-# GET INSTANCE
+# GET INSTANCE ID
 ########################################
 
 get_instance_id() {
@@ -49,7 +49,7 @@ get_instance_id() {
 INSTANCE_ID=$(get_instance_id)
 
 if [ -z "$INSTANCE_ID" ]; then
-  echo "❌ No instance found"
+  echo "❌ No instance found with tag ${TAG_KEY}=${TAG_VALUE}"
   exit 1
 fi
 
@@ -178,8 +178,14 @@ deploy)
   ROOT=$(git rev-parse --show-toplevel)
   SERVICE_DIR="$ROOT/apps/${SERVICE}/service"
 
+  if [ ! -d "$SERVICE_DIR" ]; then
+    echo "❌ Service not found"
+    exit 1
+  fi
+
   cd "$SERVICE_DIR"
 
+  echo "Building image..."
   docker build -t ${SERVICE} .
   docker tag ${SERVICE}:latest $REGISTRY/${SERVICE}:latest
 
@@ -195,8 +201,9 @@ deploy)
 
   docker push $REGISTRY/${SERVICE}:latest
 
-  ssm_exec "sudo systemctl restart platform-${SERVICE} || true"
+  CMD_ID=$(ssm_exec "sudo systemctl restart platform-${SERVICE} || true")
 
+  echo "Command ID: $CMD_ID"
   echo "✅ Deployed"
 ;;
 
@@ -212,7 +219,12 @@ register)
 
   PORT="${3}"
 
-  echo "Registering $SERVICE on $PORT"
+  if [[ ! "$PORT" =~ ^[0-9]+$ ]]; then
+    echo "❌ Invalid port"
+    exit 1
+  fi
+
+  echo "Registering $SERVICE on port $PORT"
 
   read -r -d '' SCRIPT <<EOF
 set -euo pipefail
@@ -240,6 +252,11 @@ EOF
 ########################################
 
 deregister)
+  if [ -z "$SERVICE" ]; then
+    echo "❌ Usage: platform deregister <service>"
+    exit 1
+  fi
+
   read -r -d '' SCRIPT <<EOF
 set -euo pipefail
 
@@ -254,6 +271,7 @@ EOF
   CMD_ID=$(ssm_exec_multi "$SCRIPT")
 
   echo "Command ID: $CMD_ID"
+  echo "🗑️ Removed"
 ;;
 
 ########################################
@@ -261,7 +279,32 @@ EOF
 ########################################
 
 restart)
+  if [ -z "$SERVICE" ]; then
+    echo "❌ Usage: platform restart <service>"
+    exit 1
+  fi
+
   CMD_ID=$(ssm_exec "sudo systemctl restart platform-${SERVICE} || true")
+
+  echo "Command ID: $CMD_ID"
+  echo "✅ Restarted"
+;;
+
+########################################
+# LOGS
+########################################
+
+logs)
+  CMD_ID=$(ssm_exec "sudo journalctl -u platform-${SERVICE} -n 100 --no-pager")
+  echo "Command ID: $CMD_ID"
+;;
+
+########################################
+# STATUS
+########################################
+
+status)
+  CMD_ID=$(ssm_exec "systemctl status platform-${SERVICE} --no-pager")
   echo "Command ID: $CMD_ID"
 ;;
 
@@ -274,6 +317,10 @@ shell)
     --region "$REGION" \
     --target "$INSTANCE_ID"
 ;;
+
+########################################
+# DEFAULT
+########################################
 
 *)
   usage

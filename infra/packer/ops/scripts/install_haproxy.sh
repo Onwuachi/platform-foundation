@@ -20,6 +20,9 @@ mkdir -p /etc/haproxy/services
 # placeholder
 touch /etc/haproxy/services/_placeholder.cfg
 
+# Placeholder domain map so HAProxy validation passes during AMI build
+echo "default_backend default_backend" > /etc/haproxy/domain.map
+
 # Create systemd override to include dynamic service configs
 mkdir -p /etc/systemd/system/haproxy.service.d
 
@@ -51,79 +54,47 @@ defaults
   timeout client 50s
   timeout server 50s
 
+########################################
+# HTTP (80)
+########################################
 
 frontend http_in
-    bind *:80
+  bind *:80
 
-    # rate limiting
-    stick-table type ip size 1m expire 30m
-    http-request track-sc0 src
-    http-request deny if { sc_http_req_rate(0) gt 50 }
+  # ACME challenge
+  acl acme_challenge path_beg /.well-known/acme-challenge/
+  use_backend certbot_backend if acme_challenge
 
-    # allow certbot challenges
-    acl acme_challenge path_beg /.well-known/acme-challenge/
-    use_backend certbot_backend if acme_challenge
+  # Redirect everything else
+  http-request redirect scheme https code 301 unless acme_challenge
+  # Redirect everything else
+  http-request redirect scheme https code 301 unless acme_challenge
+  http-request redirect scheme https code 301 unless acme_challenge
 
-    # redirect everything else to HTTPS
-    default_backend redirect_https
+########################################
+# HTTPS (443)
+########################################
 
-
-# platform core routes
 frontend https_in
-    bind *:443 ssl crt /etc/haproxy/certs/onwuachi.com.pem
+  bind *:443 ssl crt /etc/haproxy/certs/onwuachi.com.pem
 
-    acl is_api path_beg /api
-    acl is_ready path /ready
-    acl is_payments path_beg /payments
-    acl is_analytics path_beg /analytics
-    acl is_billings path_beg /billings
-    
-    acl host_prom hdr(host) -i prom.onwuachi.com
 
-    use_backend platform_api if is_api or is_ready
-    use_backend payments_backend if is_payments
-    use_backend analytics_backend if is_analytics
-    use_backend billings_backend if is_billings
+  # 🔥 DOMAIN MAP (THE CORE)
+  use_backend %[req.hdr(host),lower,map(/etc/haproxy/domain.map,default_backend)]
 
-    use_backend prom_backend if host_prom
+########################################
+# DEFAULT BACKEND
+########################################
 
-    default_backend hugo_backend
+backend default_backend
+  http-request return status 503 content-type text/plain lf-string "Service not found"
 
-backend dummy_backend
-  mode http
-  http-request return status 503 content-type text/plain lf-string "Service initializing... Platform not ready"
-
-backend platform_api
-    option httpchk GET /ready
-    http-check expect status 200
-    http-request replace-path ^/api(/.*)? \1
-    server api1 127.0.0.1:3000 check
-
-backend hugo_backend
-    option httpchk GET /
-    http-check expect status 200
-    server hugo1 127.0.0.1:8080 check
-
-backend billings_backend
-    http-request replace-path ^/billings(/.*)? \1
-    server billings 127.0.0.1:3030 check
-
-backend analytics_backend
-    http-request replace-path ^/analytics(/.*)? \1
-    server analytics 127.0.0.1:3040 check
-
-backend payments_backend
-    http-request replace-path ^/payments(/.*)? \1
-    server payments 127.0.0.1:3050 check
-
-backend redirect_https
-    redirect scheme https code 301
+########################################
+# CERTBOT
+########################################
 
 backend certbot_backend
   server certbot 127.0.0.1:8089
-
-backend prom_backend
-  server prom1 127.0.0.1:9090
 EOF
 
 # ensure permissions
@@ -150,6 +121,8 @@ cat /etc/haproxy/certs/onwuachi.com.crt \
 # Validate configuration (critical for AMI builds)
 # ------------------------------------------------------------
 echo "==> Validating HAProxy config"
+echo "default_backend default_backend" > /etc/haproxy/domain.map
+
 haproxy -c -f /etc/haproxy/haproxy.cfg -f /etc/haproxy/services/
 
 # ------------------------------------------------------------
@@ -160,3 +133,4 @@ systemctl enable haproxy
 systemctl stop haproxy || true
 
 echo "=== HAProxy AMI provisioning complete ==="
+

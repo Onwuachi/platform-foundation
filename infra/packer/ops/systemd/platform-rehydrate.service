@@ -3,8 +3,8 @@ Description=Platform Rehydrate
 After=network.target
 
 [Service]
-Type=oneshot
 ExecStart=/usr/local/bin/platform-rehydrate.sh
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
