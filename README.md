@@ -513,6 +513,17 @@ Add platform CLI command for service creation/registration
 • Demonstrates deterministic rebuild and self-healing platform patterns using rehydration workflows
 ---
 
+## Phase 4 – Platform Control Plane
+
+- S3-backed declarative service state
+- Dynamic HAProxy routing via domain maps
+- Systemd-managed container services
+- Automated rehydration (instance rebuild safe)
+- TLS via Certbot + HAProxy
+
+Platform now behaves like a lightweight PaaS.
+---------------------------------------------
+
 👤 Author
 
 Derrick C. Onwuachi
