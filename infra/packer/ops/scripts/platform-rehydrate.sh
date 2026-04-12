@@ -123,6 +123,68 @@ else
 fi
 
 ########################################
+# AUTH TO ECR (🔥 REQUIRED)
+########################################
+
+echo "Authenticating to ECR..."
+
+aws ecr get-login-password --region us-east-1 | \
+  docker login --username AWS --password-stdin 046685909731.dkr.ecr.us-east-1.amazonaws.com
+
+########################################
+# BUILD + START SERVICES
+########################################
+
+echo "Starting services..."
+
+for SERVICE in $(cat "$SERVICES_DIR/services.list"); do
+  echo "Processing service: $SERVICE"
+
+  PORT=$(cat "$SERVICES_DIR/${SERVICE}.port")
+  IMAGE="046685909731.dkr.ecr.us-east-1.amazonaws.com/${SERVICE}:latest"
+
+  echo "Using port: $PORT"
+  echo "Using image: $IMAGE"
+
+
+  echo "Authenticating to ECR..."
+  aws ecr get-login-password --region us-east-1 | \
+   docker login --username AWS --password-stdin 046685909731.dkr.ecr.us-east-1.amazonaws.com
+
+  echo "Pulling image..."
+  
+  docker pull "$IMAGE"
+
+  SERVICE_FILE="/etc/systemd/system/platform-${SERVICE}.service"
+
+  echo "Creating systemd service: $SERVICE_FILE"
+
+cat <<EOF > "$SERVICE_FILE"
+[Unit]
+Description=Platform Service - $SERVICE
+After=docker.service
+Requires=docker.service
+
+[Service]
+Restart=always
+ExecStart=/usr/bin/docker run --rm --name ${SERVICE} -p ${PORT}:80 $IMAGE
+ExecStop=/usr/bin/docker stop ${SERVICE}
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  echo "Reloading systemd..."
+  systemctl daemon-reexec
+  systemctl daemon-reload
+
+  echo "Enabling + restarting service..."
+  systemctl enable platform-${SERVICE}
+  systemctl restart platform-${SERVICE}
+
+done
+
+########################################
 # VALIDATE + RELOAD
 ########################################
 

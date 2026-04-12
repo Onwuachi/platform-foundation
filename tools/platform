@@ -35,6 +35,7 @@ Usage:
   platform register <service> <port> <domain>
   platform deregister <service>
   platform shell
+  platform health 
 EOF
   exit 1
 }
@@ -47,11 +48,14 @@ get_instance_id() {
   aws ec2 describe-instances \
     --region "$REGION" \
     --filters "Name=tag:${TAG_KEY},Values=${TAG_VALUE}" \
-    --query "Reservations[*].Instances[*].InstanceId" \
-    --output text | awk '{print $1}'
+              "Name=instance-state-name,Values=running" \
+    --query "Reservations[].Instances[0].InstanceId" \
+    --output text
 }
 
-INSTANCE_ID=$(get_instance_id)
+#INSTANCE_ID=$(get_instance_id)
+INSTANCE_ID=$(get_instance_id | tr '\t' '\n' | head -n1)
+
 
 if [ -z "$INSTANCE_ID" ]; then
   echo "❌ No instance found with tag ${TAG_KEY}=${TAG_VALUE}"
@@ -108,15 +112,69 @@ ssm_exec() {
 ssm_exec_multi() {
   local SCRIPT="$1"
 
+  local WRAPPED_SCRIPT="bash -c '$SCRIPT'"
+
   aws ssm send-command \
     --region "$REGION" \
     --instance-ids "$INSTANCE_ID" \
     --document-name "AWS-RunShellScript" \
     --comment "platform multi exec" \
-    --parameters "commands=$(printf '%s\n' "$SCRIPT" | jq -R . | jq -s .)" \
+    --parameters "commands=$(printf '%s\n' "$WRAPPED_SCRIPT" | jq -R . | jq -s .)" \
     --query "Command.CommandId" \
     --output text
 }
+
+
+
+########################################
+#  SSM Command Wait + Output
+########################################
+wait_for_ssm() {
+  local CMD_ID="$1"
+
+  echo "Waiting for command to complete..."
+
+  for i in {1..30}; do
+    STATUS=$(aws ssm list-command-invocations \
+      --region "$REGION" \
+      --command-id "$CMD_ID" \
+      --details \
+      --query "CommandInvocations[0].Status" \
+      --output text 2>/dev/null)
+
+    if [[ "$STATUS" == "Success" ]]; then
+      echo "✅ Command succeeded"
+
+      aws ssm list-command-invocations \
+        --region "$REGION" \
+        --command-id "$CMD_ID" \
+        --details \
+        --query "CommandInvocations[0].CommandPlugins[0].Output" \
+        --output text
+
+      return
+    fi
+
+    if [[ "$STATUS" == "Failed" ]]; then
+      echo "❌ Command failed"
+
+      aws ssm list-command-invocations \
+        --region "$REGION" \
+        --command-id "$CMD_ID" \
+        --details \
+        --query "CommandInvocations[0].CommandPlugins[0].Output" \
+        --output text
+
+      exit 1
+    fi
+
+    sleep 2
+  done
+
+  echo "❌ Timeout waiting for command"
+  exit 1
+}
+
 
 ########################################
 # COMMANDS
@@ -190,10 +248,23 @@ deploy)
 
   cd "$SERVICE_DIR"
 
+  ########################################
+  # BUILD METADATA (🔥 this is new)
+  ########################################
+  export GIT_COMMIT=$(git rev-parse --short HEAD)
+  export BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
   echo "Building image..."
-  docker build -t ${SERVICE} .
+  docker build \
+    --build-arg GIT_COMMIT=$GIT_COMMIT \
+    --build-arg BUILD_TIME=$BUILD_TIME \
+    -t ${SERVICE} .
+
   docker tag ${SERVICE}:latest $REGISTRY/${SERVICE}:latest
 
+  ########################################
+  # ECR
+  ########################################
   aws ecr describe-repositories \
     --repository-names "$SERVICE" \
     --region "$REGION" >/dev/null 2>&1 || \
@@ -206,10 +277,36 @@ deploy)
 
   docker push $REGISTRY/${SERVICE}:latest
 
-  CMD_ID=$(ssm_exec "sudo systemctl restart platform-${SERVICE} || true")
+  ########################################
+  # REMOTE DEPLOY (SAFE VERSION)
+  ########################################
+  SCRIPT=$(cat <<EOF
+#!/bin/bash
+set -euo pipefail
+
+echo "Pulling image..."
+docker pull $REGISTRY/${SERVICE}:latest
+
+echo "Restarting service..."
+systemctl restart platform-${SERVICE}
+
+sleep 3
+
+echo "Checking status..."
+systemctl is-active platform-${SERVICE}
+
+echo "Running containers:"
+docker ps | grep ${SERVICE} || true
+EOF
+)
+
+  CMD_ID=$(ssm_exec_multi "$SCRIPT")
 
   echo "Command ID: $CMD_ID"
-  echo "✅ Deployed"
+
+  wait_for_ssm "$CMD_ID"
+
+  echo "🚀 Deploy complete"
 ;;
 
 ########################################
@@ -316,8 +413,8 @@ restart)
 ########################################
 
 logs)
-  CMD_ID=$(ssm_exec "sudo journalctl -u platform-${SERVICE} -n 100 --no-pager")
-  echo "Command ID: $CMD_ID"
+  CMD_ID=$(ssm_exec "journalctl -u platform-${SERVICE} -n 100 --no-pager")
+  wait_for_ssm "$CMD_ID"
 ;;
 
 ########################################
@@ -326,7 +423,12 @@ logs)
 
 status)
   CMD_ID=$(ssm_exec "systemctl status platform-${SERVICE} --no-pager")
-  echo "Command ID: $CMD_ID"
+  wait_for_ssm "$CMD_ID"
+;;
+
+health)
+  CMD_ID=$(ssm_exec "curl -s localhost:${PORT:-80} || true")
+  wait_for_ssm "$CMD_ID"
 ;;
 
 ########################################
