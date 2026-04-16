@@ -149,6 +149,11 @@ resource "aws_instance" "ops" {
     aws_s3_bucket.platform_state
   ]
 
+  lifecycle {
+    #  replace_triggered_by = [data.aws_ssm_parameter.ops_ami.value]
+  }
+
+
   ################################
   # Root Volume
   ################################

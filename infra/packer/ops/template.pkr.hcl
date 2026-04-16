@@ -267,7 +267,7 @@ provisioner "shell" {
   }
 
   provisioner "file" {
-    source      = "${path.root}/../../../apps/hugo/site"
+    source      = "${path.root}/../../../apps/hugo/service"
     destination = "/tmp/hugo-site"
   }
 

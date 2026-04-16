@@ -57,7 +57,7 @@ title: "Culture"
     <li><a href="https://www.youtube.com/results?search_query=gundam+anime+scenes">Gundam</a></li>
     <li><a href="https://www.youtube.com/results?search_query=fullmetal+alchemist+brotherhood+best+moments">Fullmetal Alchemist: Brotherhood</a></li>
     <li><a href="https://www.youtube.com/results?search_query=dragon+ball+z+best+fights">Dragon Ball Z</a></li>
-    <li><a href="https://www.youtube.com/results?search_query=fire+force+shinra+fights">Fire Force 🔥</a></li>
+    <li><a href="https://www.youtube.com/results?search_query=fire+force+shinra+fights">Fire Force</a></li>
     <li><a href="https://www.youtube.com/results?search_query=hells+paradise+anime+scenes">Hell’s Paradise</a></li>
     <li><a href="https://www.youtube.com/results?search_query=fairy+tail+best+moments">Fairy Tail</a></li>
   </ul>

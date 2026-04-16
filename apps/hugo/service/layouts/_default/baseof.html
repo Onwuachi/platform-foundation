@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>{{ .Site.Title }}</title>
+
+  <style>
+    body { margin:0; font-family:Arial; background:#0f1117; color:#e5e5e5; }
+
+    .topbar {
+      display:flex;
+      justify-content:space-between;
+      padding:1rem;
+      background:#151823;
+      border-bottom:1px solid #2a2f3a;
+    }
+
+    .nav a {
+      color:#9cc9ff;
+      margin-right:1rem;
+      text-decoration:none;
+    }
+
+    .container { padding:2rem; }
+
+    .card {
+      background:#151823;
+      padding:1rem;
+      border-radius:10px;
+      border:1px solid #2a2f3a;
+      margin-bottom:1rem;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="topbar">
+    <strong>Onwuachi Control Plane</strong>
+
+
+    <div class="nav" style="display:flex; gap:1rem;">
+      <a href="/">Home</a>
+      <a href="/culture/">Culture</a>
+      <a href="/posts/">Events</a>
+      <a href="/learn/">Learn</a>
+      <a href="/news/">News</a>
+      <a href="/platform/">Platform</a>
+    </div>
+  </div>
+
+  <div class="container">
+    {{ block "main" . }}{{ end }}
+  </div>
+
+</body>
+</html>
+
