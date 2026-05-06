@@ -1,13 +1,18 @@
 {{ define "main" }}
 
-<div class="card">
-  <h2>🎬 Culture Module</h2>
-  <p>Media + behavioral layer of the system</p>
-</div>
+{{ partial "platform/header.html" . }}
 
-<div class="card">
-  {{ .Content }}
-</div>
+{{ partial "platform/hero.html" . }}
+
+{{ partial "platform/culture.html" . }}
+
+{{ partial "platform/news.html" . }}
+
+{{ partial "platform/architecture.html" . }}
+
+{{ partial "platform/learning.html" . }}
+
+{{ partial "platform/footer-quote.html" . }}
 
 {{ end }}
 

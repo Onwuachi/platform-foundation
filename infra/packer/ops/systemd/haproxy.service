@@ -1,6 +1,6 @@
 [Unit]
 Description=HAProxy Load Balancer
-After=network-online.target docker.service hugo.service
+After=network-online.target docker.service
 Wants=network-online.target
 
 [Service]

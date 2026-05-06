@@ -48,19 +48,21 @@ get_instance_id() {
   aws ec2 describe-instances \
     --region "$REGION" \
     --filters "Name=tag:${TAG_KEY},Values=${TAG_VALUE}" \
-              "Name=instance-state-name,Values=running" \
-    --query "Reservations[].Instances[0].InstanceId" \
-    --output text
+              "Name=instance-state-name,Values=pending,running,stopping,stopped" \
+    --query "Reservations[].Instances[].InstanceId" \
+    --output text | tr '\t' '\n' | head -n1
 }
 
-#INSTANCE_ID=$(get_instance_id)
-INSTANCE_ID=$(get_instance_id | tr '\t' '\n' | head -n1)
+#INSTANCE_ID
+require_instance() {
+  INSTANCE_ID=$(get_instance_id)
 
+  if [ -z "${INSTANCE_ID:-}" ] || [ "$INSTANCE_ID" = "None" ]; then
+    echo "❌ No instance found with tag ${TAG_KEY}=${TAG_VALUE}"
+    exit 1
+  fi
+}
 
-if [ -z "$INSTANCE_ID" ]; then
-  echo "❌ No instance found with tag ${TAG_KEY}=${TAG_VALUE}"
-  exit 1
-fi
 
 ########################################
 # WAIT FOR INSTANCE
@@ -187,6 +189,8 @@ case "$COMMAND" in
 ########################################
 
 up)
+  require_instance
+
   echo "Starting instance..."
 
   aws ec2 start-instances \
@@ -201,11 +205,13 @@ up)
   echo "✅ Platform UP"
 ;;
 
+
 ########################################
 # DOWN
 ########################################
 
 down)
+  require_instance 
   echo "Stopping platform..."
 
   ssm_exec "sudo systemctl stop ops.target || true"
@@ -223,6 +229,7 @@ down)
 ########################################
 
 rehydrate)
+  require_instance 
   echo "Running rehydrate..."
   CMD_ID=$(ssm_exec "sudo /usr/local/bin/platform-rehydrate.sh")
   echo "Command ID: $CMD_ID"
@@ -233,6 +240,8 @@ rehydrate)
 ########################################
 
 deploy)
+  require_instance
+
   if [ -z "$SERVICE" ]; then
     echo "❌ Usage: platform deploy <service>"
     exit 1
@@ -314,6 +323,8 @@ EOF
 ########################################
 
 register)
+  require_instance
+
   SERVICE=$2
   PORT=$3
   DOMAIN=$4
@@ -359,6 +370,8 @@ EOF
 ########################################
 
 deregister)
+  require_instance 
+
   if [ -z "$SERVICE" ]; then
     echo "❌ Usage: platform deregister <service>"
     exit 1
@@ -397,6 +410,8 @@ EOF
 ########################################
 
 restart)
+  require_instance 
+
   if [ -z "$SERVICE" ]; then
     echo "❌ Usage: platform restart <service>"
     exit 1
@@ -413,6 +428,8 @@ restart)
 ########################################
 
 logs)
+  require_instance 
+
   CMD_ID=$(ssm_exec "journalctl -u platform-${SERVICE} -n 100 --no-pager")
   wait_for_ssm "$CMD_ID"
 ;;
@@ -422,11 +439,15 @@ logs)
 ########################################
 
 status)
+  require_instance 
+
   CMD_ID=$(ssm_exec "systemctl status platform-${SERVICE} --no-pager")
   wait_for_ssm "$CMD_ID"
 ;;
 
 health)
+  require_instance
+
   CMD_ID=$(ssm_exec "curl -s localhost:${PORT:-80} || true")
   wait_for_ssm "$CMD_ID"
 ;;
@@ -436,6 +457,8 @@ health)
 ########################################
 
 shell)
+  require_instance
+
   aws ssm start-session \
     --region "$REGION" \
     --target "$INSTANCE_ID"
@@ -443,10 +466,13 @@ shell)
 
 
 list)
+  require_instance 
   aws s3 ls s3://platform-api-services/platform/services/
 ;;
 
 describe)
+  require_instance
+
   SERVICE=$2
 
   aws s3 cp s3://platform-api-services/platform/services/${SERVICE}.port -
@@ -454,10 +480,14 @@ describe)
 ;;
 
 state)
+  require_instance
+
   aws s3 ls s3://platform-api-services/platform/services/
 ;;
 
 state-pull)
+  require_instance
+
   aws s3 sync s3://platform-api-services/platform/services ./services-state
 ;;
 
@@ -466,6 +496,8 @@ state-pull)
 ########################################
 
 *)
+  require_instance 
+
   usage
 ;;
 

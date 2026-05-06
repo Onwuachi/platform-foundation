@@ -63,52 +63,52 @@ resource "aws_s3_bucket_lifecycle_configuration" "platform_state" {
 ##############################
 # S3 - Hugo Artifacts
 ##############################
-resource "aws_s3_bucket" "hugo_artifacts" {
-  bucket = "onwuachi-hugo-artifacts"
+#resource "aws_s3_bucket" "hugo_artifacts" {
+#  bucket = "onwuachi-hugo-artifacts"
 
-  tags = merge(local.common_tags, {
-    Name = "hugo-artifacts"
-  })
-}
+#  tags = merge(local.common_tags, {
+#    Name = "hugo-artifacts"
+#  })
+#}
 
 ##############################
 # hugo_artifacts Versioning
 ##############################
-resource "aws_s3_bucket_versioning" "hugo_artifacts" {
-  bucket = aws_s3_bucket.hugo_artifacts.id
+#resource "aws_s3_bucket_versioning" "hugo_artifacts" {
+#  bucket = aws_s3_bucket.hugo_artifacts.id
 
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
+#  versioning_configuration {
+#    status = "Enabled"
+#  }
+#}
 
 ##############################
 # hugo_artifacts Block Public Access (IMPORTANT)
 ##############################
-resource "aws_s3_bucket_public_access_block" "hugo_artifacts" {
-  bucket = aws_s3_bucket.hugo_artifacts.id
+#resource "aws_s3_bucket_public_access_block" "hugo_artifacts" {
+#  bucket = aws_s3_bucket.hugo_artifacts.id
 
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
+#  block_public_acls       = true
+#  block_public_policy     = true
+#  ignore_public_acls      = true
+#  restrict_public_buckets = true
+#}
 
 ##############################
 # hugo_artifacts Lifecycle (keep it clean)
 ##############################
-resource "aws_s3_bucket_lifecycle_configuration" "hugo_artifacts" {
-  bucket = aws_s3_bucket.hugo_artifacts.id
+#resource "aws_s3_bucket_lifecycle_configuration" "hugo_artifacts" {
+#  bucket = aws_s3_bucket.hugo_artifacts.id
 
-  rule {
-    id     = "cleanup-old-versions"
-    status = "Enabled"
+#  rule {
+#    id     = "cleanup-old-versions"
+#    status = "Enabled"
 
-    noncurrent_version_expiration {
-      noncurrent_days = 7
-    }
-  }
-}
+#    noncurrent_version_expiration {
+#      noncurrent_days = 7
+#    }
+#  }
+#}
 
 
 ##############################
@@ -146,12 +146,14 @@ resource "aws_instance" "ops" {
   associate_public_ip_address = true
 
   depends_on = [
-    aws_s3_bucket.platform_state
+    aws_s3_bucket.platform_state,
+    aws_s3_bucket_versioning.platform_state,
+    aws_s3_bucket_public_access_block.platform_state
   ]
 
-  lifecycle {
-    #  replace_triggered_by = [data.aws_ssm_parameter.ops_ami.value]
-  }
+  #lifecycle {
+  #  replace_triggered_by = [data.aws_ssm_parameter.ops_ami]  # was data.aws_ssm_parameter.ops_ami.value] ###
+  #}
 
 
   ################################
@@ -238,7 +240,14 @@ done
 ################################
 
 echo "Running rehydrate..."
-/usr/local/bin/platform-rehydrate.sh
+
+for i in {1..3}; do
+  if /usr/local/bin/platform-rehydrate.sh; then
+    break
+  fi
+  echo "Rehydrate failed... retrying"
+  sleep 5
+done
 
 ################################
 # START SERVICES AFTER STATE READY
@@ -246,8 +255,8 @@ echo "Running rehydrate..."
 
 systemctl daemon-reexec
 
-echo "Starting HAProxy..."
-systemctl restart haproxy
+#echo "Starting HAProxy..."
+#systemctl restart haproxy     ###platform-rehydrate already: builds config, validates config, reloads HAProxy so unnecessary to restart
 
 echo "=== OPS bootstrap complete ==="
 EOT

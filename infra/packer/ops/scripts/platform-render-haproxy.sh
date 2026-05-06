@@ -6,6 +6,15 @@ HAPROXY_DIR="/etc/haproxy"
 OUTPUT_DIR="${HAPROXY_DIR}/services"
 MAP_FILE="${HAPROXY_DIR}/domain.map"
 
+echo "Waiting for Docker..."
+
+for i in {1..10}; do
+  if systemctl is-active docker >/dev/null 2>&1; then
+    echo "Docker ready"
+    break
+  fi
+  sleep 3
+done
 
 mkdir -p "$OUTPUT_DIR"
 rm -f "$OUTPUT_DIR"/*.cfg
@@ -15,10 +24,9 @@ if [ ! -f "$SERVICES_DIR/services.list" ]; then
   exit 0
 fi
 
-# ONLY clear map if we are about to rebuild it
-> "$MAP_FILE"
-
-
+# Build fresh domain map safely
+TMP_MAP=$(mktemp)
+> "$TMP_MAP"
 
 while read -r SERVICE; do
   [ -z "$SERVICE" ] && continue
@@ -26,11 +34,13 @@ while read -r SERVICE; do
   PORT_FILE="$SERVICES_DIR/${SERVICE}.port"
   DOMAIN_FILE="$SERVICES_DIR/${SERVICE}.domain"
 
-  [ -f "$PORT_FILE" ] || continue
+  if [ ! -f "$PORT_FILE" ]; then
+    echo "⚠️ Missing port for $SERVICE — skipping"
+    continue
+  fi
 
   PORT=$(cat "$PORT_FILE")
 
-  # Default domain if not defined
   if [ -f "$DOMAIN_FILE" ]; then
     DOMAIN=$(cat "$DOMAIN_FILE")
   else
@@ -41,18 +51,58 @@ while read -r SERVICE; do
   # CREATE BACKEND FILE
   ########################################
 
+  if [ "$SERVICE" = "hugo" ]; then
+  cat > "$OUTPUT_DIR/${SERVICE}.cfg" <<EOF
+backend ${SERVICE}_backend
+  http-request set-path %[path,regsub(^/hugo,)]
+  server ${SERVICE} 127.0.0.1:${PORT}
+EOF
+else
   cat > "$OUTPUT_DIR/${SERVICE}.cfg" <<EOF
 backend ${SERVICE}_backend
   server ${SERVICE} 127.0.0.1:${PORT}
 EOF
+fi
 
   ########################################
-  # ADD TO DOMAIN MAP
+  # ADD TO MAP (SAFE)
   ########################################
 
-  echo "${DOMAIN} ${SERVICE}_backend" >> "$MAP_FILE"
+  #printf "%s %s\n" "$DOMAIN" "${SERVICE}_backend" >> "$TMP_MAP"
 
+########################################
+# ADD TO MAP (MULTI-DOMAIN SAFE)
+########################################
+
+IFS=',' read -ra DOMAINS <<< "$DOMAIN"
+
+for d in "${DOMAINS[@]}"; do
+  printf "%s %s\n" "$d" "${SERVICE}_backend" >> "$TMP_MAP"
+done
 done < "$SERVICES_DIR/services.list"
+
+########################################
+# VALIDATE MAP
+########################################
+
+if [ ! -s "$TMP_MAP" ]; then
+  echo "❌ Generated empty domain map — aborting"
+  exit 1
+fi
+
+########################################
+# REMOVE DUPES (ORDER SAFE)
+########################################
+
+awk '!seen[$0]++' "$TMP_MAP" > "${TMP_MAP}.dedup"
+mv "${TMP_MAP}.dedup" "$TMP_MAP"
+
+########################################
+# ATOMIC REPLACE
+########################################
+
+mv "$TMP_MAP" "$MAP_FILE"
+
 
 echo "=== Render complete ==="
 cat "$MAP_FILE"
