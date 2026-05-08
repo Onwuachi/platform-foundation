@@ -51,17 +51,21 @@ while read -r SERVICE; do
   # CREATE BACKEND FILE
   ########################################
 
-  if [ "$SERVICE" = "hugo" ]; then
-  cat > "$OUTPUT_DIR/${SERVICE}.cfg" <<EOF
-backend ${SERVICE}_backend
-  http-request set-path %[path,regsub(^/hugo,)]
-  server ${SERVICE} 127.0.0.1:${PORT}
-EOF
-else
-  cat > "$OUTPUT_DIR/${SERVICE}.cfg" <<EOF
-backend ${SERVICE}_backend
-  server ${SERVICE} 127.0.0.1:${PORT}
-EOF
+ # if [ "$SERVICE" = "hugo" ]; then
+#  cat > "$OUTPUT_DIR/${SERVICE}.cfg" <<EOF
+#backend ${SERVICE}_backend
+#  http-request set-path %[path,regsub(^/hugo,)]
+#  server ${SERVICE} 127.0.0.1:${PORT}
+#EOF
+#else
+#  cat > "$OUTPUT_DIR/${SERVICE}.cfg" <<EOF
+#backend ${SERVICE}_backend
+#  server ${SERVICE} 127.0.0.1:${PORT}
+#EOF
+#fi
+
+if [ -n "$SERVICE_PATH" ]; then
+  echo "http-request set-path %[path,regsub(^${SERVICE_PATH},)]"
 fi
 
   ########################################

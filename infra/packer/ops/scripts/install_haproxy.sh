@@ -64,11 +64,13 @@ frontend http_in
   acl acme_challenge path_beg /.well-known/acme-challenge/
   use_backend certbot_backend if acme_challenge
 
+  # Redirect everything else to HTTPS
+  http-request redirect scheme https code 301 unless acme_challenge
+
   acl is_hugo path_beg /hugo
   use_backend hugo_backend if is_hugo
 
-  # Redirect everything else to HTTPS
-  http-request redirect scheme https code 301 unless acme_challenge
+
 
 ########################################
 # HTTPS (443)
@@ -116,6 +118,9 @@ openssl req -x509 -nodes -days 365 \
 cat /etc/haproxy/certs/temp.crt \
     /etc/haproxy/certs/temp.key \
     > /etc/haproxy/certs/temp.pem
+
+rm -f /etc/haproxy/certs/*.crt
+rm -f /etc/haproxy/certs/*.key
 
 # ------------------------------------------------------------
 # Validate config (fail build if broken)

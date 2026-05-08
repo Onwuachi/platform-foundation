@@ -132,22 +132,31 @@ fi
 # BUILD PEM FOR HAPROXY
 ########################################
 
-echo "Building HAProxy PEM..."
+#echo "Building HAProxy PEM..."
 
-CERT_PATH="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
+#CERT_PATH="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
 
-if [ ! -f "$CERT_PATH" ]; then
-  echo "❌ No valid cert found — aborting"
+#if [ ! -f "$CERT_PATH" ]; then
+#  echo "❌ No valid cert found — aborting"
+#  exit 1
+#fi
+
+#cat \
+#  /etc/letsencrypt/live/$DOMAIN/fullchain.pem \
+#  /etc/letsencrypt/live/$DOMAIN/privkey.pem \
+#  > /etc/haproxy/certs/$DOMAIN.pem
+
+#chmod 600 /etc/haproxy/certs/$DOMAIN.pem
+
+CERT="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
+
+if [ ! -f "$CERT" ]; then
+  echo "❌ Missing cert for $DOMAIN"
   exit 1
 fi
 
-cat \
-  /etc/letsencrypt/live/$DOMAIN/fullchain.pem \
-  /etc/letsencrypt/live/$DOMAIN/privkey.pem \
-  > /etc/haproxy/certs/$DOMAIN.pem
-
+cat $CERT /etc/letsencrypt/live/$DOMAIN/privkey.pem > /etc/haproxy/certs/$DOMAIN.pem
 chmod 600 /etc/haproxy/certs/$DOMAIN.pem
-
 
 ########################################
 # 🔥 SYNC CERTS BACK TO S3
@@ -227,7 +236,8 @@ echo "Validating HAProxy..."
 
 haproxy -c -f /etc/haproxy/haproxy.cfg -f /etc/haproxy/services/ || exit 1
 
-echo "Reloading HAProxy (final)..."
-systemctl reload haproxy
+echo "Reloading/Restarting HAProxy (final)..."
+#systemctl reload haproxy
+systemctl restart haproxy
 
 echo "=== Rehydrate complete ==="
