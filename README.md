@@ -1,6 +1,6 @@
 ##
 ---
-# Platform Foundation**  
+# Platform Foundation  
 ### *Stateless Infrastructure + Self‑Rehydrating Control Plane*
 
 A production‑style platform that combines **immutable infrastructure**, **declarative state**, and a **self‑rehydrating control plane** to rebuild its entire runtime deterministically from a single source of truth.
