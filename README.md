@@ -214,3 +214,41 @@ Infrastructure → Platform
 
 A system designed not just to deploy services—but to reconstruct and operate them reliably from first principles.
 
+📁 Proven Runtime Behaviors
+
+Immutable AMI replacement validated
+Full node destruction/rebuild tested
+Runtime reconstructed from S3 state
+HAProxy safe reload validated
+TLS auto-discovery via cert directory
+Docker services restored automatically
+systemd orchestration verified
+
+📌 Operational Commands
+platform up
+platform down
+platform deploy api
+platform register hugo 8081 onwuachi.com
+platform rehydrate
+platform shell
+
+📌 Rehydration Sequence
+EC2 Boot
+ → systemd
+ → platform-rehydrate
+ → S3 state sync
+ → generate HAProxy maps
+ → generate service units
+ → pull images
+ → start containers
+ → validate HAProxy
+ → graceful edge reload
+
+
+📦 Key Engineering Achievements
+HAProxy runtime include architecture
+Dynamic backend generation
+TLS directory-based SNI loading
+Immutable rebuild validation
+Service orchestration via generated systemd
+Externalized control plane state
