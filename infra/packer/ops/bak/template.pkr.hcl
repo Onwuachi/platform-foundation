@@ -73,6 +73,7 @@ build {
     scripts = [
       "scripts/install_monitoring_users.sh",
       "scripts/install_base.sh",
+      "scripts/install_ecr_helper.sh",
       "scripts/install_swap.sh",
       "scripts/install_haproxy.sh",
       "scripts/install_dummy_cert.sh",
@@ -166,6 +167,20 @@ build {
     destination = "/tmp/platform-api.service"
   }
 
+provisioner "file" {
+  source      = "systemd/hugo.service"
+  destination = "/tmp/hugo.service"
+}
+
+provisioner "shell" {
+  inline = [
+    "sudo mv /tmp/hugo.service /etc/systemd/system/hugo.service",
+    "sudo systemctl daemon-reload",
+    "sudo systemctl enable hugo"
+  ]
+}
+
+
   ################################
   # Platform Update Timer
   ################################
@@ -241,10 +256,9 @@ build {
     ]
   }
 
-#####################
-# HUGO
-#####################
-# Ensure directories exist
+  ################################
+  # HUGO (FIXED)
+  ################################
   provisioner "shell" {
     inline = [
       "sudo mkdir -p /opt/hugo/site",
@@ -253,25 +267,32 @@ build {
     ]
   }
 
-  # Upload Hugo site
   provisioner "file" {
-    source      = "${path.root}/../../../apps/hugo/site"
+    source      = "${path.root}/../../../apps/hugo/service"
     destination = "/tmp/hugo-site"
   }
 
-  # Upload build script (🔥 YOU WERE MISSING THIS)
   provisioner "file" {
     source      = "scripts/build-hugo.sh"
     destination = "/tmp/build-hugo.sh"
   }
 
-  # Move + configure
   provisioner "shell" {
     inline = [
-      "sudo rsync -av --delete /tmp/hugo-site/ /opt/hugo/site/",
+      "sudo mkdir -p /opt/platform/scripts",
+
+      # MOVE FIRST
       "sudo mv /tmp/build-hugo.sh /opt/platform/scripts/build-hugo.sh",
       "sudo chmod +x /opt/platform/scripts/build-hugo.sh",
 
+      # VERIFY
+      "sudo test -f /opt/platform/scripts/build-hugo.sh || (echo 'MISSING HUGO SCRIPT' && exit 1)",
+
+      # THEN sync site
+      "sudo rsync -av --delete /tmp/hugo-site/ /opt/hugo/site/",
+      "sudo rm -rf /tmp/hugo-site",
+
+      # DEBUG
       "echo '=== HUGO SCRIPT ==='",
       "ls -la /opt/platform/scripts",
       "echo '=== HUGO SITE ==='",
@@ -279,12 +300,9 @@ build {
     ]
   }
 
-  # Validate + enable service
   provisioner "shell" {
     inline = [
-      "sudo test -f /opt/platform/scripts/build-hugo.sh || (echo 'MISSING HUGO SCRIPT' && exit 1)",
-      "sudo systemctl daemon-reload",
-      "sudo systemctl enable hugo || true"
+      "sudo /opt/platform/scripts/build-hugo.sh"
     ]
   }
 
@@ -311,8 +329,25 @@ build {
   }
 
   ################################
+  # Platform Render HAProxy
+  ################################
+  provisioner "file" {
+    source      = "scripts/platform-render-haproxy.sh"
+    destination = "/tmp/platform-render-haproxy.sh"
+  }
+
+  provisioner "shell" {
+    inline = [
+      "sudo mv /tmp/platform-render-haproxy.sh /usr/local/bin/platform-render-haproxy.sh",
+      "sudo chmod +x /usr/local/bin/platform-render-haproxy.sh"
+    ]
+  }
+
+
+  ################################
   # Platform Rehydrate
   ################################
+
   provisioner "file" {
     source      = "scripts/platform-rehydrate.sh"
     destination = "/tmp/platform-rehydrate.sh"

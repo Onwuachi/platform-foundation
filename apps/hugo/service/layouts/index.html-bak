@@ -1,0 +1,55 @@
+{{ define "main" }}
+
+<!-- 🔷 CONTROL PLANE HEADER -->
+<div class="card">
+  <h1>Onwuachi Control Plane</h1>
+
+  <div style="display:flex; gap:1rem;">
+    <a href="/">Home</a>
+    <a href="/culture/">Culture</a>
+    <a href="/posts/">Events</a>
+    <a href="/learn/">Learn</a>
+    <a href="/news/">News</a>
+  </div>
+</div>
+
+<!-- 🔷 SYSTEM STATUS -->
+<div class="card">
+  <h2>System Overview</h2>
+
+  <p>
+    Status:
+    <span style="color:#4ade80; font-weight:bold;">● Operational</span>
+  </p>
+
+  <p>Mode: Immutable Infrastructure Control Plane</p>
+</div>
+
+<!-- 🔷 CORE PLATFORM (THIS IS WHAT YOU LOST) -->
+{{ partial "platform/hero.html" . }}
+{{ partial "platform/intro.html" . }}
+
+{{ partial "platform/build-meta.html" . }}
+{{ partial "platform/repo-link.html" . }}
+
+{{ partial "platform/architecture.html" . }}
+{{ partial "platform/learning.html" . }}
+{{ partial "platform/news.html" . }}
+
+<!-- 🔷 MODULE GRID -->
+<div class="card">
+  <h3>Modules</h3>
+
+  <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:1rem;">
+    <a class="card" href="/culture/">🎬 Culture</a>
+    <a class="card" href="/posts/">📡 Events</a>
+    <a class="card" href="/learn/">📚 Learn</a>
+    <a class="card" href="/news/">📰 News</a>
+  </div>
+</div>
+
+<!-- 🔷 FOOTER -->
+{{ partial "platform/footer-quote.html" . }}
+
+{{ end }}
+

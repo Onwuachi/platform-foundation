@@ -1,0 +1,27 @@
+[Unit]
+Description=Prometheus
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStartPre=-/usr/bin/docker rm -f prometheus
+ExecStart=/usr/bin/docker run \
+  --name prometheus \
+  --network host \
+  -v /opt/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro \
+  -v /opt/prometheus/rules:/etc/prometheus/rules:ro \
+  -v /opt/prometheus/data:/prometheus \
+  prom/prometheus:v2.51.2 \
+  --config.file=/etc/prometheus/prometheus.yml \
+  --storage.tsdb.path=/prometheus \
+  --storage.tsdb.retention.time=15d \
+  --storage.tsdb.wal-compression \
+  --log.level=info 
+
+ExecStop=/usr/bin/docker stop prometheus
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=ops.target

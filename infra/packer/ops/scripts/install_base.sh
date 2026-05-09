@@ -110,6 +110,13 @@ echo "=== SSM READY ==="
 #chown -R acme:acme /var/www/certbot
 #chmod 755 /var/www/certbot
 
+################################
+# HUGO DIR
+################################
+
+#mkdir -p /opt/hugo/site/public
+#chown -R ubuntu:ubuntu /opt/hugo
+
 ###Base Directory for platform API
 mkdir -p /etc/platform
 mkdir -p /etc/platform/services

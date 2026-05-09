@@ -1,0 +1,22 @@
+{{ define "main" }}
+
+<div class="card">
+  <h1>{{ .Title }}</h1>
+  <p style="opacity:0.6;">{{ .Date }}</p>
+</div>
+
+<div class="card">
+  {{ .Content }}
+</div>
+
+<div class="card">
+  <h3>System Context</h3>
+  <ul>
+    <li>Stream: {{ .Section }}</li>
+    <li>Pipeline: Hugo Render Engine</li>
+    <li>Status: Published</li>
+  </ul>
+</div>
+
+{{ end }}
+

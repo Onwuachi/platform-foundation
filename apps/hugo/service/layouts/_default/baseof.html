@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>{{ .Site.Title }}</title>
+
+  <style>
+    body { margin:0; font-family:Arial; background:#0f1117; color:#e5e5e5; }
+
+    .topbar {
+      display:flex;
+      justify-content:space-between;
+      padding:1rem;
+      background:#151823;
+      border-bottom:1px solid #2a2f3a;
+    }
+
+    .nav a {
+      color:#9cc9ff;
+      margin-right:1rem;
+      text-decoration:none;
+    }
+
+    .container { padding:2rem; }
+
+    .card {
+      background:#151823;
+      padding:1rem;
+      border-radius:10px;
+      border:1px solid #2a2f3a;
+      margin-bottom:1rem;
+    }
+
+
+    .side-note {
+      background:#151823;
+      padding:1rem;
+      border-radius:10px;
+      border:1px solid #2a2f3a;
+      margin-bottom:1rem;
+    }
+
+    .highlight-section {
+      border-left:4px solid #9cc9ff;
+    }
+
+    .side-note ul {
+      margin:0;
+      padding-left:1.2rem;
+    }
+
+    /* Bourbon map system */
+    .flavor-map {
+      position:relative;
+      height:260px;
+      background:#151823;
+      border-radius:10px;
+      border:1px solid #2a2f3a;
+      margin-top:1rem;
+    }
+
+    .axis {
+      position:absolute;
+      background:#2a2f3a;
+    }
+
+    .axis.horizontal {
+      top:50%;
+      left:8%;
+      right:8%;
+      height:1px;
+    }
+
+    .axis.vertical {
+      left:50%;
+      top:8%;
+      bottom:8%;
+      width:1px;
+    }
+
+    .label {
+      position:absolute;
+      font-size:12px;
+      opacity:0.7;
+    }
+
+    .label.top { top:5px; left:50%; transform:translateX(-50%); }
+    .label.bottom { bottom:5px; left:50%; transform:translateX(-50%); }
+    .label.left { left:5px; top:50%; transform:translateY(-50%); }
+    .label.right { right:5px; top:50%; transform:translateY(-50%); }
+
+    .point {
+      position:absolute;
+      width:10px;
+      height:10px;
+      background:#9cc9ff;
+      border-radius:50%;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="topbar">
+    <strong>Onwuachi Control Plane</strong>
+
+
+    <div class="nav" style="display:flex; gap:1rem;">
+      <a href="/">Home</a>
+      <a href="/culture/">Culture</a>
+      <a href="/posts/">Events</a>
+      <a href="/learn/">Learn</a>
+      <a href="/news/">News</a>
+      <a href="/platform/">Platform</a>
+    </div>
+  </div>
+
+  <div class="container">
+    {{ block "main" . }}{{ end }}
+  </div>
+
+</body>
+</html>
+

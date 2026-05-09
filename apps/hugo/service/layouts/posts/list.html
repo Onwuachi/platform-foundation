@@ -1,0 +1,15 @@
+{{ define "main" }}
+
+<h1>📡 Event Stream</h1>
+
+<p>System logs, updates, and platform activity</p>
+
+{{ range .Pages }}
+  <div class="side-note">
+    <h3><a href="{{ .RelPermalink }}">{{ .Title }}</a></h3>
+    <p>{{ .Summary }}</p>
+  </div>
+{{ end }}
+
+{{ end }}
+

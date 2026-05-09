@@ -39,3 +39,30 @@ app.listen(PORT, () => {
   console.log(`API listening on ${PORT}`);
 });
 
+const { exec } = require("child_process");
+
+app.post("/deploy/hugo", (req, res) => {
+  console.log("🔥 Building Hugo site...");
+
+  exec(`
+    docker run --rm \
+      -v /opt/hugo/site:/site \
+      klakegg/hugo:ext \
+      --source /site \
+      --destination /site/public \
+      --minify
+  `, (err, stdout, stderr) => {
+    if (err) {
+      console.error("❌ Hugo build failed:", stderr);
+      return res.status(500).send(stderr);
+    }
+
+    console.log("✅ Hugo build complete");
+
+    exec("docker kill -s HUP hugo || true");
+
+    res.send("Hugo rebuilt + nginx reloaded");
+  });
+});
+
+

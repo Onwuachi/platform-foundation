@@ -73,6 +73,7 @@ build {
     scripts = [
       "scripts/install_monitoring_users.sh",
       "scripts/install_base.sh",
+      "scripts/install_ecr_helper.sh",
       "scripts/install_swap.sh",
       "scripts/install_haproxy.sh",
       "scripts/install_dummy_cert.sh",
@@ -166,19 +167,6 @@ build {
     destination = "/tmp/platform-api.service"
   }
 
-provisioner "file" {
-  source      = "systemd/hugo.service"
-  destination = "/tmp/hugo.service"
-}
-
-provisioner "shell" {
-  inline = [
-    "sudo mv /tmp/hugo.service /etc/systemd/system/hugo.service",
-    "sudo systemctl daemon-reload",
-    "sudo systemctl enable hugo"
-  ]
-}
-
 
   ################################
   # Platform Update Timer
@@ -255,81 +243,28 @@ provisioner "shell" {
     ]
   }
 
+  
+  
   ################################
-  # HUGO (FIXED)
+  # Platform Render HAProxy
   ################################
-  provisioner "shell" {
-    inline = [
-      "sudo mkdir -p /opt/hugo/site",
-      "sudo mkdir -p /opt/platform/scripts",
-      "sudo chown -R ubuntu:ubuntu /opt/hugo"
-    ]
-  }
-
   provisioner "file" {
-    source      = "${path.root}/../../../apps/hugo/site"
-    destination = "/tmp/hugo-site"
-  }
-
-  provisioner "file" {
-    source      = "scripts/build-hugo.sh"
-    destination = "/tmp/build-hugo.sh"
+    source      = "scripts/platform-render-haproxy.sh"
+    destination = "/tmp/platform-render-haproxy.sh"
   }
 
   provisioner "shell" {
     inline = [
-      "sudo mkdir -p /opt/platform/scripts",
-
-      # MOVE FIRST
-      "sudo mv /tmp/build-hugo.sh /opt/platform/scripts/build-hugo.sh",
-      "sudo chmod +x /opt/platform/scripts/build-hugo.sh",
-
-      # VERIFY
-      "sudo test -f /opt/platform/scripts/build-hugo.sh || (echo 'MISSING HUGO SCRIPT' && exit 1)",
-
-      # THEN sync site
-      "sudo rsync -av --delete /tmp/hugo-site/ /opt/hugo/site/",
-      "sudo rm -rf /tmp/hugo-site",
-
-      # DEBUG
-      "echo '=== HUGO SCRIPT ==='",
-      "ls -la /opt/platform/scripts",
-      "echo '=== HUGO SITE ==='",
-      "ls -la /opt/hugo/site"
+      "sudo mv /tmp/platform-render-haproxy.sh /usr/local/bin/platform-render-haproxy.sh",
+      "sudo chmod +x /usr/local/bin/platform-render-haproxy.sh"
     ]
   }
 
-  provisioner "shell" {
-    inline = [
-      "sudo /opt/platform/scripts/build-hugo.sh"
-    ]
-  }
-
-  ################################
-  # Hugo sync timer
-  ################################
-  provisioner "file" {
-    source      = "systemd/hugo-sync.timer"
-    destination = "/tmp/hugo-sync.timer"
-  }
-
-  provisioner "file" {
-    source      = "systemd/hugo-sync.service"
-    destination = "/tmp/hugo-sync.service"
-  }
-
-  provisioner "shell" {
-    inline = [
-      "sudo mv /tmp/hugo-sync.service /etc/systemd/system/",
-      "sudo mv /tmp/hugo-sync.timer /etc/systemd/system/",
-      "sudo systemctl daemon-reload",
-      "sudo systemctl enable --now hugo-sync.timer"
-    ]
-  }
 
   ################################
   # Platform Rehydrate
   ################################
+
   provisioner "file" {
     source      = "scripts/platform-rehydrate.sh"
     destination = "/tmp/platform-rehydrate.sh"

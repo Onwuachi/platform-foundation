@@ -24,10 +24,8 @@ systemctl enable platform-rehydrate.service
 
 #################################
 # Hugo
-#################################
-
-systemctl enable hugo.service
-systemctl enable hugo-sync.timer
+#systemctl enable hugo.service
+#systemctl enable hugo-sync.timer
 
 #################################
 # Certbot

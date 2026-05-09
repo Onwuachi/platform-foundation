@@ -1,14 +1,19 @@
 [Unit]
 Description=HAProxy Load Balancer
-After=network-online.target docker.service hugo.service
+After=network-online.target docker.service
 Wants=network-online.target
 
 [Service]
-ExecStart=/usr/sbin/haproxy -Ws -f /etc/haproxy/haproxy.cfg -f /etc/haproxy/services/
+ExecStart=/usr/sbin/haproxy -Ws \
+  -f /etc/haproxy/haproxy.cfg \
+  -f /etc/haproxy/services/ \
+  -p /run/haproxy.pid
 
 ExecReload=/bin/kill -USR2 $MAINPID
+
 Restart=always
 RestartSec=2
+
 LimitNOFILE=65536
 
 [Install]

@@ -1,513 +1,216 @@
-# Platform Foundation – Immutable Edge + Container Runtime
+tform Foundation
+Stateless Infrastructure + Self-Rehydrating Control Plane
 
-A production-style infrastructure platform built using immutable infrastructure principles and disciplined cloud engineering patterns.
+A production-style platform that applies immutable infrastructure, declarative state management, and automated rehydration to create a lightweight, self-healing system.
 
----
+This project evolves beyond traditional DevOps into a platform layer (PaaS-like) where services, routing, and runtime configuration are reconstructed deterministically from a centralized control plane.
 
-### Platform Architecture Diagram (Pending completion)
+🚀 Core Principle
 
-Internet
-   ↓
-Route53
-   ↓
-HAProxy
-   ↓
-Docker services
-   ↓
-Prometheus metrics
-   ↓
-Grafana dashboards
+Compute is ephemeral.
+State is externalized.
+The platform is fully reproducible on demand.
 
----
-
-## 🔧 Stack
-
-- **Packer** – Hardened AMI baking
-- **Terraform** – Infrastructure as Code
-- **HAProxy** – Edge reverse proxy + TLS termination
-- **Docker** – Application runtime
-- **Let’s Encrypt** – Automated TLS lifecycle
-- **AWS SSM Parameter Store** – AMI version tracking
-- **Amazon ECR** – Container registry
-
----
-
-## 🎯 Platform Objectives
-
-- Build hardened, repeatable AMIs
-- Separate build-time from run-time logic
-- Terminate TLS strictly at the edge
-- Run containerized workloads behind HAProxy
-- Eliminate manual server mutation
-- Enforce deterministic infrastructure replacement
-- Maintain cost-aware cloud discipline
-- Evolve architecture in controlled, documented phases
-
----
-
-# 🧱 Current Architecture (Phase 3 – Stable)
-
-            Internet
-                │
-                ▼
-          Route53 (DNS)
-                │
-           Elastic IP
-                │
-          EC2 (Ops Node)
-                │
-            HAProxy
-         (TLS Termination)
-                │
-      ┌────────────────────┐
-      │ 127.0.0.1:3000     │ → Platform API (Docker)
-      │ 127.0.0.1:8080     │ → Hugo (nginx container)
-      └────────────────────┘
-
-Phase 3.2
-
-                GitHub
-                  │
-                  │ push
-                  ▼
-           GitHub Actions
-            (CI Pipeline)
-                  │
-                  │ docker build
-                  ▼
-                 ECR
-    (Elastic Container Registry)
-                  │
-                  │ docker pull
-                  ▼
-             EC2 Host
-       ┌─────────────────┐
-       │    systemd      │
-       │ (orchestrator)  │
-       └────────┬────────┘
-                │
-                ▼
-             Docker
-    ┌──────────┼──────────┐
-    │          │          │
-    ▼          ▼          ▼
-platform-api  hugo    grafana
-                           │
+🧠 Architecture Overview
+                +----------------------+
+                |     Route53 (DNS)    |
+                +----------+-----------+
+                           |
                            ▼
-                       prometheus
+                    HAProxy (Edge)
+                TLS Termination + Routing
+                           |
+        +------------------+------------------+
+        |                                     |
+        ▼                                     ▼
+  Application Services                Certbot (ACME)
+ (Docker + systemd)                  (webroot validation)
+        |
+        ▼
+   127.0.0.1:<ports>
 
+---------------- CONTROL PLANE ----------------
 
+        S3 (Source of Truth)
+   /platform/services/*
+        |
+        ▼
+platform-rehydrate (systemd)
+        |
+        ▼
+Deterministic Rebuild:
+- systemd units
+- HAProxy configuration
+- TLS certificates
+- running containers
 
----
+---------------- DATA LAYER ----------------
 
-### Public Surface Area
+EBS Volume (persistent state)
+🔧 Technology Stack
+Packer – Immutable AMI creation
+Terraform – Infrastructure provisioning
+HAProxy – Edge routing and TLS termination
+Docker – Application runtime
+systemd – Process supervision and orchestration
+S3 – Declarative control plane (source of truth)
+ECR – Container registry
+Certbot (Let’s Encrypt) – Automated TLS lifecycle
+🎯 Platform Capabilities
+Immutable infrastructure (no in-place mutation)
+Declarative service registration via S3
+Deterministic HAProxy configuration generation
+systemd-managed container lifecycle
+Full platform rehydration from control plane
+Automated TLS provisioning and renewal
+Private service exposure (127.0.0.1 only)
+🧱 System Design
+Edge Layer
 
-Only the following ports are exposed:
+HAProxy is responsible for:
 
-- **80** (HTTP → redirected to HTTPS)
-- **443** (TLS)
+TLS termination (443)
+HTTP → HTTPS redirection
+Domain-based routing via generated backend maps
+Runtime Layer
+Each service runs as a Docker container
+systemd provides:
+lifecycle control
+restart guarantees
+boot-time recovery
+Control Plane (Key Design)
 
-All containers bind to:
+S3 acts as the single source of truth for platform state:
 
+services.list   → desired services
+<service>.port  → runtime binding
+<service>.domain → routing definition
 
-127.0.0.1
+No runtime decisions are made outside this state.
 
+Rehydration Workflow
+S3 → local state sync
+   → generate HAProxy config
+   → generate systemd units
+   → pull container images
+   → start services
+   → validate configuration
+   → reload HAProxy
 
-No backend services are publicly reachable.
+This process is:
 
----
-
-# 📦 Phase Evolution
-
----
-
-## ✅ Phase 1 – Infrastructure Foundation
-**Tag:** `phase-1-infra-stable`
-
-Established immutable infrastructure baseline.
-
-### Delivered
-
-- Ubuntu 22.04 hardened AMI built with Packer
-- HAProxy installed and validated at image build time
-- Dummy certificate baked to validate configuration
-- Let’s Encrypt certificate issued at first boot
-- Certbot renewal timer enabled
-- Renewal deploy hook reloads HAProxy safely
-- Deterministic 503 baseline response
-
-### Principle Reinforced
-
-> Validate infrastructure during image build — not at runtime.
-
----
-
-## ✅ Phase 2 – Containerized Runtime
-**Tag:** `phase-2-app-backends`
-
-Introduced application lifecycle management using containers.
-
-### Delivered
-
-- Docker installed in AMI
-- systemd-managed container services
-- Platform API container (Node.js)
-- Hugo static site served via nginx container
-- Health endpoint (`/ready`)
-- HAProxy backend routing
-- ECR authentication via IAM role
-- AMI ID stored in SSM Parameter Store
-
-### Principle Reinforced
-
-> Infrastructure and application runtime must remain independent layers.
-
----
-
-## ✅ Phase 3 – Edge Routing Hardening & Immutable Replacement
-**Tag:** `phase-3-edge-observability-stable`
-
----
-
-### 🔐 HAProxy Routing Hardening
-
-- Removed duplicate `default_backend`
-- Deterministic routing model enforced
-
-### ♻ Immutable Replacement Validation
-
-- Full EC2 replacement cycle validated
-- No drift, no manual intervention
-
-### ⚙ Runtime Hardening
-
-- systemd restart policies validated
-- HAProxy health checks enforced
-- TLS renewal automation verified
-
----
-
-## 🏷 Phase 3.1 – OIDC Namespace Convergence
-**Tag:** `phase-3-namespace-converged`
-
-- Corrected IAM trust relationship to canonical repo
-- Eliminated legacy lab namespace
-- Validated via full immutable rebuild
-
----
-
-## 📊 Phase 3.2 – Observability Layer Prep
-
-- Prometheus + Grafana baked into AMI
-- Node exporter + blackbox exporter enabled
-- Local persistent storage under `/opt`
-
----
-
-## 🚀 Phase 3.3 – Platform Auto-Provisioning
-**Tag:** `phase-3-platform-autoprovision`
-
-This phase introduces **self-service deployment capabilities**, transitioning the system from a deployment script to a platform.
-
----
-
-### 🔥 Capabilities Introduced
-
-- Automatic **ECR repository creation**
-- Dynamic **service port allocation**
-- Runtime **PORT environment injection**
-- Persistent **service registry**
-- HAProxy backend generation per service
-- systemd-based lifecycle orchestration
-- S3-backed platform state recovery
-
----
-
-### ⚙ Deployment Behavior
-
-```bash
+deterministic
+repeatable
+environment-independent
+⚙️ Platform CLI
+Deploy a Service
 platform deploy <service>
 
+Performs:
 
-No backend services are publicly reachable.
+Container build and push (ECR)
+Port allocation
+Service registration in S3
+HAProxy config regeneration
+systemd service creation/update
+Service restart
+Rehydrate Platform
+platform rehydrate
 
----
+Reconstructs the entire runtime environment from S3:
 
-# 📦 Phase Evolution
+Restores service registry
+Recreates systemd units
+Pulls latest container images
+Rebuilds HAProxy routing
+Ensures TLS certificates
+Reloads edge proxy safely
+🔐 Security Model
+Only exposed ports:
+80 (redirect)
+443 (TLS)
+All services:
+bound to 127.0.0.1
+inaccessible externally
+TLS:
+Managed via Certbot
+Zero-downtime renewal
+Safe HAProxy reloads
+🏗 Lifecycle
+Build
+packer build → AMI
+Provision
+terraform apply → EC2 instance
+Runtime
+systemd → platform-rehydrate
+📦 Evolution
+Phase 1 – Immutable Foundation
+Hardened AMI
+HAProxy baseline
+TLS validation during build
+Phase 2 – Container Runtime
+Dockerized services
+systemd orchestration
+Static routing
+Phase 3 – Edge Stability
+Deterministic routing
+TLS automation
+Rebuild validation
+Phase 4 – Control Plane (Current)
+S3-backed declarative state
+Dynamic routing generation
+Automated rehydration
+Stateless compute model
 
----
-
-## ✅ Phase 1 – Infrastructure Foundation
-**Tag:** `phase-1-infra-stable`
-
-Established immutable infrastructure baseline.
-
-### Delivered
-
-- Ubuntu 22.04 hardened AMI built with Packer
-- HAProxy installed and validated at image build time
-- Dummy certificate baked to validate configuration
-- Let’s Encrypt certificate issued at first boot
-- Certbot renewal timer enabled
-- Renewal deploy hook reloads HAProxy safely
-- Deterministic 503 baseline response
-
-### Principle Reinforced
-
-> Validate infrastructure during image build — not at runtime.
-
----
-
-## ✅ Phase 2 – Containerized Runtime
-**Tag:** `phase-2-app-backends`
-
-Introduced application lifecycle management using containers.
-
-### Delivered
-
-- Docker installed in AMI
-- systemd-managed container services
-- Platform API container (Node.js)
-- Hugo static site served via nginx container
-- Health endpoint (`/ready`)
-- HAProxy backend routing
-- ECR authentication via IAM role
-- AMI ID stored in SSM Parameter Store
-
-### Principle Reinforced
-
-> Infrastructure and application runtime must remain independent layers.
-
----
-
-## ✅ Phase 3 – Edge Routing Hardening & Immutable Replacement
-**Tag:** `phase-3-edge-observability-stable`
-
----
-
-### 🔐 HAProxy Routing Hardening
-
-- Removed duplicate `default_backend`
-- Deterministic routing model enforced
-
-### ♻ Immutable Replacement Validation
-
-- Full EC2 replacement cycle validated
-- No drift, no manual intervention
-
-### ⚙ Runtime Hardening
-
-- systemd restart policies validated
-- HAProxy health checks enforced
-- TLS renewal automation verified
-
----
-
-## 🏷 Phase 3.1 – OIDC Namespace Convergence
-**Tag:** `phase-3-namespace-converged`
-
-- Corrected IAM trust relationship to canonical repo
-- Eliminated legacy lab namespace
-- Validated via full immutable rebuild
-
----
-
-## 📊 Phase 3.2 – Observability Layer Prep
-
-- Prometheus + Grafana baked into AMI
-- Node exporter + blackbox exporter enabled
-- Local persistent storage under `/opt`
-
----
-
-## 🚀 Phase 3.3 – Platform Auto-Provisioning
-**Tag:** `phase-3-platform-autoprovision`
-
-This phase introduces **self-service deployment capabilities**, transitioning the system from a deployment script to a platform.
-
----
-
-### 🔥 Capabilities Introduced
-
-- Automatic **ECR repository creation**
-- Dynamic **service port allocation**
-- Runtime **PORT environment injection**
-- Persistent **service registry**
-- HAProxy backend generation per service
-- systemd-based lifecycle orchestration
-- S3-backed platform state recovery
-
----
-
-### ⚙ Deployment Behavior
-
-```bash
-platform deploy <service>
+The system now operates as a minimal platform layer
 
 
-Now performs:
-
-Validate service directory
-→ Ensure ECR repository exists (auto-create if missing)
-→ Build container image
-→ Push to ECR
-→ Allocate or retrieve service port
-→ Create systemd service (if new)
-→ Register HAProxy backend dynamically
-→ Restart service
-→ Validate HAProxy configuration
-→ Sync platform state to S3
-→ Health check validation
-
-
-🧠 Architectural Shift
-
-Previously:
-
-Infrastructure had to be pre-provisioned
-Services required manual setup
-
-Now:
-
-Platform provisions required infrastructure dynamically
-Services are deployable on demand
-🧠 Principle Reinforced
-
-Platforms should enable self-service deployment by abstracting infrastructure requirements.
-
-🏗 Immutable AMI Lifecycle
-
-Packer builds hardened image
-AMI stored in SSM Parameter Store
-Terraform consumes AMI
-EC2 replaced on change
-
-🚀 Deployment Model
-
-Infrastructure Pipeline
-packer build → SSM → terraform apply → EC2 replacement
-Application Pipeline
-build → push (ECR) → pull → run → route (HAProxy)
-
-🛠 Repository Structure
-
-platform-foundation
-├─ apps
-│   ├─ api
-│   ├─ analytics
-│   ├─ billings
-│   ├─ hugo
-│   └─ payments
-│
-├─ infra
-│   ├─ packer
-│   └─ terraform
-│
-├─ tools
-│   └─ platform
-
-⚠️ Known Constraints
-
-Single-node runtime
+⚠️  Constraints
+Single-node architecture
 No autoscaling
-No blue/green deployments
+No deployment strategies (blue/green, canary)
+Limited observability isolation
 No centralized alerting
-Observability not isolated
 
-🔜 Phase 4 – Private Observability Isolation
+🔜 Next Phase: Production Maturity
+Multi-node architecture
+Health-based routing
+Blue/green deployments
+Dedicated observability stack
+Alerting and incident response
 
-Private subnet monitoring node
-No public exposure
-Cost-controlled lifecycle
-Full separation from edge runtime
+🧠 Engineering Principles
+Immutability over mutation
+Declarative state over imperative logic
+Stateless compute, stateful recovery
+Rebuild over repair
+Automation as the default
 
+📁 Repository Structure
+platform-foundation
+├── apps/           # Application services
+├── infra/          # Packer + Terraform
+├── tools/          # Platform CLI
+├── scripts/        # Utilities
 
-📌 Current Status
+📌 Status
 
-Current Phase: 3.3 – Platform Auto-Provisioning
-Default Branch: main
-Latest Stable Tag: phase-3-platform-autoprovision
-
----
-   Packer:
-   installs everything
-   enables services
-   does NOT run certbot
-
-   Terraform:
-   provisions infra
-   attaches volumes
-   bootstraps instance
-   does NOT manage certs
-
-   Instance boot:
-   user_data → mount + sync only
-
-   Platform lifecycle:
-   systemctl restart platform-rehydrate
-      → webroot
-      → cert-bootstrap
-      → haproxy reload
-      → services restart
-
-
-   🔥 You now have:
-
-   ✅ HAProxy never stops
-   ✅ Certs are idempotent
-   ✅ Platform is reconstructible
-   ✅ Infra is stateless
-   ✅ Observability is integrated    
-
-   Infra awareness
-   instance down
-   disk fill
-   cpu/memory
-   Platform awareness
-   API health
-   HAProxy routing
-   🔥 Security awareness
-   SSL expiration monitoring
-
-dynamic infra (Terraform)
-immutable images (Packer)
-runtime orchestration (rehydrate)
-zero-downtime TLS
-proactive alerting
-
-👉 self-healing platform bootstrap system
-👉 stateless compute + stateful recovery
-👉 cert lifecycle fully automated
-👉 zero-downtime TLS rotation
-👉 observable from day 1
----
-
-# 3/31/2026
-🚧 Current State (Milestone Achieved)
-Immutable infrastructure fully operational via Terraform + Packer
-Platform node successfully rebuilt and rehydrated
-Core services running:
-API (healthy)
-Hugo frontend
-Prometheus + Grafana
-HAProxy routing functional (HTTP + HTTPS)
-End-to-end deployment pipeline validated (build → push → trigger)
-⚠️ Known Gaps
-TLS currently using self-signed certificate (LetsEncrypt integration pending)
-Service registry mismatch between /etc/platform/services and /opt/platform/services
-Dynamic service deployment not yet activating containers post-deploy
-Some backends (billings, analytics, payments) not yet running
-🎯 Next Steps
-Unify service registry path
-Implement automated TLS provisioning (Certbot + HAProxy integration)
-Finalize service lifecycle management (deploy → run → register)
-Add platform CLI command for service creation/registration
-
----
-
+Phase: 4 – Control Plane
+System is:
+Deterministic
+Rehydratable
+Self-healing
+Dynamically routed
 👤 Author
 
 Derrick C. Onwuachi
 Cloud / DevOps Engineer
 
-This repository reflects a production-minded infrastructure evolution emphasizing immutability, operational correctness, and platform engineering principles.
+💡 Summary
+
+This project demonstrates the progression from:
+
+Infrastructure → Platform
+
+A system designed not just to deploy services—but to reconstruct and operate them reliably from first principles.
+

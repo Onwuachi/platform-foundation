@@ -63,30 +63,59 @@ resource "aws_s3_bucket_lifecycle_configuration" "platform_state" {
 ##############################
 # S3 - Hugo Artifacts
 ##############################
-resource "aws_s3_bucket" "hugo_artifacts" {
-  bucket = "onwuachi-hugo-artifacts"
+#resource "aws_s3_bucket" "hugo_artifacts" {
+#  bucket = "onwuachi-hugo-artifacts"
 
-  tags = merge(local.common_tags, {
-    Name = "hugo-artifacts"
-  })
-}
+#  tags = merge(local.common_tags, {
+#    Name = "hugo-artifacts"
+#  })
+#}
 
 ##############################
 # hugo_artifacts Versioning
 ##############################
-resource "aws_s3_bucket_versioning" "hugo_artifacts" {
-  bucket = aws_s3_bucket.hugo_artifacts.id
+#resource "aws_s3_bucket_versioning" "hugo_artifacts" {
+#  bucket = aws_s3_bucket.hugo_artifacts.id
 
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
+#  versioning_configuration {
+#    status = "Enabled"
+#  }
+#}
 
 ##############################
 # hugo_artifacts Block Public Access (IMPORTANT)
 ##############################
-resource "aws_s3_bucket_public_access_block" "hugo_artifacts" {
-  bucket = aws_s3_bucket.hugo_artifacts.id
+#resource "aws_s3_bucket_public_access_block" "hugo_artifacts" {
+#  bucket = aws_s3_bucket.hugo_artifacts.id
+
+#  block_public_acls       = true
+#  block_public_policy     = true
+#  ignore_public_acls      = true
+#  restrict_public_buckets = true
+#}
+
+##############################
+# hugo_artifacts Lifecycle (keep it clean)
+##############################
+#resource "aws_s3_bucket_lifecycle_configuration" "hugo_artifacts" {
+#  bucket = aws_s3_bucket.hugo_artifacts.id
+
+#  rule {
+#    id     = "cleanup-old-versions"
+#    status = "Enabled"
+
+#    noncurrent_version_expiration {
+#      noncurrent_days = 7
+#    }
+#  }
+#}
+
+
+##############################
+# Platform State Access
+##############################
+resource "aws_s3_bucket_public_access_block" "platform_state" {
+  bucket = aws_s3_bucket.platform_state.id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -94,21 +123,7 @@ resource "aws_s3_bucket_public_access_block" "hugo_artifacts" {
   restrict_public_buckets = true
 }
 
-##############################
-# hugo_artifacts Lifecycle (keep it clean)
-##############################
-resource "aws_s3_bucket_lifecycle_configuration" "hugo_artifacts" {
-  bucket = aws_s3_bucket.hugo_artifacts.id
 
-  rule {
-    id     = "cleanup-old-versions"
-    status = "Enabled"
-
-    noncurrent_version_expiration {
-      noncurrent_days = 7
-    }
-  }
-}
 
 ##############################
 # Route53 Zone
@@ -129,6 +144,17 @@ resource "aws_instance" "ops" {
   iam_instance_profile        = var.iam_instance_profile
   key_name                    = var.key_name
   associate_public_ip_address = true
+
+  depends_on = [
+    aws_s3_bucket.platform_state,
+    aws_s3_bucket_versioning.platform_state,
+    aws_s3_bucket_public_access_block.platform_state
+  ]
+
+  #lifecycle {
+  #  replace_triggered_by = [data.aws_ssm_parameter.ops_ami]  # was data.aws_ssm_parameter.ops_ami.value] ###
+  #}
+
 
   ################################
   # Root Volume
@@ -164,89 +190,73 @@ exec > >(tee -a "$LOG") 2>&1
 echo "=== OPS bootstrap start ==="
 
 ################################
-# VOLUME DETECTION
+# PROMETHEUS VOLUME (SAFE)
 ################################
 
-get_device_by_size() {
-  TARGET_SIZE=$1
-  TOLERANCE=104857600
+DEVICE="/dev/nvme1n1"
 
-  for dev in /dev/nvme*n1; do
-    SIZE=$(blockdev --getsize64 "$dev")
+for i in {1..10}; do
+  [ -e "$DEVICE" ] && break
+  sleep 3
+done
 
-    LOWER=$((TARGET_SIZE - TOLERANCE))
-    UPPER=$((TARGET_SIZE + TOLERANCE))
-
-    if [ "$SIZE" -ge "$LOWER" ] && [ "$SIZE" -le "$UPPER" ]; then
-      echo "$dev"
-      return
-    fi
-  done
-
-  echo "ERROR: No device found for size $TARGET_SIZE"
-  exit 1
-}
-
-setup_volume () {
-  DEVICE=$1
-  MOUNT=$2
-
-  for i in {1..10}; do
-    [ -e "$DEVICE" ] && break
-    sleep 3
-  done
-
+if [ -e "$DEVICE" ]; then
   if ! file -s "$DEVICE" | grep -q filesystem; then
     mkfs.xfs "$DEVICE"
   fi
 
-  mkdir -p "$MOUNT"
+  mkdir -p /opt/prometheus/data
 
-  if ! grep -q "$MOUNT" /etc/fstab; then
-    UUID=$(blkid -s UUID -o value "$DEVICE")
-    echo "UUID=$UUID $MOUNT xfs defaults,nofail 0 2" >> /etc/fstab
+  UUID=$(blkid -s UUID -o value "$DEVICE")
+  grep -q "$UUID" /etc/fstab || \
+    echo "UUID=$UUID /opt/prometheus/data xfs defaults,nofail 0 2" >> /etc/fstab
+
+  mount -a
+  chown -R 65534:65534 /opt/prometheus/data
+fi
+
+################################
+# PLATFORM DIR (EPHEMERAL)
+################################
+
+mkdir -p /opt/platform/services
+
+################################
+# WAIT FOR S3 (IMPORTANT)
+################################
+
+echo "Waiting for S3 availability..."
+
+for i in {1..10}; do
+  if aws s3 ls s3://platform-api-services >/dev/null 2>&1; then
+    echo "S3 ready"
+    break
   fi
-}
-
-PROM_DEVICE=$(get_device_by_size 16106127360)
-PLATFORM_DEVICE=$(get_device_by_size 5368709120 || true)
-
-if [ -z "$PLATFORM_DEVICE" ]; then
-  echo "⚠️ Platform device not found, skipping mount"
-else
-  setup_volume "$PLATFORM_DEVICE" /opt/platform
-fi
-
-setup_volume "$PROM_DEVICE" /opt/prometheus/data
-
-if [ -n "$PLATFORM_DEVICE" ]; then
-  setup_volume "$PLATFORM_DEVICE" /opt/platform
-fi
-
-mount -a
-
-chown -R 65534:65534 /opt/prometheus/data
-chown -R ubuntu:ubuntu /opt/platform
-chmod -R 775 /opt/platform
+  sleep 3
+done
 
 ################################
-# PLATFORM SYNC
-################################
-
-aws s3 sync s3://platform-api-services/platform/ /opt/platform --exclude "scripts/*" || true
-
-################################
-# START PLATFORM
+# INITIAL REHYDRATE
 ################################
 
 echo "Running rehydrate..."
-/usr/local/bin/platform-rehydrate.sh
 
+for i in {1..3}; do
+  if /usr/local/bin/platform-rehydrate.sh; then
+    break
+  fi
+  echo "Rehydrate failed... retrying"
+  sleep 5
+done
+
+################################
+# START SERVICES AFTER STATE READY
+################################
 
 systemctl daemon-reexec
-systemctl start haproxy
-systemctl start hugo
-systemctl start ops.target
+
+#echo "Starting HAProxy..."
+#systemctl restart haproxy     ###platform-rehydrate already: builds config, validates config, reloads HAProxy so unnecessary to restart
 
 echo "=== OPS bootstrap complete ==="
 EOT
@@ -260,26 +270,7 @@ EOT
   })
 }
 
-##############################
-# 🔥 PERSISTENT PLATFORM VOLUME
-##############################
-resource "aws_ebs_volume" "platform" {
-  availability_zone = aws_instance.ops.availability_zone
-  size              = 5
-  type              = "gp3"
 
-  tags = merge(local.common_tags, {
-    Name    = "platform-persistent"
-    Purpose = "platform-state"
-    Persist = "true"
-  })
-}
-
-resource "aws_volume_attachment" "platform" {
-  device_name = "/dev/sdg"
-  volume_id   = aws_ebs_volume.platform.id
-  instance_id = aws_instance.ops.id
-}
 
 ##############################
 # Elastic IP
