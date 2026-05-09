@@ -26,14 +26,20 @@ jobs:
         run: |
           aws s3 ls s3://platform-api-services
 
-      - name: Sync platform state backup
+      - name: Generate snapshot date
+        run: |
+          echo "SNAPSHOT_DATE=$(date +%F)" >> $GITHUB_ENV
+
+      - name: Snapshot platform state
         run: |
           aws s3 sync \
             s3://platform-api-services \
-            s3://platform-api-services-backup
+            s3://platform-api-services-backup/snapshots/${SNAPSHOT_DATE}
 
       - name: Backup summary
         run: |
           echo "Backup completed:"
-          aws s3 ls s3://platform-api-services-backup --recursive
-
+          aws s3 ls \
+            s3://platform-api-services-backup/snapshots/${SNAPSHOT_DATE} \
+            --recursive
+            

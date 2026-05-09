@@ -257,10 +257,14 @@ down)
 ########################################
 
 rehydrate)
-  require_instance 
+  require_instance
   echo "Running rehydrate..."
+
   CMD_ID=$(ssm_exec "sudo /usr/local/bin/platform-rehydrate.sh")
+
   echo "Command ID: $CMD_ID"
+
+  wait_for_ssm "$CMD_ID"
 ;;
 
 ########################################
