@@ -199,8 +199,30 @@ up)
 
   wait_for_running
 
-  echo "Rehydrating..."
-  ssm_exec "sudo /usr/local/bin/platform-rehydrate.sh"
+  echo "Waiting for SSM agent..."
+
+  for i in {1..30}; do
+    ONLINE=$(aws ssm describe-instance-information \
+      --region "$REGION" \
+      --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+      --query "InstanceInformationList[0].PingStatus" \
+      --output text 2>/dev/null || true)
+
+    if [[ "$ONLINE" == "Online" ]]; then
+      echo "SSM agent online"
+      break
+    fi
+
+    sleep 5
+  done
+
+  echo "Running rehydrate..."
+
+  CMD_ID=$(ssm_exec "sudo /usr/local/bin/platform-rehydrate.sh")
+
+  echo "Command ID: $CMD_ID"
+
+  wait_for_ssm "$CMD_ID"
 
   echo "✅ Platform UP"
 ;;
@@ -211,11 +233,17 @@ up)
 ########################################
 
 down)
-  require_instance 
-  echo "Stopping platform..."
+  require_instance
 
-  ssm_exec "sudo systemctl stop ops.target || true"
-  sleep 5
+  echo "Gracefully shutting down platform..."
+
+  CMD_ID=$(ssm_exec "sudo /usr/local/bin/platform-shutdown.sh")
+
+  echo "Command ID: $CMD_ID"
+
+  wait_for_ssm "$CMD_ID"
+
+  echo "Stopping EC2 instance..."
 
   aws ec2 stop-instances \
     --region "$REGION" \

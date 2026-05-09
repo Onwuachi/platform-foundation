@@ -1,243 +1,354 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+########################################
+# LOGGING
+########################################
+
 LOG_FILE="/var/log/platform-rehydrate.log"
+
 touch "$LOG_FILE"
 chmod 644 "$LOG_FILE"
+
 exec > >(tee -a "$LOG_FILE") 2>&1
 
-echo "=== Rehydrating platform ==="
+echo "=== Rehydrating Platform ==="
+
+########################################
+# CONFIG
+########################################
 
 DOMAIN="onwuachi.com"
+
 CERT_BASE="/opt/platform/certs"
 WEBROOT="/var/www/certbot"
+
 SERVICES_DIR="/opt/platform/services"
 
+HAPROXY_CERT_DIR="/etc/haproxy/certs"
+
+S3_BUCKET="s3://platform-api-services"
+
 ########################################
-# SYNC STATE FROM S3 (SOURCE OF TRUTH)
+# PREP DIRECTORIES
 ########################################
 
-echo "Syncing services from S3..."
 mkdir -p "$SERVICES_DIR"
-
-aws s3 sync s3://platform-api-services/platform/services "$SERVICES_DIR"
-
-########################################
-# 🔥 SYNC CERTS FROM S3 (FIRST!)
-########################################
-
-echo "Syncing certs from S3..."
 mkdir -p "$CERT_BASE"
+mkdir -p "$WEBROOT"
+mkdir -p "$HAPROXY_CERT_DIR"
+mkdir -p /etc/haproxy/services
 
-aws s3 sync s3://platform-api-services/platform/certs "$CERT_BASE"
+########################################
+# SYNC PLATFORM STATE
+########################################
+
+echo "=== Syncing platform services from S3 ==="
+
+aws s3 sync \
+  "${S3_BUCKET}/platform/services" \
+  "$SERVICES_DIR"
 
 ########################################
 # DEBUG
 ########################################
 
-echo "=== SERVICES AFTER SYNC ==="
+echo
+echo "=== SERVICES ==="
+
 ls -l "$SERVICES_DIR"
-cat "$SERVICES_DIR/domain.map" || echo "No domain.map found"
 
 ########################################
-# SYNC DOMAIN MAP → HAPROXY
+# LETSENCRYPT PERSISTENCE
 ########################################
 
-echo "Syncing domain.map → /etc/haproxy..."
+echo
+echo "=== Configuring certificate persistence ==="
 
-mkdir -p /etc/haproxy
-
-if [ -f "$SERVICES_DIR/domain.map" ]; then
-  cp "$SERVICES_DIR/domain.map" /etc/haproxy/domain.map
-else
-  echo "⚠️ No domain.map found, creating default"
-  echo "default_backend default_backend" > /etc/haproxy/domain.map
-fi
-
-########################################
-# CERT SETUP
-########################################
-
-mkdir -p "$CERT_BASE"
-mkdir -p "$WEBROOT"
-
-# Ensure persistence
 if [ ! -L /etc/letsencrypt ]; then
   rm -rf /etc/letsencrypt
   ln -s "$CERT_BASE" /etc/letsencrypt
 fi
 
 ########################################
-# TEMP WEB SERVER FOR CERTBOT
+# TEMP CERTBOT WEB SERVER
 ########################################
+
+echo
+echo "=== Starting temporary certbot webserver ==="
 
 cd "$WEBROOT"
 
+CERTBOT_PID=""
+
 if ! lsof -i :8089 >/dev/null 2>&1; then
-  echo "Starting temporary webserver for certbot..."
   python3 -m http.server 8089 >/dev/null 2>&1 &
-  PID=$!
+  CERTBOT_PID=$!
+
   sleep 2
-else
-  PID=""
 fi
 
 ########################################
-# ISSUE / RENEW CERT
+# CERTIFICATE RENEWAL
 ########################################
 
-echo "Ensuring certificate is valid..."
+echo
+echo "=== Attempting certificate renewal ==="
 
 if certbot renew --quiet; then
-  echo "Certbot renew attempted"
+  echo "Certificate renewal completed"
 else
-  echo "Certbot renew had issues (continuing)"
+  echo "Certificate renewal encountered issues (continuing)"
 fi
 
-CERT_PATH="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
+########################################
+# CERTIFICATE VALIDATION
+########################################
 
-echo "Checking certificate validity..."
+FULLCHAIN="/etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
+PRIVKEY="/etc/letsencrypt/live/${DOMAIN}/privkey.pem"
 
 VALID_CERT=false
 
-if [ -f "$CERT_PATH" ]; then
-  if openssl x509 -in "$CERT_PATH" -noout >/dev/null 2>&1; then
+echo
+echo "=== Validating certificate ==="
+
+if [ -f "$FULLCHAIN" ]; then
+  if openssl x509 -in "$FULLCHAIN" -noout >/dev/null 2>&1; then
     VALID_CERT=true
-    echo "✅ Valid certificate found"
-  else
-    echo "⚠️ Invalid cert file"
+
+    echo "Valid certificate found"
   fi
-else
-  echo "⚠️ No cert found"
 fi
 
 ########################################
-# REQUEST CERT IF INVALID
+# REQUEST CERT IF MISSING
 ########################################
 
 if [ "$VALID_CERT" = false ]; then
-  echo "Requesting new cert..."
+
+  echo
+  echo "=== Requesting new certificate ==="
 
   certbot certonly \
     --webroot \
     -w "$WEBROOT" \
     --non-interactive \
     --agree-tos \
-    --email admin@$DOMAIN \
-    -d $DOMAIN \
-    -d www.$DOMAIN || true
+    --email "admin@${DOMAIN}" \
+    -d "${DOMAIN}" \
+    -d "www.${DOMAIN}" || true
 fi
 
 ########################################
-# BUILD PEM FOR HAPROXY
+# FINAL CERT VALIDATION
 ########################################
 
-#echo "Building HAProxy PEM..."
+echo
+echo "=== Performing final certificate validation ==="
 
-#CERT_PATH="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
+if [ ! -f "$FULLCHAIN" ]; then
+  echo "❌ Missing fullchain.pem"
 
-#if [ ! -f "$CERT_PATH" ]; then
-#  echo "❌ No valid cert found — aborting"
-#  exit 1
-#fi
-
-#cat \
-#  /etc/letsencrypt/live/$DOMAIN/fullchain.pem \
-#  /etc/letsencrypt/live/$DOMAIN/privkey.pem \
-#  > /etc/haproxy/certs/$DOMAIN.pem
-
-#chmod 600 /etc/haproxy/certs/$DOMAIN.pem
-
-CERT="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
-
-if [ ! -f "$CERT" ]; then
-  echo "❌ Missing cert for $DOMAIN"
   exit 1
 fi
 
-cat $CERT /etc/letsencrypt/live/$DOMAIN/privkey.pem > /etc/haproxy/certs/$DOMAIN.pem
-chmod 600 /etc/haproxy/certs/$DOMAIN.pem
+if [ ! -f "$PRIVKEY" ]; then
+  echo "❌ Missing privkey.pem"
 
-########################################
-# 🔥 SYNC CERTS BACK TO S3
-########################################
-
-echo "Syncing certs back to S3..."
-aws s3 sync "$CERT_BASE" s3://platform-api-services/platform/certs
-
-########################################
-# CLEANUP
-########################################
-
-[ -n "${PID:-}" ] && kill $PID || true
-
-########################################
-# RENDER HAPROXY CONFIG
-########################################
-
-echo "Rendering HAProxy configs..."
-
-mkdir -p /etc/haproxy/services
-
-if [ -x /usr/local/bin/platform-render-haproxy.sh ]; then
-  /usr/local/bin/platform-render-haproxy.sh
-else
-  echo "❌ Missing renderer"
   exit 1
 fi
 
 ########################################
-# START SERVICES
+# BUILD HAPROXY PEM
 ########################################
 
-echo "Starting services..."
+echo
+echo "=== Building HAProxy PEM ==="
 
-for SERVICE in $(cat "$SERVICES_DIR/services.list"); do
-  echo "Processing service: $SERVICE"
+cat \
+  "$FULLCHAIN" \
+  "$PRIVKEY" \
+  > "${HAPROXY_CERT_DIR}/${DOMAIN}.pem"
 
-  PORT=$(cat "$SERVICES_DIR/${SERVICE}.port")
+chmod 600 "${HAPROXY_CERT_DIR}/${DOMAIN}.pem"
+
+########################################
+# REMOVE NON-PEM FILES
+########################################
+
+find "$HAPROXY_CERT_DIR" \
+  -type f \
+  ! -name "*.pem" \
+  -delete
+
+########################################
+# STOP TEMP SERVER
+########################################
+
+echo
+echo "=== Cleaning up temporary services ==="
+
+if [ -n "$CERTBOT_PID" ]; then
+  kill "$CERTBOT_PID" || true
+fi
+
+########################################
+# RENDER HAPROXY CONFIGS
+########################################
+
+echo
+echo "=== Rendering HAProxy configs ==="
+
+if [ ! -x /usr/local/bin/platform-render-haproxy.sh ]; then
+  echo "❌ Missing platform-render-haproxy.sh"
+
+  exit 1
+fi
+
+/usr/local/bin/platform-render-haproxy.sh
+
+########################################
+# VALIDATE HAPROXY
+########################################
+
+echo
+echo "=== Validating HAProxy configuration ==="
+
+haproxy -c \
+  -f /etc/haproxy/haproxy.cfg \
+  -f /etc/haproxy/services/ || exit 1
+
+########################################
+# START PLATFORM SERVICES
+########################################
+
+echo
+echo "=== Starting platform services ==="
+
+FAILED_SERVICES=()
+
+if [ ! -f "${SERVICES_DIR}/services.list" ]; then
+  echo "❌ Missing services.list"
+
+  exit 1
+fi
+
+while read -r SERVICE; do
+
+  [ -z "$SERVICE" ] && continue
+
+  echo
+  echo "--- Processing service: ${SERVICE} ---"
+
+  PORT_FILE="${SERVICES_DIR}/${SERVICE}.port"
+
+  if [ ! -f "$PORT_FILE" ]; then
+    echo "⚠️ Missing port definition for ${SERVICE}"
+
+    FAILED_SERVICES+=("$SERVICE")
+
+    continue
+  fi
+
+  PORT=$(cat "$PORT_FILE")
+
   IMAGE="046685909731.dkr.ecr.us-east-1.amazonaws.com/${SERVICE}:latest"
 
-  docker pull "$IMAGE" || { echo "FAILED TO PULL $SERVICE"; exit 1; }
+  ########################################
+  # PULL IMAGE
+  ########################################
+
+  if ! docker pull "$IMAGE"; then
+    echo "❌ Failed to pull ${IMAGE}"
+
+    FAILED_SERVICES+=("$SERVICE")
+
+    continue
+  fi
+
+  ########################################
+  # SYSTEMD UNIT
+  ########################################
 
   SERVICE_FILE="/etc/systemd/system/platform-${SERVICE}.service"
 
 cat <<EOF > "$SERVICE_FILE"
 [Unit]
-Description=Platform Service - $SERVICE
+Description=Platform Service - ${SERVICE}
+
 After=docker.service
 Requires=docker.service
 
 [Service]
 Restart=always
+RestartSec=5
+
 ExecStartPre=-/usr/bin/docker rm -f ${SERVICE}
+
 ExecStart=/usr/bin/docker run \
   --name ${SERVICE} \
   -p 127.0.0.1:${PORT}:80 \
   ${IMAGE}
+
 ExecStop=/usr/bin/docker stop ${SERVICE}
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-  systemctl daemon-reexec
+  ########################################
+  # START SERVICE
+  ########################################
+
   systemctl daemon-reload
-  systemctl enable platform-${SERVICE}
-  systemctl restart platform-${SERVICE}
 
-done
+  systemctl enable "platform-${SERVICE}"
+
+  if ! systemctl restart "platform-${SERVICE}"; then
+    echo "❌ Failed to start ${SERVICE}"
+
+    FAILED_SERVICES+=("$SERVICE")
+
+    continue
+  fi
+
+done < "${SERVICES_DIR}/services.list"
 
 ########################################
-# FINAL VALIDATION
+# FINAL HAPROXY VALIDATION
 ########################################
 
-echo "Validating HAProxy..."
+echo
+echo "=== Final HAProxy validation ==="
 
-haproxy -c -f /etc/haproxy/haproxy.cfg -f /etc/haproxy/services/ || exit 1
+haproxy -c \
+  -f /etc/haproxy/haproxy.cfg \
+  -f /etc/haproxy/services/ || exit 1
 
-echo "Reloading/Restarting HAProxy (final)..."
-#systemctl reload haproxy
-systemctl restart haproxy
+########################################
+# RELOAD HAPROXY
+########################################
 
-echo "=== Rehydrate complete ==="
+echo
+echo "=== Reloading HAProxy ==="
+
+systemctl reload haproxy || systemctl restart haproxy
+
+########################################
+# FINAL STATUS
+########################################
+
+echo
+echo "=== Rehydrate Complete ==="
+
+if [ ${#FAILED_SERVICES[@]} -gt 0 ]; then
+  echo
+  echo "⚠️ Some services failed:"
+
+  printf ' - %s\n' "${FAILED_SERVICES[@]}"
+
+  exit 1
+fi
+
+echo "All services started successfully"
