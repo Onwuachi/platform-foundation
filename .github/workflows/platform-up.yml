@@ -3,8 +3,12 @@ name: platform-up
 on:
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
-  platform-up:
+  up:
     runs-on: ubuntu-latest
 
     steps:
@@ -14,11 +18,11 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
+          role-to-assume: arn:aws:iam::046685909731:role/github-oidc-role
 
-      - name: Platform UP
+      - name: Platform Up
         run: |
-          chmod +x tools/platform
+          chmod +x ./tools/platform
           ./tools/platform up
+    
