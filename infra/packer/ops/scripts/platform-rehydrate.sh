@@ -47,8 +47,8 @@ echo "=== Syncing platform services from S3 ==="
 
 aws s3 sync \
   "${S3_BUCKET}/platform/services" \
-  "$SERVICES_DIR"
-
+  "$SERVICES_DIR" \
+  --delete
 ########################################
 # DEBUG
 ########################################
@@ -327,13 +327,25 @@ haproxy -c \
   -f /etc/haproxy/services/ || exit 1
 
 ########################################
-# RELOAD HAPROXY
+# RELOAD/RSTART HAPROXY
 ########################################
 
 echo
-echo "=== Reloading HAProxy ==="
+echo "=== Activating HAProxy ==="
 
-systemctl reload haproxy || systemctl restart haproxy
+if systemctl is-active --quiet haproxy; then
+  systemctl reload haproxy
+else
+  systemctl restart haproxy
+fi
+
+sleep 2
+
+if ! systemctl is-active --quiet haproxy; then
+  echo "❌ HAProxy failed to start"
+  journalctl -u haproxy -n 50 --no-pager
+  exit 1
+fi
 
 ########################################
 # FINAL STATUS

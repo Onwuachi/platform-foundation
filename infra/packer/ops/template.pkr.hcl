@@ -271,6 +271,11 @@ build {
   }
 
   provisioner "file" {
+  source      = "scripts/platform-shutdown.sh"
+  destination = "/tmp/platform-shutdown.sh"
+}
+
+  provisioner "file" {
     source      = "systemd/platform-rehydrate.service"
     destination = "/tmp/platform-rehydrate.service"
   }
@@ -279,6 +284,8 @@ build {
     inline = [
       "sudo mv /tmp/platform-rehydrate.sh /usr/local/bin/platform-rehydrate.sh",
       "sudo chmod +x /usr/local/bin/platform-rehydrate.sh",
+      "sudo mv /tmp/platform-shutdown.sh /usr/local/bin/platform-shutdown.sh",
+      "sudo chmod +x /usr/local/bin/platform-shutdown.sh",
       "sudo mv /tmp/platform-rehydrate.service /etc/systemd/system/",
       "sudo systemctl daemon-reload",
       "sudo systemctl enable platform-rehydrate.service"

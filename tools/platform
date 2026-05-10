@@ -216,7 +216,12 @@ up)
     sleep 5
   done
 
-  echo "Running rehydrate..."
+  ########################################
+  # REHYDRATE
+  ########################################
+
+  echo
+  echo "==> Running platform rehydrate"
 
   CMD_ID=$(ssm_exec "sudo /usr/local/bin/platform-rehydrate.sh")
 
@@ -224,6 +229,40 @@ up)
 
   wait_for_ssm "$CMD_ID"
 
+  ########################################
+  # VALIDATE HAPROXY
+  ########################################
+
+  echo
+  echo "==> Validating HAProxy"
+
+  CMD_ID=$(ssm_exec "systemctl is-active haproxy && systemctl status haproxy --no-pager -l || true")
+
+  wait_for_ssm "$CMD_ID"
+
+  ########################################
+  # VALIDATE CONTAINERS
+  ########################################
+
+  echo
+  echo "==> Validating containers"
+
+  CMD_ID=$(ssm_exec "docker ps")
+
+  wait_for_ssm "$CMD_ID"
+
+  ########################################
+  # VALIDATE ROUTING
+  ########################################
+
+  echo
+  echo "==> Validating routing"
+
+  CMD_ID=$(ssm_exec "curl -fsS -k https://onwuachi.com >/dev/null")
+
+  wait_for_ssm "$CMD_ID"
+
+  echo
   echo "✅ Platform UP"
 ;;
 
@@ -243,12 +282,36 @@ down)
 
   wait_for_ssm "$CMD_ID"
 
-  echo "Stopping EC2 instance..."
+  ########################################
+  # VERIFY SERVICES STOPPED
+  ########################################
+
+  echo
+  echo "==> Verifying Docker stopped"
+
+  CMD_ID=$(ssm_exec "systemctl is-active docker || true")
+
+  wait_for_ssm "$CMD_ID"
+
+  ########################################
+  # STOP INSTANCE
+  ########################################
+
+  echo
+  echo "==> Stopping EC2 instance"
 
   aws ec2 stop-instances \
     --region "$REGION" \
     --instance-ids "$INSTANCE_ID" >/dev/null
 
+  echo
+  echo "Waiting for EC2 shutdown..."
+
+  aws ec2 wait instance-stopped \
+    --region "$REGION" \
+    --instance-ids "$INSTANCE_ID"
+
+  echo
   echo "✅ Platform DOWN"
 ;;
 
@@ -460,7 +523,12 @@ restart)
 ########################################
 
 logs)
-  require_instance 
+  require_instance
+
+  if [ -z "$SERVICE" ]; then
+    echo "❌ Usage: platform describe <service>"
+    exit 1
+  fi
 
   CMD_ID=$(ssm_exec "journalctl -u platform-${SERVICE} -n 100 --no-pager")
   wait_for_ssm "$CMD_ID"
@@ -471,7 +539,12 @@ logs)
 ########################################
 
 status)
-  require_instance 
+  require_instance
+
+  if [ -z "$SERVICE" ]; then
+    echo "❌ Usage: platform describe <service>"
+    exit 1
+  fi
 
   CMD_ID=$(ssm_exec "systemctl status platform-${SERVICE} --no-pager")
   wait_for_ssm "$CMD_ID"
@@ -480,8 +553,65 @@ status)
 health)
   require_instance
 
-  CMD_ID=$(ssm_exec "curl -s localhost:${PORT:-80} || true")
+  echo "======================================="
+  echo " PLATFORM HEALTH CHECK"
+  echo "======================================="
+
+  ########################################
+  # INSTANCE STATE
+  ########################################
+
+  echo
+  echo "==> EC2 State"
+
+  aws ec2 describe-instances \
+    --region "$REGION" \
+    --instance-ids "$INSTANCE_ID" \
+    --query "Reservations[].Instances[].State.Name" \
+    --output text
+
+  ########################################
+  # HAPROXY
+  ########################################
+
+  echo
+  echo "==> HAProxy"
+
+  CMD_ID=$(ssm_exec "systemctl is-active haproxy && systemctl status haproxy --no-pager -l || true")
   wait_for_ssm "$CMD_ID"
+
+  ########################################
+  # DOCKER
+  ########################################
+
+  echo
+  echo "==> Docker"
+
+  CMD_ID=$(ssm_exec "systemctl is-active docker || true")
+  wait_for_ssm "$CMD_ID"
+
+  ########################################
+  # RUNNING CONTAINERS
+  ########################################
+
+  echo
+  echo "==> Containers"
+
+  CMD_ID=$(ssm_exec "docker ps")
+  wait_for_ssm "$CMD_ID"
+
+  ########################################
+  # HTTPS CHECK
+  ########################################
+
+  echo
+  echo "==> HTTPS Validation"
+
+  CMD_ID=$(ssm_exec "curl -fsS -k https://onwuachi.com >/dev/null")
+  wait_for_ssm "$CMD_ID"
+
+  echo
+  echo "✅ Platform healthy"
 ;;
 
 ########################################
@@ -504,6 +634,11 @@ list)
 
 describe)
   require_instance
+
+  if [ -z "$SERVICE" ]; then
+    echo "❌ Usage: platform describe <service>"
+    exit 1
+  fi
 
   SERVICE=$2
 
