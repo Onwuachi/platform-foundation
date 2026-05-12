@@ -1,0 +1,16 @@
+<section class="card">
+
+  <h2>Core Services</h2>
+
+  <ul>
+    {{ range site.Data.platform.services.services }}
+      <li>
+        <strong>{{ .name }}</strong>
+        — {{ .role }}
+        ({{ .status }})
+      </li>
+    {{ end }}
+  </ul>
+
+</section>
+

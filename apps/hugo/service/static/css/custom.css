@@ -48,3 +48,102 @@
   background: red;
 }
 
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #0f1117;
+  color: #e5e5e5;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: #151823;
+  border-bottom: 1px solid #2a2f3a;
+}
+
+.nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.nav a {
+  color: #9cc9ff;
+  text-decoration: none;
+}
+
+.container {
+  padding: 2rem;
+}
+
+.card {
+  background: #151823;
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid #2a2f3a;
+  margin-bottom: 1rem;
+}
+
+.side-note {
+  background: #151823;
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid #2a2f3a;
+  margin-bottom: 1rem;
+}
+
+.highlight-section {
+  border-left: 4px solid #9cc9ff;
+}
+
+.footer {
+  padding: 2rem;
+  text-align: center;
+  border-top: 1px solid #2a2f3a;
+  margin-top: 2rem;
+  opacity: 0.7;
+}
+
+.badge-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.badge {
+  background: #1f2633;
+  border: 1px solid #2a2f3a;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-size: 12px;
+  color: #9cc9ff;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.metric-card {
+  background: #151823;
+  border: 1px solid #2a2f3a;
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.metric-title {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.metric-value {
+  font-size: 32px;
+  font-weight: bold;
+  margin-top: 0.5rem;
+  color: #9cc9ff;
+}
+

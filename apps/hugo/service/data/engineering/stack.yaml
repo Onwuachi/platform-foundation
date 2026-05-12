@@ -1,0 +1,10 @@
+services:
+  - name: terraform
+    role: infrastructure-as-code
+
+  - name: docker
+    role: container-runtime
+
+  - name: haproxy
+    role: edge-routing
+
