@@ -3,6 +3,10 @@ name: platform-up
 on:
   workflow_dispatch:
 
+  schedule:
+    # 6:15 AM Central Time (CDT = UTC-5)
+    - cron: '15 11 * * *'
+
 permissions:
   id-token: write
   contents: read
@@ -21,8 +25,18 @@ jobs:
           aws-region: us-east-1
           role-to-assume: arn:aws:iam::046685909731:role/github-oidc-role
 
-      - name: Platform Up
+      - name: Platform UP
         run: |
           chmod +x ./tools/platform
           ./tools/platform up
-    
+
+      - name: Verify platform
+        run: |
+          echo "=== VERIFYING PLATFORM ==="
+
+          aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=platform-ops" \
+            --query "Reservations[*].Instances[*].[State.Name,PublicIpAddress]" \
+            --output table
+
+

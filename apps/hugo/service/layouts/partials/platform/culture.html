@@ -15,10 +15,15 @@
 
 <div class="side-note">
   <p><strong>As Platform Implementation Continues 🧠...</strong></p>
+
   <ul>
-    <li>MyAnimeList</li>
-    <li>Crunchyroll</li>
-    <li>Anime News Network</li>
+    {{ range site.Data.culture.links.anime_links }}
+      <li>
+        <a href="{{ .url }}" target="_blank">
+          {{ .name }}
+        </a>
+      </li>
+    {{ end }}
   </ul>
 </div>
 

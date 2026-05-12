@@ -3,6 +3,10 @@ name: platform-down
 on:
   workflow_dispatch:
 
+  schedule:
+    # 11:15 PM Central Time (CDT = UTC-5)
+    - cron: '15 4 * * *'
+
 jobs:
   platform-down:
     runs-on: ubuntu-latest
@@ -22,4 +26,12 @@ jobs:
         run: |
           chmod +x tools/platform
           ./tools/platform down
-    
+
+      - name: Verify EC2 stopped
+        run: |
+          echo "=== VERIFYING PLATFORM SHUTDOWN ==="
+
+          aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=platform-ops" \
+            --query "Reservations[*].Instances[*].[State.Name]" \
+            --output table
