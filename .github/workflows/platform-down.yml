@@ -7,6 +7,10 @@ on:
     # 11:15 PM Central Time (CDT = UTC-5)
     - cron: '15 4 * * *'
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   platform-down:
     runs-on: ubuntu-latest
@@ -18,9 +22,33 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
+          role-to-assume: arn:aws:iam::046685909731:role/github-oidc-role
+
+      #################################################
+      # LOG SCHEDULE + TIME CONTEXT
+      #################################################
+      - name: Log workflow timing
+        run: |
+          echo "======================================="
+          echo " PLATFORM DOWN WORKFLOW"
+          echo "======================================="
+
+          echo "GitHub Event:"
+          echo "${{ github.event_name }}"
+
+          echo ""
+          echo "UTC Time:"
+          date -u
+
+          echo ""
+          echo "Central Time:"
+          TZ=America/Chicago date
+
+          echo ""
+          echo "Expected Schedule:"
+          echo "11:15 PM Central"
+          echo "04:15 UTC"
 
       - name: Platform DOWN
         run: |
@@ -35,3 +63,5 @@ jobs:
             --filters "Name=tag:Name,Values=platform-ops" \
             --query "Reservations[*].Instances[*].[State.Name]" \
             --output table
+
+

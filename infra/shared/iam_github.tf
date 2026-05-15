@@ -47,15 +47,21 @@ resource "aws_iam_role" "github_oidc_role" {
 # IAM Policy for Packer AMI Builds
 ###############################################
 resource "aws_iam_policy" "packer_policy" {
+
   name        = "packer-build-policy"
-  description = "Permissions for GitHub Actions to build AMIs with Packer"
+  description = "Permissions for GitHub Actions"
 
   policy = jsonencode({
     Version = "2012-10-17"
+
     Statement = [
-      # EC2 permissions required for Packer AMI builds
+
+      #################################################
+      # EC2
+      #################################################
       {
         Effect = "Allow"
+
         Action = [
           "ec2:Describe*",
           "ec2:CreateTags",
@@ -71,25 +77,50 @@ resource "aws_iam_policy" "packer_policy" {
           "ec2:DescribeImages",
           "ec2:DescribeInstances"
         ]
+
         Resource = "*"
       },
 
-      # SSM Parameter Store (write AMI ID)
+      #################################################
+      # SSM Parameter Store
+      #################################################
       {
         Effect = "Allow"
+
         Action = [
           "ssm:PutParameter",
           "ssm:GetParameter"
         ]
+
         Resource = "*"
       },
 
-      # Allow Packer to pass instance profiles if needed
+      #################################################
+      # SSM Remote Commands
+      #################################################
       {
         Effect = "Allow"
+        
+        Action = [
+          "ssm:SendCommand",
+          "ssm:GetCommandInvocation",
+          "ssm:ListCommandInvocations",
+          "ssm:ListCommands"
+        ]
+
+        Resource = "*"
+      },
+
+      #################################################
+      # IAM PassRole
+      #################################################
+      {
+        Effect = "Allow"
+
         Action = [
           "iam:PassRole"
         ]
+
         Resource = "*"
       }
     ]

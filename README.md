@@ -216,6 +216,14 @@ packer build
 → runtime restored
 ```
 
+## Platform Lifecycle
+
+| Workflow | Status |
+|---|---|
+| Platform Up | ![Platform Up](https://github.com/Onwuachi/platform-foundation/actions/workflows/platform-up.yml/badge.svg) |
+| Platform Down | ![Platform Down](https://github.com/Onwuachi/platform-foundation/actions/workflows/platform-down.yml/badge.svg) |
+| Hugo CI | ![Hugo CI](https://github.com/Onwuachi/platform-foundation/actions/workflows/hugo.yml/badge.svg) |
+
 ---
 
 ## 🧠 Platform State Model
@@ -388,6 +396,33 @@ EC2 boot
 * Externalized runtime control plane
 * Snapshot-based disaster recovery
 * Declarative runtime reconstruction
+
+
+---
+Planning Hugo ARCHITECTURE 
+
+layouts/
+├── _default/
+│
+├── culture/
+│   └── list.html
+│
+├── kb/
+│   ├── list.html
+│   └── single.html
+│
+├── platform/
+│   └── list.html
+│
+└── partials/
+    └── platform/
+        ├── header.html
+        ├── footer.html
+        ├── culture.html
+        ├── news.html
+        ├── architecture.html
+        └── kb-sidebar.html
+
 
 ---
 
