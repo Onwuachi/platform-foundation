@@ -27,3 +27,21 @@
   </ul>
 </div>
 
+<div class="grid-2">
+
+  {{ range site.Data.culture.links.anime_links }}
+    <div class="card">
+      <h3>{{ .name }}</h3>
+
+      <p>
+        External reference link
+      </p>
+
+      <a href="{{ .url }}" target="_blank">
+        Open →
+      </a>
+    </div>
+  {{ end }}
+
+</div>
+

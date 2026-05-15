@@ -1,3 +1,29 @@
+:root {
+
+  --bg: #ffffff;
+  --text: #111111;
+
+  --card-bg: #f4f4f4;
+
+  --border: #dcdcdc;
+
+  --accent: #2563eb;
+}
+
+[data-theme="dark"] {
+
+  --bg: #0f1117;
+
+  --text: #e5e5e5;
+
+  --card-bg: #151823;
+
+  --border: #2a2f3a;
+
+  --accent: #9cc9ff;
+}
+
+
 .flavor-map {
   position: relative;
   width: 100%;
@@ -48,11 +74,14 @@
   background: red;
 }
 
+
 body {
   margin: 0;
   font-family: Arial, sans-serif;
-  background: #0f1117;
-  color: #e5e5e5;
+
+  background: var(--bg);
+
+  color: var(--text);
 }
 
 .topbar {
@@ -69,22 +98,29 @@ body {
   gap: 1rem;
 }
 
+
 .nav a {
-  color: #9cc9ff;
-  text-decoration: none;
+  color: var(--accent);
 }
 
 .container {
   padding: 2rem;
 }
 
+
 .card {
-  background: #151823;
+
+  background: var(--card-bg);
+
+  border: 1px solid var(--border);
+
   padding: 1rem;
+
   border-radius: 10px;
-  border: 1px solid #2a2f3a;
+
   margin-bottom: 1rem;
 }
+
 
 .side-note {
   background: #151823;
@@ -146,4 +182,22 @@ body {
   margin-top: 0.5rem;
   color: #9cc9ff;
 }
+
+.architecture-diagram {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.architecture-diagram img {
+  max-width: 900px;
+  width: 100%;
+  height: auto;
+
+  border-radius: 12px;
+
+  border: 1px solid var(--border);
+
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+
 
