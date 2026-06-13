@@ -1,11 +1,16 @@
 {{ define "main" }}
 
 <div class="card">
+  <div class="breadcrumb">
+    <a href="/">Home</a> / <a href="/{{ .Section }}/">{{ .Section | title }}</a> / {{ .Title }}
+  </div>
   <h1>{{ .Title }}</h1>
-  <p style="opacity:0.6;">{{ .Date }}</p>
+  {{ if not .Date.IsZero }}
+    <p class="post-date">{{ .Date.Format "January 2, 2006" }}</p>
+  {{ end }}
 </div>
 
-<div class="card">
+<div class="card content-body">
   {{ .Content }}
 </div>
 
@@ -15,8 +20,11 @@
     <li>Stream: {{ .Section }}</li>
     <li>Pipeline: Hugo Render Engine</li>
     <li>Status: Published</li>
+    {{ with .Params.tags }}<li>Tags: {{ delimit . ", " }}</li>{{ end }}
   </ul>
+  <div style="margin-top:1rem;">
+    <a href="/{{ .Section }}/">← Back to {{ .Section | title }}</a>
+  </div>
 </div>
 
 {{ end }}
-

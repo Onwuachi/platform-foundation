@@ -1,14 +1,24 @@
 <div class="topbar">
-  <strong>Onwuachi Control Plane</strong>
+  <a href="/" class="topbar-brand">
+    <strong>⚡ Onwuachi Control Plane</strong>
+  </a>
 
-  <div class="nav">
-   <a href="/">Home</a>
-   <a href="/platform/">Platform</a>
-   <a href="/engineering/">Engineering</a>
-   <a href="/culture/">Culture</a>
-   <a href="/recipes/">Recipes</a>
-   <a href="/signals/">Signals</a>
-   <a href="/kb/">KB</a>
+  <button class="nav-toggle" onclick="toggleNav()" aria-label="Toggle navigation">☰</button>
+
+  <div class="nav" id="main-nav">
+    <a href="/">Home</a>
+    <a href="/platform/">Platform</a>
+    <a href="/engineering/">Engineering</a>
+    <a href="/signals/">Signals</a>
+    <a href="/kb/">KB</a>
+    <a href="/recipes/">Recipes</a>
+    <a href="/culture/">Culture</a>
   </div>
 </div>
 
+<script>
+function toggleNav() {
+  const nav = document.getElementById('main-nav');
+  nav.classList.toggle('nav-open');
+}
+</script>

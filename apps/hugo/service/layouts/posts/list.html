@@ -1,15 +1,26 @@
 {{ define "main" }}
 
-<h1>📡 Event Stream</h1>
+<div class="card">
+  <h1>📡 Event Stream</h1>
+  <p style="opacity:0.7;">System logs, updates, and platform activity</p>
+</div>
 
-<p>System logs, updates, and platform activity</p>
-
-{{ range .Pages }}
-  <div class="side-note">
-    <h3><a href="{{ .RelPermalink }}">{{ .Title }}</a></h3>
-    <p>{{ .Summary }}</p>
+{{ if .Pages }}
+  {{ range .Pages }}
+    <div class="side-note">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <h3 style="margin:0;"><a href="{{ .RelPermalink }}">{{ .Title }}</a></h3>
+        {{ if not .Date.IsZero }}
+          <span style="opacity:0.5; font-size:13px; white-space:nowrap; margin-left:1rem;">{{ .Date.Format "Jan 2, 2006" }}</span>
+        {{ end }}
+      </div>
+      <p style="margin-top:0.5rem;">{{ .Summary }}</p>
+    </div>
+  {{ end }}
+{{ else }}
+  <div class="card" style="opacity:0.6; text-align:center; padding:2rem;">
+    <p>No posts yet. Stream is waiting for signal.</p>
   </div>
 {{ end }}
 
 {{ end }}
-

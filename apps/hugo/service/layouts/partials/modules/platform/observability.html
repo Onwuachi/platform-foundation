@@ -1,12 +1,34 @@
 <section class="card">
   <h2>Operational Objectives</h2>
+  <div class="grid-2" style="margin-top:1rem;">
+    <div>
+      <h4 style="color:var(--accent); margin-bottom:0.5rem;">Infrastructure</h4>
+      <ul>
+        <li>Immutable Infrastructure (Packer AMIs)</li>
+        <li>Deterministic Recovery (Terraform)</li>
+        <li>Service Rehydration from S3</li>
+      </ul>
+    </div>
+    <div>
+      <h4 style="color:var(--accent); margin-bottom:0.5rem;">Operations</h4>
+      <ul>
+        <li>Automated Routing (HAProxy)</li>
+        <li>Operational Access via SSM</li>
+        <li>Scheduled Platform Up/Down</li>
+      </ul>
+    </div>
+  </div>
 
-  <ul>
-    <li>Immutable Infrastructure</li>
-    <li>Deterministic Recovery</li>
-    <li>Service Rehydration</li>
-    <li>Automated Routing</li>
-    <li>Operational Simplicity</li>
-  </ul>
+  <div style="margin-top:1rem;">
+    <h4 style="color:var(--accent); margin-bottom:0.5rem;">Telemetry</h4>
+    <div class="grid-2">
+      {{ range site.Data.signals.telemetry.telemetry }}
+        <div class="signal-row">
+          <span class="signal-dot {{ .state }}"></span>
+          <span class="signal-name">{{ .name }}</span>
+          <span class="signal-state">{{ .state }}</span>
+        </div>
+      {{ end }}
+    </div>
+  </div>
 </section>
-

@@ -1,3 +1,14 @@
-baseURL = 'https://example.org/'
+baseURL = 'https://onwuachi.com/'
 languageCode = 'en-us'
-title = 'My New Hugo Site'
+title = 'Onwuachi Control Plane'
+
+# Ignore bak files
+ignoreFiles = ['.*-bak$', '.*\.bak$']
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true   # allow raw HTML in markdown
+
+[build]
+  writeStats = true

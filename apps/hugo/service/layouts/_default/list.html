@@ -2,19 +2,23 @@
 
 <div class="card">
   <h1>{{ .Title }}</h1>
-  <p>Module Interface</p>
+  <p style="opacity:0.7;">{{ .Content }}</p>
 </div>
 
+{{ if .Pages }}
 <div class="card">
-  <h3>Entries</h3>
-
+  <h3>Entries <span style="opacity:0.5; font-weight:normal;">({{ len .Pages }})</span></h3>
   {{ range .Pages }}
-    <div style="margin-bottom:1rem;">
+    <div class="list-item">
       <a href="{{ .RelPermalink }}"><strong>{{ .Title }}</strong></a>
+      {{ if not .Date.IsZero }}
+        <span class="list-date">{{ .Date.Format "Jan 2, 2006" }}</span>
+      {{ end }}
+      {{ if .Summary }}<p class="list-summary">{{ .Summary }}</p>{{ end }}
     </div>
   {{ end }}
-
 </div>
+{{ end }}
 
 <div class="card">
   <h3>System Context</h3>
@@ -26,4 +30,3 @@
 </div>
 
 {{ end }}
-

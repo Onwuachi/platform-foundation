@@ -1,33 +1,20 @@
-<button onclick="toggleTheme()">
-  🌗 Theme
+<button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle light/dark mode">
+  <span id="theme-icon">🌙</span>
 </button>
 
 <script>
+(function() {
+  const saved = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  const icon = document.getElementById('theme-icon');
+  if (icon) icon.textContent = saved === 'dark' ? '🌙' : '☀️';
+})();
+
 function toggleTheme() {
-
-  const current =
-    document.documentElement.getAttribute("data-theme");
-
-  if (current === "dark") {
-
-    document.documentElement
-      .setAttribute("data-theme", "light");
-
-    localStorage.setItem("theme", "light");
-
-  } else {
-
-    document.documentElement
-      .setAttribute("data-theme", "dark");
-
-    localStorage.setItem("theme", "dark");
-  }
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  document.getElementById('theme-icon').textContent = next === 'dark' ? '🌙' : '☀️';
 }
-
-const saved =
-  localStorage.getItem("theme") || "dark";
-
-document.documentElement
-  .setAttribute("data-theme", saved);
 </script>
-
