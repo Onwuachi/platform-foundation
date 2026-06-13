@@ -7,7 +7,6 @@ rule_files:
 scrape_configs:
 
   - job_name: node
-
     ec2_sd_configs:
       - region: us-east-1
         port: 9100
@@ -18,7 +17,7 @@ scrape_configs:
         action: keep
 
     static_configs:
-      - targets: ['127.0.0.1:9100']    
+      - targets: ['127.0.0.1:9100']
 
   - job_name: platform-api
     metrics_path: /metrics
@@ -37,18 +36,16 @@ scrape_configs:
 
     static_configs:
       - targets:
-        - https://onwuachi.com
-        - https://onwuachi.com/ready
+          - https://onwuachi.com
+          - https://onwuachi.com/ready
 
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
-
       - source_labels: [__param_target]
         target_label: instance
-
       - target_label: __address__
-        replacement: localhost:9115
+        replacement: 172.17.0.1:9115
 
   - job_name: prometheus
     static_configs:
@@ -58,7 +55,7 @@ scrape_configs:
     static_configs:
       - targets: ['127.0.0.1:9091']
 
-  - job_name: 'blackbox_ssl'
+  - job_name: blackbox_ssl
     metrics_path: /probe
     params:
       module: [tls_expiry]
@@ -71,9 +68,7 @@ scrape_configs:
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
-
       - source_labels: [__param_target]
         target_label: instance
-
       - target_label: __address__
-        replacement: 127.0.0.1:9115
+        replacement: 172.17.0.1:9115

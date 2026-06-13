@@ -1,0 +1,14 @@
+<section class="card">
+  <h2>Core Services</h2>
+  <div class="grid-2" style="margin-top:1rem;">
+    {{ range site.Data.platform.services.services }}
+      <div class="service-card">
+        <div class="service-header">
+          <strong class="service-name">{{ .name }}</strong>
+          <span class="status-badge status-{{ .status }}">{{ .status }}</span>
+        </div>
+        <div class="service-role">{{ .role }}</div>
+      </div>
+    {{ end }}
+  </div>
+</section>

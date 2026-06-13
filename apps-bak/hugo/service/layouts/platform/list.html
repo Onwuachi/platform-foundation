@@ -1,0 +1,29 @@
+{{ define "main" }}
+
+{{ partial "platform/hero.html" . }}
+
+<p><strong>
+Enterprise-grade platform engineering focused on reliability, automation, and operational excellence.
+</strong></p>
+
+<p>Stop owning fires 🔥 ❌ and start owning modules 🚀 ✅</p>
+
+{{ partial "platform/build-meta.html" . }}
+{{ partial "platform/repo-link.html" . }}
+
+{{ partial "platform/architecture.html" . }}
+{{ partial "modules/platform/recovery.html" . }}
+{{ partial "platform/learning.html" . }}
+{{ partial "platform/news.html" . }}
+
+<div class="side-note">
+  <p><strong>Beyond the Platform</strong></p>
+  <ul>
+    <li><a href="/culture/">Culture & Interests 🎬</a></li>
+  </ul>
+</div>
+
+{{ partial "platform/footer-quote.html" . }}
+
+{{ end }}
+

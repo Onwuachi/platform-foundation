@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  {{ partial "core/head.html" . }}
+</head>
+
+<body>
+
+  {{ partial "core/topbar.html" . }}
+
+  {{ partial "theme-toggle.html" . }}
+
+  <div class="container">
+    {{ block "main" . }}{{ end }}
+  </div>
+
+  {{ partial "core/footer.html" . }}
+
+</body>
+</html>
+

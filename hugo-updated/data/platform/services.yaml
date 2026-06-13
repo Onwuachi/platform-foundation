@@ -1,0 +1,13 @@
+services:
+  - name: haproxy
+    role: edge-router
+    status: healthy
+
+  - name: hugo
+    role: frontend
+    status: healthy
+
+  - name: node-api
+    role: api
+    status: rebuilding
+

@@ -2,10 +2,7 @@
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
-echo "=== DEBUG: sources.list ==="
-cat /etc/apt/sources.list || true
-echo "=== DEBUG: sources.list.d ==="
-ls -la /etc/apt/sources.list.d || true
+echo "=== install_base.sh starting ==="
 
 cloud-init status --wait
 
@@ -32,6 +29,12 @@ for i in {1..5}; do
 done
 
 #################################
+# Full OS upgrade (security patches)
+#################################
+apt-get upgrade -y
+apt-get autoremove -y
+
+#################################
 # Install core packages
 #################################
 apt-get install -y \
@@ -40,7 +43,8 @@ apt-get install -y \
   unzip \
   gnupg \
   lsb-release \
-  sysstat
+  sysstat \
+  jq
 
 #################################
 # Pre-warm apt cache for future installs
@@ -51,7 +55,8 @@ apt-get install --download-only -y \
   unzip \
   gnupg \
   lsb-release \
-  sysstat
+  sysstat \
+  jq
 
 # Remove locks but keep cached metadata
 rm -f /var/lib/dpkg/lock
@@ -70,7 +75,7 @@ rm -rf aws awscliv2.zip
 /usr/local/bin/aws --version
 
 #################################
-# Certbot user + webroot
+# Certbot user
 #################################
 if ! id acme >/dev/null 2>&1; then
   useradd \
@@ -80,12 +85,9 @@ if ! id acme >/dev/null 2>&1; then
     acme
 fi
 
-
-
 #################################
 # SSM AGENT (CRITICAL)
 #################################
-
 echo "=== Installing SSM Agent ==="
 
 if ! snap list | grep -q amazon-ssm-agent; then
@@ -97,34 +99,24 @@ fi
 systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent.service || true
 systemctl restart snap.amazon-ssm-agent.amazon-ssm-agent.service || true
 
-# Fix shell for SSM user
 if id "ssm-user" &>/dev/null; then
   usermod -s /bin/bash ssm-user || true
 fi
 
 echo "=== SSM READY ==="
 
-
-###Base Directory for certbot
-#mkdir -p /var/www/certbot
-#chown -R acme:acme /var/www/certbot
-#chmod 755 /var/www/certbot
-
-################################
-# HUGO DIR
-################################
-
-#mkdir -p /opt/hugo/site/public
-#chown -R ubuntu:ubuntu /opt/hugo
-
-###Base Directory for platform API
+#################################
+# Base directory structure
+#################################
 mkdir -p /etc/platform
 mkdir -p /etc/platform/services
 mkdir -p /etc/haproxy/services
 
-cat >/etc/platform/api.env <<EOF
+cat >/etc/platform/api.env <<ENVEOF
 IMAGE_URI=046685909731.dkr.ecr.us-east-1.amazonaws.com/api:latest
 PORT=3000
 NODE_ENV=production
-EOF
+ENVEOF
+
+echo "=== install_base.sh complete ==="
 
