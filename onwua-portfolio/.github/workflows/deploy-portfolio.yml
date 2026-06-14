@@ -4,35 +4,24 @@ on:
   push:
     branches: [main]
     paths:
-      - "site/**"
-      - ".github/workflows/deploy-portfolio.yml"
-  workflow_dispatch: # allow manual trigger
+      - "onwua-portfolio/site/**"
+      - "onwua-portfolio/.github/workflows/deploy-portfolio.yml"
+  workflow_dispatch:
 
 env:
   AWS_REGION: us-east-1
-  # Set these as GitHub repo secrets or vars after terraform apply:
-  #   S3_BUCKET:               from terraform output s3_bucket_name
-  #   CLOUDFRONT_DISTRIBUTION: from terraform output cloudfront_distribution_id
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write   # required for OIDC
+      id-token: write
       contents: read
 
     steps:
-      ########################################
-      # Checkout
-      ########################################
       - name: Checkout
         uses: actions/checkout@v4
 
-      ########################################
-      # Build Hugo
-      # Using same Hugo version approach as
-      # your existing hugo-ci.yml
-      ########################################
       - name: Install Hugo
         uses: peaceiris/actions-hugo@v3
         with:
@@ -41,50 +30,33 @@ jobs:
 
       - name: Build site
         run: |
-          cd site
+          cd onwua-portfolio/site
           hugo --minify --gc
-        # Output goes to site/public/
 
-      ########################################
-      # AWS Auth — OIDC (same as platform-foundation)
-      # Uses existing github-oidc-role
-      # You need to attach onwua-portfolio-deploy-policy
-      # to that role after terraform apply
-      ########################################
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-oidc-role
           aws-region: ${{ env.AWS_REGION }}
 
-      ########################################
-      # Deploy to S3
-      # --delete removes files no longer in build
-      ########################################
       - name: Sync to S3
         run: |
-          aws s3 sync site/public/ s3://${{ vars.S3_BUCKET }}/ \
+          aws s3 sync onwua-portfolio/site/public/ s3://${{ vars.S3_BUCKET_ONWUA_PORTFOLIO_SITE }}/ \
             --delete \
             --cache-control "max-age=86400" \
             --exclude "*.html" \
             --exclude "index.xml"
 
-          # HTML and XML get no-cache so updates are instant
-          aws s3 sync site/public/ s3://${{ vars.S3_BUCKET }}/ \
+          aws s3 sync onwua-portfolio/site/public/ s3://${{ vars.S3_BUCKET_ONWUA_PORTFOLIO_SITE }}/ \
             --delete \
             --cache-control "no-cache, no-store, must-revalidate" \
             --include "*.html" \
             --include "index.xml"
 
-      ########################################
-      # Invalidate CloudFront cache
-      # Paths: /* invalidates everything
-      # Cost: first 1000 invalidations/mo free
-      ########################################
       - name: Invalidate CloudFront cache
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id ${{ vars.CLOUDFRONT_DISTRIBUTION }} \
+            --distribution-id ${{ vars.CLOUDFRONT_DISTRIBUTION_ONWUA_PORTFOLIO_SITE }} \
             --paths "/*"
 
       - name: Done
