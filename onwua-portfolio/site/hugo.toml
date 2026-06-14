@@ -1,0 +1,23 @@
+baseURL = "https://onwua.com/"
+languageCode = "en-us"
+title = "Derrick Onwuachi"
+
+# No theme — custom layouts only (keeps it lean)
+
+[params]
+  name        = "Derrick Onwuachi"
+  role        = "DevOps Engineer · Platform & Infrastructure"
+  location    = "St. Paul, MN"
+  email       = "derrick@onwua.com"
+  github      = "https://github.com/Onwuachi"
+  linkedin    = "https://linkedin.com/in/derrick-o-a0777729"
+  labsite     = "https://onwuachi.com"
+  description = "DevOps engineer building production AWS infrastructure with Terraform, Docker, and GitHub Actions."
+
+[build]
+  writeStats = true
+
+[minify]
+  disableCSS  = false
+  disableHTML = false
+  disableJS   = false

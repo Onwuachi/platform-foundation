@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ if .IsHome }}{{ .Site.Params.name }} — {{ .Site.Params.role }}{{ else }}{{ .Title }} · {{ .Site.Params.name }}{{ end }}</title>
+  <meta name="description" content="{{ .Site.Params.description }}" />
+  <meta name="author" content="{{ .Site.Params.name }}" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="{{ .Site.Params.name }}" />
+  <meta property="og:description" content="{{ .Site.Params.description }}" />
+  <meta property="og:url" content="{{ .Site.BaseURL }}" />
+  <meta property="og:type" content="website" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f1117;
+      --surface:  #181c25;
+      --border:   #2a2e3a;
+      --text:     #e2e4ea;
+      --muted:    #7c8296;
+      --accent:   #4f8ef7;
+      --accent2:  #38c9a0;
+      --mono:     'SF Mono', 'Fira Code', 'Consolas', monospace;
+      --sans:     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      min-height: 100vh;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    /* NAV */
+    nav {
+      border-bottom: 1px solid var(--border);
+      padding: 1.1rem 0;
+    }
+    nav .container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .nav-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: 0.01em;
+    }
+    .nav-links {
+      display: flex;
+      gap: 1.5rem;
+      list-style: none;
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+    .nav-links a { color: var(--muted); }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+    /* MAIN */
+    main { padding: 3rem 0 5rem; }
+
+    /* FOOTER */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1.5rem 0;
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="container">
+      <span class="nav-name">{{ .Site.Params.name }}</span>
+      <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/projects/">Projects</a></li>
+        <li><a href="/resume/">Resume</a></li>
+        <li><a href="mailto:{{ .Site.Params.email }}">Contact</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main>
+    <div class="container">
+      {{ block "main" . }}{{ end }}
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      {{ .Site.Params.name }} · {{ .Site.Params.location }} ·
+      <a href="{{ .Site.Params.github }}">GitHub</a> ·
+      <a href="{{ .Site.Params.linkedin }}">LinkedIn</a> ·
+      <a href="{{ .Site.Params.labsite }}">Lab →</a>
+    </div>
+  </footer>
+</body>
+</html>
