@@ -410,6 +410,3 @@ Cloud · DevOps · Platform Engineer
 
 ---
 
-## LinkedIn / Resume Summary
-
-> Built and operated a modular AWS platform implementing immutable infrastructure, declarative runtime state, and automated lifecycle orchestration. Designed the separation between infrastructure provisioning (Terraform), runtime recovery (platform-rehydrate), and operational state (S3) — allowing full platform reconstruction from a destroyed node with no manual steps. Stack: Terraform · Packer · Docker · HAProxy · GitHub Actions · Prometheus · Grafana · Hugo · SSM · ECR.
