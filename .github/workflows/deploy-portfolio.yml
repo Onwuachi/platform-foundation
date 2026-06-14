@@ -41,13 +41,13 @@ jobs:
 
       - name: Sync to S3
         run: |
-          aws s3 sync onwua-portfolio/site/public/ s3://${{ vars.S3_BUCKET_ONWUA_PORTFOLIO_SITE }}/ \
+          aws s3 sync onwua-portfolio/site/public/ s3://onwua-portfolio-site/ \
             --delete \
             --cache-control "max-age=86400" \
             --exclude "*.html" \
             --exclude "index.xml"
 
-          aws s3 sync onwua-portfolio/site/public/ s3://${{ vars.S3_BUCKET_ONWUA_PORTFOLIO_SITE }}/ \
+          aws s3 sync onwua-portfolio/site/public/ s3://onwua-portfolio-site/ \
             --delete \
             --cache-control "no-cache, no-store, must-revalidate" \
             --include "*.html" \
@@ -56,7 +56,7 @@ jobs:
       - name: Invalidate CloudFront cache
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id ${{ vars.CLOUDFRONT_DISTRIBUTION_ONWUA_PORTFOLIO_SITE }} \
+            --distribution-id E127HW59AHJWZG \
             --paths "/*"
 
       - name: Done
