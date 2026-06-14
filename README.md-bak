@@ -1,435 +1,620 @@
 # Platform Foundation
 
-### *Stateless Infrastructure + Self-Rehydrating Control Plane*
+### Stateless Infrastructure + Self-Rehydrating Control Plane
 
-A production-style platform that combines **immutable infrastructure**, **declarative runtime state**, and a **self-rehydrating control plane** to rebuild its runtime deterministically from a single source of truth.
+A production-style platform engineering project combining:
 
-This project evolves traditional DevOps into a **minimal platform layer (PaaS-like)** where routing, services, TLS assets, and runtime configuration are reconstructed automatically and predictably.
+* Immutable Infrastructure
+* Declarative Runtime State
+* Automated Recovery
+* Edge Routing
+* Observability
+* Internal Documentation Services
 
----
+The platform is designed around a simple principle:
 
-## 🚀 Core Principle
-
-> Compute is ephemeral. State is externalized. Runtime can be deterministically reconstructed from durable control plane snapshots.
-
----
-
-## 🧠 Architecture Overview
-
-![Platform Architecture](apps/hugo/service/static/images/platform-architecture.png)
-
-+----------------------+  
-|      Route53 (DNS)   |  
-+----------+-----------+  
-           |  
-           ▼  
-+-------------------------------+  
-| HAProxy (Edge)               |  
-| TLS Termination + Routing    |  
-+-------------------------------+  
-           |  
-   ---------------- CONTROL PLANE ----------------  
-           |  
-           ▼  
-     S3 (Source of Truth)  
-   /platform/services/*  
-           |  
-           ▼  
-   platform-rehydrate (systemd)  
-           |  
-           ▼  
-   Deterministic Rebuild:  
-     - systemd units  
-     - HAProxy config  
-     - TLS certificates  
-     - Running containers  
-   -----------------------------------------------  
-           |  
-   ------------------- DATA LAYER ----------------  
-           |  
-           ▼  
-     EBS Volume (persistent state)
+> Compute is disposable. State is durable. Recovery is deterministic.
 
 ---
 
-## 🔧 Technology Stack
+# 🚀 Current Platform Phase
 
-* **Packer** — Immutable AMI creation
-* **Terraform** — Infrastructure provisioning
-* **HAProxy** — Edge routing + TLS termination
-* **Docker** — Application runtime
-* **systemd** — Service orchestration + lifecycle management
-* **Amazon S3** — Declarative runtime state + control plane
-* **Amazon ECR** — Container registry
-* **Certbot** — Automated TLS lifecycle
-* **Prometheus** — Metrics collection
-* **Grafana** — Observability + dashboards
+## Phase 4.3 — Content Platform & Observability
+
+Current capabilities include:
+
+* Immutable AMI deployments
+* Terraform-managed infrastructure
+* Self-rehydrating control plane
+* HAProxy edge routing
+* Dockerized application runtime
+* Automated TLS lifecycle
+* Prometheus observability
+* Node Exporter metrics
+* Hugo-powered documentation platform
+* Knowledge Base publishing
+* Signals and content streams
+* Disaster recovery snapshots
+
+---
+Phase 4.3 Highlights
+--------------------
+
+✓ Self-hosted Hugo documentation platform
+
+✓ New content streams
+  - Platform
+  - Engineering
+  - Culture
+  - Recipes
+  - Signals
+
+✓ Dynamic Hugo layouts
+  - section templates
+  - reusable partials
+  - module architecture
+
+✓ Image support for markdown content
+
+✓ Containerized Hugo publishing pipeline
+
+✓ ECR-based deployment workflow
+
+✓ platform rehydrate integration
+
+✓ Prometheus observability stack
+
+✓ Node Exporter metrics collection
+
+✓ Grafana dashboard support
+
+✓ Immutable infrastructure workflow
+  Packer → Terraform → Rehydrate
+
+
 
 ---
 
-## 🎯 Platform Capabilities
+## Phase 4.3 Highlights
 
-* Immutable infrastructure (no in-place mutation)
-* Declarative service registry via S3
-* Deterministic HAProxy config generation
-* systemd-managed container lifecycle
-* Full platform rehydration from control plane state
-* Automated TLS provisioning + renewal
-* Private service exposure (127.0.0.1 only)
-* Daily off-platform snapshot backups
-* Versioned control plane recovery
-* Disaster recovery snapshot retention
-* Runtime reconstruction from historical state
-* Integrated Prometheus + Grafana observability
-* Blackbox and node-level monitoring
+### Platform Engineering
+
+* Immutable AMI builds using Packer
+* Terraform-managed AWS infrastructure
+* Remote Terraform state stored in S3
+* Native Terraform S3 state locking
+* State versioning enabled for rollback protection
+* Infrastructure recovery validation and backup procedures
+
+### Runtime Platform
+
+* Docker-based application runtime
+* Dynamic service registration
+* HAProxy edge routing
+* Automated TLS certificate lifecycle management
+* Declarative runtime state persisted in S3
+* Automated platform rehydration
+
+### Observability
+
+* Prometheus metrics collection
+* Node Exporter host metrics
+* Grafana dashboard integration
+* Runtime health verification workflows
+
+### Documentation Platform
+
+* Self-hosted Hugo content platform
+* Custom layouts and reusable partials
+* Markdown-based knowledge management
+* Image rendering support
+* Section-based content architecture
+
+### Content Streams
+
+* Platform
+* Engineering
+* Culture
+* Recipes
+* Signals
+
+### Recipe Knowledge Base
+
+Published runbooks include:
+
+* Overnight Traeger Brisket
+* Smoked Beef Tallow
+* 3-Rib Fest Pitmaster Guide
+* Baby Back Rib Compression Method
+* Salmon & Brined Drumstick Dual Smoke Workflow
+
+### Recovery Workflow
+
+Packer Build
+↓
+Terraform Apply
+↓
+EC2 Launch
+↓
+platform-rehydrate
+↓
+S3 State Sync
+↓
+HAProxy Render
+↓
+Container Startup
+↓
+Platform Online
+
 
 ---
 
-## 🧱 System Design
-
-### Edge Layer (HAProxy)
-
-Handles:
-
-* TLS termination (443)
-* HTTP → HTTPS redirection
-* Domain-based routing via generated backend maps
-
----
-
-### Runtime Layer
-
-Each service runs as an isolated Docker container.
-
-systemd provides:
-
-* deterministic service orchestration
-* restart guarantees
-* dependency ordering
-* boot-time recovery
-
----
-
-### Control Plane (S3)
-
-Defines the desired runtime state:
-
-```
-services.list     → enabled services
-<service>.port    → runtime binding
-<service>.domain  → routing definition
-```
-
-Additional persisted state includes:
-
-* TLS certificates
-* HAProxy runtime mappings
-* recovery metadata
-* service registration state
-
----
-
-## 🔁 Rehydration Workflow
+# 🧠 Architecture Overview
 
 ```text
-S3 sync
-→ generate HAProxy configs
-→ generate systemd service units
-→ pull container images
-→ start services
-→ validate HAProxy
-→ graceful reload
+                     Route53
+                         │
+                         ▼
+                ┌─────────────────┐
+                │     HAProxy     │
+                │ TLS + Routing   │
+                └────────┬────────┘
+                         │
+         ┌───────────────┼───────────────┐
+         │                               │
+         ▼                               ▼
+
+     Hugo Site                     Platform Services
+ Documentation                     Docker Runtime
+
+                         │
+                         ▼
+
+                 Control Plane (S3)
+
+                         │
+                         ▼
+
+               platform-rehydrate
+
+                         │
+                         ▼
+
+             Deterministic Recovery
 ```
 
 ---
 
-## ⚙️ Platform CLI
+# 🔧 Technology Stack
 
-### Start Platform
+Infrastructure
+
+* AWS EC2
+* AWS EBS
+* AWS S3
+* AWS ECR
+* Route53
+
+Provisioning
+
+* Terraform
+* Packer
+
+Runtime
+
+* Docker
+* systemd
+* HAProxy
+* Certbot
+
+Observability
+
+* Prometheus
+* Node Exporter
+* Grafana
+
+Content Platform
+
+* Hugo
+* Nginx
+* Markdown
+
+---
+
+# 🎯 Platform Capabilities
+
+## Infrastructure
+
+* Immutable AMIs
+* Terraform provisioning
+* Automated rebuild workflows
+* Persistent state volumes
+
+## Runtime
+
+* Dockerized services
+* Service registration
+* Dynamic routing
+* Automated TLS management
+
+## Recovery
+
+* Runtime rehydration
+* S3 state restoration
+* Automated service recreation
+* HAProxy regeneration
+
+## Observability
+
+* Node metrics
+* Platform metrics
+* Health validation
+* Runtime inspection
+
+## Documentation
+
+* Internal platform documentation
+* Knowledge Base publishing
+* Operational runbooks
+* Engineering content streams
+
+---
+
+# 🔁 Platform Lifecycle
+
+```text
+packer build
+      │
+      ▼
+
+terraform apply
+      │
+      ▼
+
+EC2 Launch
+      │
+      ▼
+
+systemd Startup
+      │
+      ▼
+
+platform-rehydrate
+      │
+      ▼
+
+S3 State Sync
+      │
+      ▼
+
+Service Recovery
+      │
+      ▼
+
+HAProxy Validation
+      │
+      ▼
+
+Platform Online
+```
+
+---
+
+# 🏗 Rehydration Workflow
+
+```text
+Sync runtime state from S3
+
+Generate:
+
+- service definitions
+- routing maps
+- HAProxy configs
+
+Restore:
+
+- TLS certificates
+- platform metadata
+
+Pull containers
+
+Start services
+
+Validate HAProxy
+
+Reload edge
+
+Platform operational
+```
+
+---
+
+# ⚙️ Platform CLI
+
+Start Platform
 
 ```bash
 platform up
 ```
 
-### Graceful Shutdown
+Stop Platform
 
 ```bash
 platform down
 ```
 
-### Deploy Service
-
-```bash
-platform deploy <service>
-```
-
-### Register Service
-
-```bash
-platform register <service> <port> <domain>
-```
-
-### Rehydrate Runtime
+Rehydrate Runtime
 
 ```bash
 platform rehydrate
 ```
 
-### Health Validation
+Deploy Service
+
+```bash
+platform deploy <service>
+```
+
+Register Service
+
+```bash
+platform register <service> <port> <domain>
+```
+
+Validate Health
 
 ```bash
 platform health
 ```
 
-### Interactive Shell
+---
+
+# 📊 Observability
+
+## Node Exporter
+
+Validate metrics:
 
 ```bash
-platform shell
+curl http://127.0.0.1:9115/metrics
 ```
 
----
-
-## 🔐 Security Model
-
-* Exposed ports:
-  * 80 (redirect only)
-  * 443 (TLS termination)
-
-* All backend services bind exclusively to:
-  * `127.0.0.1`
-
-* TLS managed automatically via Certbot
-* Safe HAProxy validation before reloads
-* Zero-downtime certificate renewals
-* No direct public container exposure
-
----
-
-## 🏗 Infrastructure Lifecycle
+Example metrics:
 
 ```text
-packer build
-→ terraform apply
-→ EC2 boot
-→ systemd
-→ platform-rehydrate
-→ runtime restored
+node_cpu_seconds_total
+node_memory_MemAvailable_bytes
+node_filesystem_size_bytes
 ```
 
-## Platform Lifecycle
+## Prometheus
 
-| Workflow | Status |
-|---|---|
-| Platform Up | ![Platform Up](https://github.com/Onwuachi/platform-foundation/actions/workflows/platform-up.yml/badge.svg) |
-| Platform Down | ![Platform Down](https://github.com/Onwuachi/platform-foundation/actions/workflows/platform-down.yml/badge.svg) |
-| Hugo CI | ![Hugo CI](https://github.com/Onwuachi/platform-foundation/actions/workflows/hugo.yml/badge.svg) |
+Collects:
 
----
-
-## 🧠 Platform State Model
-
-### Immutable Compute Layer
-
-* EC2 instances
-* AMIs
-* system packages
-* Docker runtime
-* HAProxy binaries
+* Node metrics
+* Platform metrics
+* Runtime health data
 
 ---
 
-### Durable Runtime State Layer
+# 🌐 Hugo Documentation Platform
 
-* service registry
-* routing definitions
-* TLS assets
-* HAProxy mappings
-* runtime metadata
-* backup snapshots
+The platform includes a self-hosted Hugo service published behind HAProxy.
 
----
+Current site modules:
 
-## 💾 Backup & Disaster Recovery
-
-Secondary backup bucket:
-
+```text
+Home
+Platform
+Engineering
+Culture
+Recipes
+Signals
+KB
 ```
+
+---
+
+# 📚 Content Architecture
+
+```text
+content/
+
+├── platform/
+├── engineering/
+├── culture/
+├── recipes/
+├── signals/
+└── kb/
+```
+
+```text
+layouts/
+
+├── _default/
+├── platform/
+├── culture/
+├── recipes/
+├── kb/
+└── partials/
+```
+
+---
+
+# 🍖 Recipes Module
+
+Personal BBQ and smoking knowledge base.
+
+Examples:
+
+* Overnight Traeger Brisket
+* Pitmaster Smoked Beef Tallow
+* 3-Rib Fest Guide
+* Baby Back Rib Runbooks
+* Salmon + Drumstick Dual Smoke
+
+---
+
+# 🔐 Security Model
+
+Public Exposure
+
+* 80/tcp
+* 443/tcp
+
+Private Services
+
+* 127.0.0.1 bindings only
+
+Protection
+
+* TLS automation
+* HAProxy validation
+* Zero-downtime reloads
+* No direct container exposure
+
+---
+
+# 💾 Backup Strategy
+
+Primary State
+
+```text
+platform-api-services
+```
+
+Backup State
+
+```text
 platform-api-services-backup
 ```
 
-Nightly GitHub Actions create immutable snapshots:
+Includes:
 
-```
-snapshots/YYYY-MM-DD/
-```
-
-Backups include:
-
-* service registry state
-* routing configuration
-* TLS certificates
-* platform metadata
+* Service registry
+* Routing definitions
+* TLS assets
+* Platform metadata
 
 ---
 
-## 🔥 Disaster Recovery Workflow
+# 🔥 Disaster Recovery
 
 ```text
-Primary node destroyed
-→ Terraform reprovisions infrastructure
-→ Immutable AMI boots
-→ platform-rehydrate executes
-→ S3 sync restores runtime state
-→ systemd recreates services
-→ HAProxy rebuilds routing
-→ TLS assets restored
-→ Platform returns online
+Node Loss
+
+Terraform
+   ↓
+
+New EC2
+   ↓
+
+AMI Boot
+   ↓
+
+platform-rehydrate
+   ↓
+
+S3 Restore
+   ↓
+
+Runtime Recovery
+   ↓
+
+Platform Online
 ```
 
 ---
 
-## 📦 Platform Evolution
-
-### Phase 1 — Immutable Foundation
-### Phase 2 — Container Runtime
-### Phase 3 — Edge Stability
-### Phase 4 — Declarative Control Plane (Current)
-
----
-
-## ⚠️ Current Constraints
-
-* Single-node architecture
-* No autoscaling
-* No blue/green deployments
-* No orchestration clustering
-* Limited alerting automation
-* No automatic failed-node replacement
-
----
-
-## 🔜 Next Phase: Production Maturity
-
-* Multi-node runtime architecture
-* Health-based traffic routing
-* Blue/green deployment workflows
-* Centralized alerting
-* Runtime reconciliation loops
-* Automated node replacement
-* Distributed state management
-
----
-
-## 🧠 Engineering Principles
-
-* Immutability over mutation
-* Declarative state over imperative logic
-* Stateless compute, stateful recovery
-* Rebuild over repair
-* Operational determinism
-* Automation by default
-
----
-
-## 📁 Repository Structure
+# 📦 Repository Structure
 
 ```text
 platform-foundation
+
 ├── apps/
+│   └── hugo/
+│       └── service/
+│
 ├── infra/
-├── tools/
+│   ├── terraform/
+│   └── packer/
+│
+├── scripts/
 ├── docs/
-└── scripts/
+└── tools/
 ```
 
 ---
 
-## 📌 Current Status
+# 🧪 Deployment Workflow
 
-### Phase 4 — Declarative Control Plane
+Build Hugo
 
-* deterministic
-* rehydratable
-* dynamically routed
-* externally recoverable
-* immutable-infrastructure based
+```bash
+hugo
+```
 
----
+Build Container
 
-## 📦 Proven Runtime Behaviors
+```bash
+docker build -t hugo .
+```
 
-* Immutable AMI replacement
-* Full node destruction + rebuild
-* Runtime reconstruction from S3
-* HAProxy safe reload validation
-* TLS auto-discovery via certificate directory
-* Automated Docker service restoration
-* systemd orchestration recovery
-* Snapshot-based runtime recovery
+Tag
 
----
+```bash
+docker tag hugo \
+046685909731.dkr.ecr.us-east-1.amazonaws.com/hugo:latest
+```
 
-## 🔁 Runtime Rehydration Sequence
+Push
 
-```text
-EC2 boot
-→ systemd initialization
-→ platform-rehydrate
-→ S3 runtime sync
-→ generate HAProxy mappings
-→ generate service units
-→ pull container images
-→ start containers
-→ validate HAProxy
-→ graceful reload
+```bash
+docker push \
+046685909731.dkr.ecr.us-east-1.amazonaws.com/hugo:latest
+```
+
+Deploy
+
+```bash
+platform rehydrate
 ```
 
 ---
 
-## 🏆 Key Engineering Achievements
+# 🏆 Proven Platform Behaviors
 
-* HAProxy runtime include architecture
-* Dynamic backend generation
-* TLS directory-based SNI loading
-* Immutable rebuild validation
-* systemd-driven runtime orchestration
-* Externalized runtime control plane
-* Snapshot-based disaster recovery
-* Declarative runtime reconstruction
-
+* Immutable rebuilds
+* Terraform reprovisioning
+* Runtime rehydration
+* Automated service restoration
+* Dynamic routing generation
+* TLS restoration
+* Docker recovery
+* HAProxy safe reloads
+* Hugo content publishing
+* Observability validation
 
 ---
-Planning Hugo ARCHITECTURE 
 
-layouts/
-├── _default/
-│
-├── culture/
-│   └── list.html
-│
-├── kb/
-│   ├── list.html
-│   └── single.html
-│
-├── platform/
-│   └── list.html
-│
-└── partials/
-    └── platform/
-        ├── header.html
-        ├── footer.html
-        ├── culture.html
-        ├── news.html
-        ├── architecture.html
-        └── kb-sidebar.html
+# 🔮 Future Roadmap
 
+Phase 5
+
+* Multi-node architecture
+* Health-aware routing
+* Blue/Green deployment
+* Runtime reconciliation
+* Alerting automation
+* Distributed service registry
 
 ---
 
 # 👤 Author
 
-**Derrick C. Onwuachi**  
-Cloud / DevOps / Platform Engineer
-```
+Derrick C. Onwuachi
 
----
+Cloud • DevOps • Platform Engineering
+
+Building resilient systems through automation, observability, and deterministic recovery.
+
