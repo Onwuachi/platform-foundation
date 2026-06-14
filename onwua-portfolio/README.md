@@ -1,134 +1,304 @@
-# onwua.com — Portfolio Site
+# Platform Foundation
 
-Static Hugo site deployed to S3 + CloudFront. No EC2. No server. ~$0/mo.
+**[Derrick Onwuachi](https://onwua.com)** · DevOps Engineer · Platform & Infrastructure · St. Paul, MN
+
+> This is my engineering lab. The production portfolio is at **[onwua.com](https://onwua.com)**.
+
+---
+
+### *Stateless Compute · Declarative Runtime State · Deterministic Recovery*
+
+A single-engineer AWS platform implementing immutable infrastructure, declarative runtime state, and a self-rehydrating control plane. The platform rebuilds its entire runtime deterministically from a single source of truth — no manual steps required.
+
+Built and operated end-to-end: from AMI to edge routing, CI/CD to disaster recovery, observability to documentation.
+
+> **Compute is disposable. State is durable. Recovery is deterministic.**
+
+---
+
+## Status Badges
+
+| Workflow | Status |
+|---|---|
+| Platform Up | ![Platform Up](https://github.com/Onwuachi/platform-foundation/actions/workflows/platform-up.yml/badge.svg) |
+| Platform Down | ![Platform Down](https://github.com/Onwuachi/platform-foundation/actions/workflows/platform-down.yml/badge.svg) |
+| Hugo CI | ![Hugo CI](https://github.com/Onwuachi/platform-foundation/actions/workflows/hugo.yml/badge.svg) |
+| Portfolio Deploy | ![Deploy Portfolio](https://github.com/Onwuachi/platform-foundation/actions/workflows/deploy-portfolio.yml/badge.svg) |
+
+---
 
 ## Architecture
 
+![Platform Architecture](apps/hugo/service/static/images/platform-architecture.png)
+
+---
+
+## Technology Stack
+
+| Layer | Technology |
+|---|---|
+| AMI Build | Packer (Ubuntu 22.04) |
+| AMI Registry | AWS SSM Parameter Store |
+| Infrastructure | Terraform v1.12.2 · AWS Provider v6.35.1 |
+| Edge Routing | HAProxy (TLS termination, dynamic backends) |
+| Container Runtime | Docker + ECR |
+| Service Orchestration | systemd |
+| Runtime State | Amazon S3 (primary + backup) |
+| TLS Management | Certbot (ACME) |
+| Metrics | Prometheus + Node Exporter + Blackbox Exporter |
+| Dashboards | Grafana |
+| Documentation | Hugo (self-hosted, containerized) |
+| Portfolio Site | Hugo → S3 → CloudFront (onwua.com) |
+| CI/CD | GitHub Actions + OIDC |
+| Operational Access | AWS SSM Session Manager (no SSH, no bastion) |
+
+---
+
+## ① Infrastructure Lifecycle
+
+Terraform provisions infrastructure. SSM Parameter Store is the handoff between Packer and Terraform — the AMI ID never gets hardcoded.
+
 ```
-GitHub push to main
+Packer Build
+      │  Ubuntu 22.04 + Docker + HAProxy + SSM agent + base packages
+      ▼
+AMI Created
       │
       ▼
-GitHub Actions (OIDC → existing github-oidc-role)
+SSM Parameter Store
+      │  /devopslab/ami/ops/latest
+      ▼
+Terraform Apply
+      │  VPC · Subnets · EC2 · EIP · IAM · S3 · Route53
+      ▼
+EC2 Launch
+```
+
+---
+
+## ② Runtime Recovery Lifecycle
+
+Once EC2 is up, Terraform's job is done. The runtime reconstructs itself independently — no Terraform involvement.
+
+```
+EC2 Launch
       │
-      ├── hugo --minify  (builds site/public/)
-      │
-      ├── aws s3 sync → onwua-portfolio-site
-      │
-      └── cloudfront create-invalidation
-                │
-                ▼
-          CloudFront CDN
-                │
-          onwua.com (Route53 alias)
+      ▼
+systemd Startup
+      │  platform-rehydrate.service
+      ▼
+S3 State Sync
+      │  platform/services/* → local
+      ▼
+Certificate Recovery
+      │  TLS certs from S3 / certbot validation
+      ▼
+HAProxy Render
+      │  dynamic backend map generation
+      ▼
+Docker Pull + Start
+      │  ECR → hugo · api · grafana · prometheus
+      ▼
+Platform Online ✅
 ```
 
-## First-time deploy (do this once)
+---
 
-### 1. Point onwua.com nameservers to Route53
+## ③ State Ownership Model
 
-After `terraform apply`, get your Route53 hosted zone NS records:
+This is the core architectural distinction of the platform.
 
-```bash
-aws route53 list-hosted-zones-by-name --dns-name onwua.com \
-  | jq '.HostedZones[0].Id' -r
+### Terraform Owns (infrastructure layer)
+
+- VPC + Subnets
+- Security Groups
+- EC2 Instance
+- Elastic IP
+- IAM Roles + Policies
+- S3 Bucket (the bucket resource, not its contents)
+- Route53 Records
+
+### Terraform Does NOT Own (runtime layer)
+
+- Docker containers and running workloads
+- HAProxy runtime configuration
+- Service definitions and registrations
+- TLS certificates
+- S3 runtime objects (service state, certs, metadata)
+- Disaster Recovery bucket and snapshots
+
+> The DR S3 bucket and Route53 hosted zone were provisioned outside of Terraform and predate it.
+> A `terraform destroy` removes compute and networking. It does not touch runtime state or DR data.
+> This is intentional — recovery data must survive infrastructure destruction.
+
+---
+
+## ④ Runtime Services
+
+All services bind to `127.0.0.1`. HAProxy handles all public ingress on ports 80 and 443.
+
+| Service | Role | Internal Port |
+|---|---|---|
+| HAProxy | Edge routing + TLS termination | 80, 443 |
+| Hugo | Documentation platform | 127.0.0.1:8081 |
+| Node API | Platform API | 127.0.0.1:3000 |
+| Grafana | Dashboards | 127.0.0.1:4000 |
+| Prometheus | Metrics collection | 127.0.0.1:9090 |
+| Blackbox Exporter | HTTPS + TLS expiry probes | 127.0.0.1:9115 |
+| Node Exporter | Host metrics | 127.0.0.1:9100 |
+| Pushgateway | Batch metrics | 127.0.0.1:9091 |
+
+---
+
+## ⑤ Observability
+
+Prometheus scrapes the platform and feeds Grafana dashboards.
+
+| Target | Status | Notes |
+|---|---|---|
+| Prometheus | ✅ Up | `127.0.0.1:9090` |
+| Blackbox HTTPS | ✅ Up | probing `onwuachi.com` + `/ready` |
+| Blackbox SSL | ✅ Up | TLS expiry for `onwuachi.com` + `www` |
+| Node Exporter | 🔧 In Progress | bind mismatch — standardizing to `127.0.0.1` |
+| HAProxy Metrics | 🔧 In Progress | stats listener not yet configured |
+| Platform API | 🔧 In Progress | Docker bridge IP alignment |
+| Pushgateway | 🔧 In Progress | same bridge IP issue as API |
+
+---
+
+## ⑥ Terraform State
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket       = "devops-lab-tfstate-bucket"
+    key          = "platform-foundation/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
+  }
+}
 ```
 
-Then:
-```bash
-aws route53 get-hosted-zone --id <zone-id> \
-  | jq '.DelegationSet.NameServers'
-```
-
-Copy those 4 NS records into Namecheap → Advanced DNS for onwua.com → 
-change nameservers to "Custom DNS" and paste the Route53 NS values.
-
-### 2. Terraform apply
-
-```bash
-cd infra/portfolio
-
-# If you don't have a Route53 hosted zone for onwua.com yet:
-aws route53 create-hosted-zone \
-  --name onwua.com \
-  --caller-reference $(date +%s)
-
-terraform init
-terraform apply
-```
-
-ACM certificate validation is automatic — Terraform creates the DNS records
-and waits for validation. Takes 2–5 minutes.
-
-### 3. Add GitHub repo variables
-
-After `terraform apply` outputs print:
-
-```
-# In your GitHub repo → Settings → Secrets and variables → Actions → Variables:
-S3_BUCKET               = onwua-portfolio-site
-CLOUDFRONT_DISTRIBUTION = <from terraform output cloudfront_distribution_id>
-
-# Already exists as a secret in platform-foundation:
-AWS_ACCOUNT_ID          = <your account ID>
-```
-
-### 4. Attach deploy policy to github-oidc-role
-
-```bash
-# Get the policy ARN from terraform output or console
-aws iam attach-role-policy \
-  --role-name github-oidc-role \
-  --policy-arn arn:aws:iam::<account-id>:policy/onwua-portfolio-deploy-policy
-```
-
-### 5. Push to main — site deploys automatically
-
-```bash
-git add .
-git commit -m "feat(portfolio): initial onwua.com deploy"
-git push origin main
-```
-
-## Local development
-
-```bash
-cd site
-hugo server --buildDrafts
-# → http://localhost:1313
-```
-
-## Cost breakdown
-
-| Resource | Cost |
+| Setting | Value |
 |---|---|
-| S3 storage (< 50MB static site) | $0.00 |
-| S3 requests (personal traffic) | < $0.01 |
-| CloudFront (free tier: 1TB/mo, 10M requests) | $0.00 |
-| Route53 hosted zone | $0.50/mo |
-| ACM certificate | $0.00 |
-| **Total** | **~$0.50/mo** |
+| Backend | AWS S3 |
+| Encryption | Enabled |
+| State Locking | Native S3 lock (`use_lockfile = true`) |
+| DynamoDB | Not required — Terraform ≥ 1.10 |
+| Versioning | S3 versioning enabled on state bucket |
 
-The only real cost is the Route53 hosted zone at $0.50/month.
-If you already have onwua.com in Route53 from a previous setup, it's already paid.
+---
 
-## File structure
+## ⑦ Disaster Recovery
 
 ```
-onwua-portfolio/
-├── .github/
-│   └── workflows/
-│       └── deploy-portfolio.yml   CI/CD pipeline
+Primary S3:  platform-api-services/
+             ├── platform/services/*     service registry
+             ├── certs/                  TLS certificates
+             ├── haproxy/                runtime maps
+             └── metadata/
+
+Backup S3:   platform-api-services-backup/
+             └── snapshots/YYYY-MM-DD/   nightly via GitHub Actions
+```
+
+**Full node loss recovery:**
+
+```
+EC2 destroyed → terraform apply → platform-rehydrate → S3 sync → Platform online
+```
+
+Zero manual steps.
+
+---
+
+## Platform CLI
+
+```bash
+platform up                          # bring platform online
+platform down                        # graceful shutdown
+platform deploy <service>            # deploy a service
+platform register <service> <port> <domain>  # register new service
+platform rehydrate                   # full runtime restore from S3
+platform health                      # validate service health
+platform shell                       # SSM interactive session
+```
+
+---
+
+## Security Model
+
+- Public ports: 80 (redirect only) and 443 (TLS termination) only
+- All backend services bind exclusively to `127.0.0.1`
+- Operational access via AWS SSM Session Manager — no SSH keys, no bastion host
+- TLS managed by Certbot with automated renewal
+- HAProxy validates config before every reload — no unsafe reloads
+- GitHub Actions authenticates via OIDC — no long-lived AWS credentials
+
+---
+
+## Platform Evolution
+
+| Phase | Description | Status |
+|---|---|---|
+| Phase 1 | Immutable Foundation | ✅ Complete |
+| Phase 2 | Container Runtime | ✅ Complete |
+| Phase 3 | Edge Stability + TLS | ✅ Complete |
+| Phase 4 | Declarative Control Plane | ✅ Complete |
+| Phase 4.3 | Content Platform · Observability · State Hardening | ✅ Complete |
+| Phase 4.4 | Observability completion · Prometheus target alignment | 🔧 In Progress |
+| Phase 5 | EKS module · Kubernetes familiarity layer | 📋 Planned |
+
+---
+
+## Known Constraints
+
+- Single-node architecture (by design — simplicity over scaling)
+- Prometheus scrape targets partially down (networking alignment in progress)
+- No autoscaling or blue/green deployments
+- No multi-node clustering
+- No automated alerting (Grafana alerts not yet wired)
+
+---
+
+## Engineering Principles
+
+- Immutability over mutation
+- Declarative state over imperative logic
+- Stateless compute, stateful recovery
+- Rebuild over repair
+- Operational determinism
+- Automation by default
+- Cost accountability — if it runs, it has a reason to run
+
+---
+
+## Repository Structure
+
+```
+platform-foundation/
+├── apps/
+│   └── hugo/service/          Hugo documentation platform
 ├── infra/
-│   └── portfolio/
-│       ├── main.tf                S3 + CloudFront + ACM + Route53 + IAM
-│       └── outputs.tf
-└── site/
-    ├── hugo.toml                  Hugo config
-    ├── content/
-    │   └── resume.md
-    └── layouts/
-        ├── index.html             Homepage
-        └── _default/
-            ├── baseof.html        Base template
-            └── single.html        Content pages
+│   ├── backend.tf             S3 remote state
+│   ├── main.tf                Core infrastructure
+│   ├── shared/                VPC, IAM, OIDC
+│   ├── ops/                   EC2, EIP, S3, Route53
+│   ├── security/              Security groups
+│   └── packer/                AMI build templates + scripts
+├── onwua-portfolio/           onwua.com static portfolio site
+│   ├── infra/portfolio/       S3 + CloudFront + ACM Terraform
+│   ├── site/                  Hugo source
+│   └── .github/workflows/     Deploy pipeline
+├── scripts/                   Platform CLI + automation
+└── docs/                      Architecture documentation
 ```
+
+---
+
+## Author
+
+**Derrick C. Onwuachi** · Cloud · DevOps · Platform Engineer
+
+[onwua.com](https://onwua.com) · [github.com/Onwuachi](https://github.com/Onwuachi) · [linkedin.com/in/derrick-o-a0777729](https://linkedin.com/in/derrick-o-a0777729)
