@@ -2,12 +2,11 @@ global:
   scrape_interval: 15s
 
 rule_files:
-  - /etc/prometheus/rules/*.yml
+  - /opt/prometheus/rules/*.yml
 
 scrape_configs:
 
   - job_name: node
-    ec2_sd_configs:
       - region: us-east-1
         port: 9100
 
@@ -45,7 +44,7 @@ scrape_configs:
       - source_labels: [__param_target]
         target_label: instance
       - target_label: __address__
-        replacement: 172.17.0.1:9115
+        replacement: 127.0.0.1:9115
 
   - job_name: prometheus
     static_configs:
@@ -71,4 +70,4 @@ scrape_configs:
       - source_labels: [__param_target]
         target_label: instance
       - target_label: __address__
-        replacement: 172.17.0.1:9115
+        replacement: 127.0.0.1:9115
