@@ -67,6 +67,10 @@ build {
 
   ################################
   # Base + Core Installs
+  #
+  # NOTE: install_certbot.sh must run AFTER install_haproxy.sh
+  # (haproxy package + cert dirs must exist) and is the ONLY
+  # place that installs the certbot renewal deploy hook.
   ################################
   provisioner "shell" {
     execute_command = "sudo -E bash '{{ .Path }}'"

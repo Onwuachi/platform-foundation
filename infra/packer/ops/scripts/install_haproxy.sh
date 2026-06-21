@@ -14,7 +14,6 @@ apt-get install -y \
   rsyslog \
   curl \
   haproxy \
-  certbot \
   python3 \
   openssl \
   dos2unix
