@@ -14,7 +14,7 @@
       {{ if not .Date.IsZero }}
         <span class="list-date">{{ .Date.Format "Jan 2, 2006" }}</span>
       {{ end }}
-      {{ if .Summary }}<p class="list-summary">{{ .Summary }}</p>{{ end }}
+      {{ if .Params.summary }}<p class="list-summary">{{ .Params.summary }}</p>{{ else if .Summary }}<p class="list-summary">{{ .Summary }}</p>{{ end }}
     </div>
   {{ end }}
 </div>

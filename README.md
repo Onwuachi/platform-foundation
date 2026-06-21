@@ -51,6 +51,7 @@ Built and operated end-to-end: from AMI to edge routing, CI/CD to disaster recov
 | Portfolio Site | Hugo → S3 → CloudFront (onwua.com) |
 | CI/CD | GitHub Actions + OIDC |
 | Operational Access | AWS SSM Session Manager (no SSH, no bastion) |
+| Secrets | AWS SSM Parameter Store (SecureString) |
 
 ---
 
@@ -235,6 +236,7 @@ platform shell                       # SSM interactive session
 - TLS managed by Certbot with automated renewal
 - HAProxy validates config before every reload — no unsafe reloads
 - GitHub Actions authenticates via OIDC — no long-lived AWS credentials
+- Path-level HTTP Basic Auth (HAProxy) gates private content sections (`/kb`, `/private`, `/family`) — credentials stored as SSM Parameter Store SecureStrings, never baked into the AMI or committed to the repo
 
 ---
 
@@ -248,6 +250,7 @@ platform shell                       # SSM interactive session
 | Phase 4 | Declarative Control Plane | ✅ Complete |
 | Phase 4.3 | Content Platform · Observability · State Hardening | ✅ Complete |
 | Phase 4.4 | Observability completion · Prometheus target alignment | 🔧 In Progress |
+| Phase 4.5 | Path-level content auth (HAProxy + SSM Parameter Store) | ✅ Complete |
 | Phase 5 | EKS module · Kubernetes familiarity layer | 📋 Planned |
 
 ---
