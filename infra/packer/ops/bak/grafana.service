@@ -1,0 +1,20 @@
+[Unit]
+Description=Grafana
+Requires=docker.service network-online.target
+After=docker.service
+Wants=network-online.target
+
+[Service]
+ExecStartPre=-/usr/bin/docker rm -f grafana
+ExecStart=/usr/bin/docker run \
+  --name grafana \
+  -p 127.0.0.1:4000:3000 \
+  -v /opt/grafana/data:/var/lib/grafana \
+  grafana/grafana:10.4.2
+
+ExecStop=/usr/bin/docker stop grafana
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=ops.target
