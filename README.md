@@ -153,17 +153,65 @@ All services bind to `127.0.0.1`. HAProxy handles all public ingress on ports 80
 
 ## ⑤ Observability
 
-Prometheus scrapes the platform and feeds Grafana dashboards.
+Prometheus scrapes the platform and feeds Grafana dashboards. Runs with
+`--network host` so it can reach all loopback-bound services directly —
+no Docker bridge networking translation needed.
+
+**Scrape targets — current state:**
 
 | Target | Status | Notes |
 |---|---|---|
 | Prometheus | ✅ Up | `127.0.0.1:9090` |
+| Node Exporter | ✅ Up | `127.0.0.1:9100` — host CPU/mem/disk |
+| HAProxy Metrics | ✅ Up | `127.0.0.1:8404/metrics` — native Prometheus exporter |
 | Blackbox HTTPS | ✅ Up | probing `onwuachi.com` + `/ready` |
 | Blackbox SSL | ✅ Up | TLS expiry for `onwuachi.com` + `www` |
-| Node Exporter | 🔧 In Progress | bind mismatch — standardizing to `127.0.0.1` |
-| HAProxy Metrics | 🔧 In Progress | stats listener not yet configured |
-| Platform API | 🔧 In Progress | Docker bridge IP alignment |
-| Pushgateway | 🔧 In Progress | same bridge IP issue as API |
+| Platform API | 🔧 In Progress | container running, `/metrics` endpoint not yet instrumented |
+| Pushgateway | 🔧 Under review | running but unused — candidate for removal |
+
+**Resolved networking issue:**
+
+Prometheus previously ran in default Docker bridge mode, which meant it could
+not reach services bound to the host's `127.0.0.1` (HAProxy stats, node
+exporter, blackbox exporter). Fixed by switching the Prometheus container to
+`--network host`, removing the now-unnecessary port mapping, and standardizing
+every scrape target to `127.0.0.1`.
+
+**HAProxy Prometheus exporter:**
+
+```
+frontend stats
+    bind 127.0.0.1:8404
+    mode http
+    http-request use-service prometheus-exporter if { path /metrics }
+    no log
+```
+
+Bound to loopback only — not reachable from the public internet, so no
+additional auth layer needed on top of the path-level Basic Auth already
+protecting `/kb`, `/private`, `/family`.
+
+**Grafana provisioning:**
+
+Grafana auto-loads its Prometheus datasource and dashboard definitions from
+disk on container start — no manual UI configuration required. This depends
+on the container actually mounting those paths:
+
+```
+-v /etc/grafana/provisioning:/etc/grafana/provisioning:ro
+-v /opt/grafana/dashboards:/opt/grafana/dashboards:ro
+```
+
+(In addition to the persistent `/opt/grafana/data` mount for Grafana's own
+database.) Without these two mounts, Grafana starts clean every time with no
+datasource and no dashboards, silently ignoring the provisioning files that
+exist on the host — this was fixed in Phase 4.4.
+
+**Useful diagnostic command:**
+```bash
+curl -s localhost:9090/api/v1/targets \
+  | jq '.data.activeTargets[] | select(.health != "up") | {job, health, lastError}'
+```
 
 ---
 
@@ -191,6 +239,55 @@ terraform {
 
 ---
 
+## TLS Certificate Lifecycle
+
+Certificates are fully self-managing — zero manual renewal steps required.
+
+```
+Packer Build
+      │  temp.pem bootstrap cert (self-signed, AMI build only)
+      ▼
+AMI Boot
+      │
+      ▼
+platform-rehydrate
+      │  requests real cert via certbot if missing/invalid
+      ▼
+certbot.timer (every 12h)
+      │
+      ▼
+certbot renew
+      │  if renewal occurs:
+      ▼
+renewal-hooks/deploy/haproxy-renew.sh
+      │  rebuilds /etc/haproxy/certs/<domain>.pem
+      │  from fresh fullchain.pem + privkey.pem
+      ▼
+systemctl reload haproxy
+      │
+      ▼
+New certificate live — zero downtime, zero manual steps
+```
+
+**Key design decisions:**
+
+- Fallback/self-signed certs are allowed only during AMI build (`temp.pem`).
+  Runtime fallback was deliberately removed — a missing or invalid cert at
+  runtime now fails loudly (`platform-rehydrate` exits non-zero) instead of
+  silently serving a self-signed cert that masks the real failure.
+- The deploy hook uses Certbot's own `$RENEWED_DOMAINS` / `$RENEWED_LINEAGE`
+  environment variables rather than a hardcoded domain — any current or future
+  domain on this box renews and reloads correctly with zero hook changes.
+- HAProxy's `bind *:443 ssl crt /etc/haproxy/certs/` loads every `.pem` file
+  in the directory and selects the right one via SNI — this is what makes the
+  "any domain renews safely" property work without per-domain HAProxy config.
+- The hook content is written inline during AMI build (`install_certbot.sh`)
+  rather than referencing a sibling script path, because Packer's shell
+  provisioner stages each script independently and doesn't guarantee a shared
+  `/tmp/scripts/` directory persists across script executions.
+
+---
+
 ## ⑦ Disaster Recovery
 
 ```
@@ -210,7 +307,10 @@ Backup S3:   platform-api-services-backup/
 EC2 destroyed → terraform apply → platform-rehydrate → S3 sync → Platform online
 ```
 
-Zero manual steps.
+Zero manual steps. Validated in practice — Phase 4.4's rebuild replaced the
+running instance end-to-end (`terraform apply` destroyed and recreated
+`aws_instance.ops` against the new AMI) and the platform came back online
+automatically with no manual intervention.
 
 ---
 
@@ -233,10 +333,16 @@ platform shell                       # SSM interactive session
 - Public ports: 80 (redirect only) and 443 (TLS termination) only
 - All backend services bind exclusively to `127.0.0.1`
 - Operational access via AWS SSM Session Manager — no SSH keys, no bastion host
-- TLS managed by Certbot with automated renewal
+- TLS managed by Certbot with automated renewal — deploy hook rebuilds the
+  HAProxy PEM and reloads HAProxy automatically after every successful renewal,
+  zero manual steps
+- Path-level HTTP Basic Auth on private content (`/kb`, `/private`, `/family`)
+  enforced at the HAProxy edge — Hugo itself has no auth layer
+- Auth credentials stored as SSM Parameter Store SecureString, never committed
+  to the repo or baked into the AMI — `platform-rehydrate` injects the real
+  password hash at boot; AMIs only ever contain a bootstrap placeholder
 - HAProxy validates config before every reload — no unsafe reloads
 - GitHub Actions authenticates via OIDC — no long-lived AWS credentials
-- Path-level HTTP Basic Auth (HAProxy) gates private content sections (`/kb`, `/private`, `/family`) — credentials stored as SSM Parameter Store SecureStrings, never baked into the AMI or committed to the repo
 
 ---
 
@@ -249,8 +355,10 @@ platform shell                       # SSM interactive session
 | Phase 3 | Edge Stability + TLS | ✅ Complete |
 | Phase 4 | Declarative Control Plane | ✅ Complete |
 | Phase 4.3 | Content Platform · Observability · State Hardening | ✅ Complete |
-| Phase 4.4 | Observability completion · Prometheus target alignment | 🔧 In Progress |
+| Phase 4.4 | Prometheus host networking · HAProxy metrics · Node Exporter · Grafana provisioning mounts | ✅ Complete |
 | Phase 4.5 | Path-level content auth (HAProxy + SSM Parameter Store) | ✅ Complete |
+| Phase 4.6 | Automated TLS renewal (Certbot deploy hook → HAProxy reload) | ✅ Complete |
+| Phase 4.7 | Grafana dashboards · alerting (SNS/email) | 🔧 In Progress |
 | Phase 5 | EKS module · Kubernetes familiarity layer | 📋 Planned |
 
 ---
@@ -258,10 +366,11 @@ platform shell                       # SSM interactive session
 ## Known Constraints
 
 - Single-node architecture (by design — simplicity over scaling)
-- Prometheus scrape targets partially down (networking alignment in progress)
+- Platform API metrics endpoint not yet instrumented
 - No autoscaling or blue/green deployments
 - No multi-node clustering
-- No automated alerting (Grafana alerts not yet wired)
+- No automated alerting (Grafana alerts not yet wired — Phase 4.7)
+- Pushgateway running but currently unused — under review for removal
 
 ---
 
@@ -288,7 +397,7 @@ platform-foundation/
 │   ├── main.tf                Core infrastructure
 │   ├── shared/                VPC, IAM, OIDC
 │   ├── ops/                   EC2, EIP, S3, Route53
-│   ├── security/              Security groups
+│   ├── security/               Security groups
 │   └── packer/                AMI build templates + scripts
 ├── onwua-portfolio/           onwua.com static portfolio site
 │   ├── infra/portfolio/       S3 + CloudFront + ACM Terraform
