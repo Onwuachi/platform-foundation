@@ -26,11 +26,11 @@ Built and operated end-to-end: AMI → edge routing → CI/CD → disaster recov
 
 ---
 
-## LLCI UC Appliance Architecture & Deployment System
+## Lanner NCA: Onsite UC Appliance Architecture & Deployment System
 
-**Internal engineering initiative · Architecture & operations design**
+**Production hardware deployment · Architecture & operations design**
 
-Designed and documented a standardized deployment and recovery architecture for containerized UC appliances operating in isolated customer environments. This wasn't a build-and-hand-off task — it was taking a loosely-defined deployment problem and building an architecture, deployment model, operational standard, and recovery process around it.
+Designed and documented a standardized deployment and recovery architecture for containerized UC appliances running on Lanner NCA hardware in isolated customer environments. This wasn't a build-and-hand-off task — it was taking a loosely-defined deployment problem and building an architecture, deployment model, operational standard, and recovery process around it.
 
 **What was actually built:**
 - Analyzed the legacy deployment model and identified operational and recovery risks
