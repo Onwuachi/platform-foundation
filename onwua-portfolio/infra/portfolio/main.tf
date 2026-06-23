@@ -163,6 +163,30 @@ resource "aws_acm_certificate_validation" "portfolio" {
 }
 
 ###############################################
+# CloudFront Function — directory index rewrite
+#
+# Problem: default_root_object only applies to the bucket
+# root ("/" -> index.html). Sub-paths like /projects/ are
+# requested from S3 as the literal key "projects/", which
+# does not exist (Hugo writes "projects/index.html"). This
+# causes a 404-at-origin that surfaces to the browser as a
+# 403 AccessDenied, because of how CloudFront+OAC handles a
+# missing key against a private bucket.
+#
+# Fix: rewrite any request path ending in "/" (or with no
+# file extension) to append index.html before CloudFront
+# looks it up in S3. Runs on every request at the edge,
+# before the cache lookup.
+###############################################
+resource "aws_cloudfront_function" "index_rewrite" {
+  name    = "onwua-portfolio-index-rewrite"
+  runtime = "cloudfront-js-2.0"
+  comment = "Rewrite directory paths to index.html for Hugo clean URLs"
+  publish = true
+  code    = file("${path.module}/index-rewrite.js")
+}
+
+###############################################
 # CloudFront Distribution
 ###############################################
 resource "aws_cloudfront_distribution" "portfolio" {
@@ -191,6 +215,12 @@ resource "aws_cloudfront_distribution" "portfolio" {
 
     # Using managed cache policy: CachingOptimized
     cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+
+    # Rewrites /foo/ -> /foo/index.html at the edge before cache lookup
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.index_rewrite.arn
+    }
   }
 
   # Custom error pages — return index.html for 404s
