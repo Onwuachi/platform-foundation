@@ -29,15 +29,29 @@ Usage:
   platform describe <service>
   platform rehydrate
   platform deploy <service>
+  platform refresh <service>
   platform restart <service>
   platform logs <service>
   platform status <service>
   platform register <service> <port> <domain>
   platform deregister <service>
   platform shell
-  platform health 
+  platform health
 EOF
   exit 1
+}
+
+########################################
+# ECR LOGIN
+#
+# ECR auth tokens expire after 12 hours. Re-running this is
+# always safe and cheap — call it before any docker push/pull
+# against $REGISTRY so a stale token never blocks a deploy.
+########################################
+
+ecr_login() {
+  aws ecr get-login-password --region "$REGION" \
+    | docker login --username AWS --password-stdin "$REGISTRY" >/dev/null
 }
 
 ########################################
@@ -332,6 +346,8 @@ rehydrate)
 
 ########################################
 # DEPLOY
+#
+# Build, push, and remote-restart a service from apps/<service>/service
 ########################################
 
 deploy)
@@ -353,7 +369,7 @@ deploy)
   cd "$SERVICE_DIR"
 
   ########################################
-  # BUILD METADATA (🔥 this is new)
+  # BUILD METADATA
   ########################################
   export GIT_COMMIT=$(git rev-parse --short HEAD)
   export BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -376,8 +392,9 @@ deploy)
       --repository-name "$SERVICE" \
       --region "$REGION" >/dev/null
 
-  aws ecr get-login-password --region "$REGION" | \
-    docker login --username AWS --password-stdin $REGISTRY
+  # Re-auth every time — ECR tokens expire after 12h, this avoids
+  # the "token expired" failure mid-deploy
+  ecr_login
 
   docker push $REGISTRY/${SERVICE}:latest
 
@@ -411,6 +428,116 @@ EOF
   wait_for_ssm "$CMD_ID"
 
   echo "🚀 Deploy complete"
+;;
+
+########################################
+# REFRESH
+#
+# Pulls the latest image for a CORE platform service (hugo, api,
+# grafana, prometheus — anything started by its own fixed systemd
+# unit rather than the dynamic services.list/platform-rehydrate
+# mechanism) and restarts it.
+#
+# This exists because platform-rehydrate.sh only repulls images for
+# services registered in services.list. Hugo and the platform API
+# run under their own systemd units (hugo.service, platform-api.service)
+# and never get a fresh pull on rehydrate alone — you'd otherwise have
+# to SSM shell in manually and docker pull + systemctl restart by hand
+# every time you push a new image.
+#
+# Usage: platform refresh hugo
+#        platform refresh api
+#        platform refresh grafana
+#        platform refresh prometheus
+#        platform refresh <anything-in-services-list>   (falls through)
+########################################
+
+# Root cause of the previous failure: hugo.service does not exist.
+# systemd.sh comments out "systemctl enable hugo.service" entirely —
+# Hugo is NOT started by its own dedicated unit. It's started the same
+# way every services.list entry is started: platform-rehydrate.sh
+# dynamically creates a unit named platform-<service>.service for every
+# line in services.list, including hugo. So the real unit is
+# platform-hugo.service, not hugo.service.
+#
+# Only grafana and prometheus genuinely have their own dedicated,
+# non-dynamic systemd units (grafana.service, prometheus.service —
+# baked into the AMI directly, not created by rehydrate). api also
+# uses its own fixed unit, platform-api.service, which despite the
+# "platform-" prefix is NOT part of the dynamic services.list pattern —
+# it's a separate fixed unit defined in systemd/platform-api.service.
+#
+# So the actual rule is:
+#   - hugo            -> dynamic: platform-hugo.service
+#   - anything in
+#     services.list   -> dynamic: platform-<name>.service
+#   - api              -> fixed:   platform-api.service (already correct)
+#   - grafana           -> fixed:   grafana.service (already correct)
+#   - prometheus        -> fixed:   prometheus.service (already correct)
+ 
+refresh)
+  require_instance
+ 
+  if [ -z "$SERVICE" ]; then
+    echo "❌ Usage: platform refresh <service>"
+    echo "   Known services: hugo, api, grafana, prometheus, or any name in services.list"
+    exit 1
+  fi
+ 
+  echo "Refreshing $SERVICE to latest image..."
+ 
+  case "$SERVICE" in
+    api)
+      UNIT="platform-api.service"
+      CONTAINER="platform-api"
+      IMAGE="$REGISTRY/api:latest"
+      ;;
+    grafana)
+      UNIT="grafana.service"
+      CONTAINER="grafana"
+      IMAGE="grafana/grafana:10.4.2"
+      ;;
+    prometheus)
+      UNIT="prometheus.service"
+      CONTAINER="prometheus"
+      IMAGE="prom/prometheus:v2.51.2"
+      ;;
+    *)
+      # hugo and anything else registered via services.list follows
+      # this dynamic naming pattern, created by platform-rehydrate.sh
+      UNIT="platform-${SERVICE}.service"
+      CONTAINER="${SERVICE}"
+      IMAGE="$REGISTRY/${SERVICE}:latest"
+      ;;
+  esac
+ 
+  SCRIPT=$(cat <<EOF
+#!/bin/bash
+set -euo pipefail
+ 
+echo "Pulling ${IMAGE}..."
+docker pull "${IMAGE}"
+ 
+echo "Restarting ${UNIT}..."
+systemctl restart "${UNIT}"
+ 
+sleep 3
+ 
+echo "Checking status..."
+systemctl is-active "${UNIT}"
+ 
+echo "Running container:"
+docker ps | grep "${CONTAINER}" || true
+EOF
+)
+ 
+  CMD_ID=$(ssm_exec_multi "$SCRIPT")
+ 
+  echo "Command ID: $CMD_ID"
+ 
+  wait_for_ssm "$CMD_ID"
+ 
+  echo "🔄 $SERVICE refreshed"
 ;;
 
 ########################################
@@ -465,7 +592,7 @@ EOF
 ########################################
 
 deregister)
-  require_instance 
+  require_instance
 
   if [ -z "$SERVICE" ]; then
     echo "❌ Usage: platform deregister <service>"
@@ -505,7 +632,7 @@ EOF
 ########################################
 
 restart)
-  require_instance 
+  require_instance
 
   if [ -z "$SERVICE" ]; then
     echo "❌ Usage: platform restart <service>"
@@ -628,7 +755,7 @@ shell)
 
 
 list)
-  require_instance 
+  require_instance
   aws s3 ls s3://platform-api-services/platform/services/
 ;;
 
@@ -663,7 +790,7 @@ state-pull)
 ########################################
 
 *)
-  require_instance 
+  require_instance
 
   usage
 ;;
