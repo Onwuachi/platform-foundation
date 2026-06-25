@@ -8,7 +8,8 @@ Wants=network-online.target
 ExecStartPre=-/usr/bin/docker rm -f grafana
 ExecStart=/usr/bin/docker run \
   --name grafana \
-  -p 127.0.0.1:4000:3000 \
+  --network host \
+  -e GF_SERVER_HTTP_PORT=4000 \
   -v /opt/grafana/data:/var/lib/grafana \
   -v /etc/grafana/provisioning:/etc/grafana/provisioning:ro \
   -v /opt/grafana/dashboards:/opt/grafana/dashboards:ro \
