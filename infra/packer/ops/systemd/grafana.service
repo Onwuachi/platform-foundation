@@ -1,3 +1,7 @@
+# Host networking keeps the monitoring stack on the EC2
+# localhost network and allows Grafana to communicate directly
+# with Prometheus without Docker bridge networking.
+
 [Unit]
 Description=Grafana
 Requires=docker.service network-online.target

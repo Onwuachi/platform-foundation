@@ -1,3 +1,8 @@
+# Host networking is required because Prometheus scrapes
+# exporters bound to 127.0.0.1 on the EC2 host (Node Exporter,
+# Blackbox Exporter, HAProxy metrics). Bridge networking would
+# isolate localhost inside the container.
+
 [Unit]
 Description=Prometheus
 Requires=docker.service

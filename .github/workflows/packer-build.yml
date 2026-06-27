@@ -21,6 +21,11 @@ jobs:
       - name: Install Packer
         uses: hashicorp/setup-packer@v3
       - name: Init Packer
-        run: packer init infra/packer/ops
+        working-directory: infra/packer/ops
+        run: packer init .
+      - name: Validate Packer template
+        working-directory: infra/packer/ops
+        run: packer validate .
       - name: Build AMI
-        run: packer build infra/packer/ops/template.pkr.hcl
+        working-directory: infra/packer/ops
+        run: packer build .
