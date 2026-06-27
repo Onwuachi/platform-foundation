@@ -1,34 +1,26 @@
 name: Build AMIs with Packer
-
 on:
   workflow_dispatch:
   push:
     paths:
       - "infra/packer/**"
-
 jobs:
   build-ami:
     runs-on: ubuntu-latest
-
     permissions:
       id-token: write
       contents: read
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::<ACCOUNT_ID>:role/github-oidc-role
+          role-to-assume: arn:aws:iam::046685909731:role/github-oidc-role
           aws-region: us-east-1
-
       - name: Install Packer
         uses: hashicorp/setup-packer@v3
-
       - name: Init Packer
         run: packer init infra/packer/ops
-
       - name: Build AMI
         run: packer build infra/packer/ops/template.pkr.hcl
