@@ -1,0 +1,15 @@
+<section class="card">
+  <h2>Platform Snapshot</h2>
+  <div class="grid-2" style="margin-top:1rem;">
+    {{ range site.Data.signals.telemetry.telemetry }}
+      <div class="signal-row">
+        <span class="signal-dot {{ .state }}"></span>
+        <span class="signal-name">{{ .name }}</span>
+        <span class="signal-state">{{ .state }}</span>
+      </div>
+    {{ end }}
+  </div>
+  <div style="margin-top:0.75rem;">
+    <a href="/platform/" style="font-size:13px;">Full platform detail →</a>
+  </div>
+</section>

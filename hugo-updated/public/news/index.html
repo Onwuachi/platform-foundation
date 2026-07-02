@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+<title>My New Hugo Site</title>
+
+<link rel="stylesheet" href="/css/custom.css">
+
+
+</head>
+
+<body>
+
+  <div class="topbar">
+  <strong>Onwuachi Control Plane</strong>
+
+  <div class="nav">
+   <a href="/">Home</a>
+   <a href="/platform/">Platform</a>
+   <a href="/engineering/">Engineering</a>
+   <a href="/culture/">Culture</a>
+   <a href="/recipes/">Recipes</a>
+   <a href="/signals/">Signals</a>
+   <a href="/kb/">KB</a>
+  </div>
+</div>
+
+
+
+  <button onclick="toggleTheme()">
+  🌗 Theme
+</button>
+
+<script>
+function toggleTheme() {
+
+  const current =
+    document.documentElement.getAttribute("data-theme");
+
+  if (current === "dark") {
+
+    document.documentElement
+      .setAttribute("data-theme", "light");
+
+    localStorage.setItem("theme", "light");
+
+  } else {
+
+    document.documentElement
+      .setAttribute("data-theme", "dark");
+
+    localStorage.setItem("theme", "dark");
+  }
+}
+
+const saved =
+  localStorage.getItem("theme") || "dark";
+
+document.documentElement
+  .setAttribute("data-theme", saved);
+</script>
+
+
+
+  <div class="container">
+    
+
+<div class="card">
+  <h1>News</h1>
+  <p>Module Interface</p>
+</div>
+
+<div class="card">
+  <h3>Entries</h3>
+
+  
+
+</div>
+
+<div class="card">
+  <h3>System Context</h3>
+  <ul>
+    <li>Type: Module</li>
+    <li>Source: news</li>
+    <li>Count: 0</li>
+  </ul>
+</div>
+
+
+  </div>
+
+  <div class="footer">
+  Onwuachi Platform © 2026
+</div>
+
+
+
+</body>
+</html>
+

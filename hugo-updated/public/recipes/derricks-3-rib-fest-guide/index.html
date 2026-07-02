@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+<title>My New Hugo Site</title>
+
+<link rel="stylesheet" href="/css/custom.css">
+
+
+</head>
+
+<body>
+
+  <div class="topbar">
+  <strong>Onwuachi Control Plane</strong>
+
+  <div class="nav">
+   <a href="/">Home</a>
+   <a href="/platform/">Platform</a>
+   <a href="/engineering/">Engineering</a>
+   <a href="/culture/">Culture</a>
+   <a href="/recipes/">Recipes</a>
+   <a href="/signals/">Signals</a>
+   <a href="/kb/">KB</a>
+  </div>
+</div>
+
+
+
+  <button onclick="toggleTheme()">
+  🌗 Theme
+</button>
+
+<script>
+function toggleTheme() {
+
+  const current =
+    document.documentElement.getAttribute("data-theme");
+
+  if (current === "dark") {
+
+    document.documentElement
+      .setAttribute("data-theme", "light");
+
+    localStorage.setItem("theme", "light");
+
+  } else {
+
+    document.documentElement
+      .setAttribute("data-theme", "dark");
+
+    localStorage.setItem("theme", "dark");
+  }
+}
+
+const saved =
+  localStorage.getItem("theme") || "dark";
+
+document.documentElement
+  .setAttribute("data-theme", saved);
+</script>
+
+
+
+  <div class="container">
+    
+
+<div class="card">
+  <h1>Derrick&#39;s 3 Rib Fest Guide</h1>
+  <p style="opacity:0.6;">2026-06-11 14:24:00 &#43;0000 UTC</p>
+</div>
+
+<div class="card">
+  <h2 id="-derricks-3-rib-fest-pitmaster-runbook">🍖 Derrick&rsquo;s 3-Rib Fest Pitmaster Runbook</h2>
+<p>🎛️ The Core Philosophy</p>
+<ul>
+<li>Ditch the Drudgery: No more 12-hour low-and-slow stall marathons.</li>
+<li>Controlled Heat Push: Operating at 265°F–275°F delivers better bark and rendering.</li>
+<li>Adhesion, then Acceleration: Short 225°F window for smoke, then push the gas.</li>
+</ul>
+<p><img src="/images/Derricks-3-Rib-Fest-Guide.png" alt="Derricks-3-Rib-Fest-Guide"></p>
+<hr>
+<h2 id="-night-before-prep--dry-brine">📅 Night Before: Prep &amp; Dry Brine</h2>
+<ul>
+<li>Beef Plate Ribs: Coat heavily with kosher salt, coarse pepper, and garlic.</li>
+<li>Pork Rack: Apply light salt only (pre-enhanced), pepper, garlic, and optional rosemary/thyme.</li>
+<li>Baby Backs: Apply standard rib rub (paprika, pepper, garlic, light brown sugar).</li>
+<li>Rest: Place all meats uncovered on wire racks in the fridge overnight.</li>
+</ul>
+<hr>
+<h2 id="-master-timeline--load-order">⏱️ Master Timeline &amp; Load Order</h2>
+<p>[07:30 AM] ── Beef Plate Ribs On (225°F)
+[08:15 AM] ── Heat Push to 265°F-275°F
+[09:00 AM] ── Pork Rack On
+[10:00 AM] ── Baby Backs On
+[11:30 AM] ── Baby Back Glaze (Tack Phase)
+[12:00 PM] ── Wrap Baby Backs (Butcher Paper)
+[12:30 PM] ── Wrap Beef Ribs (Butcher Paper)
+[01:30 PM] ── Pork Rack Pull &amp; Rest (145°F-150°F)
+[03:30 PM] ── Baby Backs Pull &amp; Rest (~195°F-200°F)
+[04:00 PM] ── Beef Ribs Pull &amp; Rest (200°F-205°F)
+[05:00 PM] ── 🍽️ SERVE TIME</p>
+<hr>
+<h2 id="-phase-1-ignition--smoke-adhesion">🪵 Phase 1: Ignition &amp; Smoke Adhesion</h2>
+<ul>
+<li>05:00 AM: Hit the gym while the dry brine finishes its work.</li>
+<li>07:15 AM: Fire up the pellet grill with Kirkland pellets to 225°F.</li>
+<li>07:30 AM: Load Beef Plate Ribs into the hottest zone once grill hits 200°F+. Do not wait for &ldquo;perfect.&rdquo;</li>
+<li>08:15 AM: Immediately step temp up to 265°F–275°F. (End of smoke adhesion window).</li>
+</ul>
+<hr>
+<h2 id="-phase-2-staggered-loading--management">🌡️ Phase 2: Staggered Loading &amp; Management</h2>
+<ul>
+<li>09:00 AM: Load Pork Rack. Insert probe into the thickest center zone, avoiding the bone.</li>
+<li>10:00 AM: Load Baby Back Ribs.</li>
+<li>11:30 AM: Glaze Baby Backs ONLY with a very light coat of Diana sauce + vinegar + seasoning blend.</li>
+</ul>
+<hr>
+<h2 id="-phase-3-the-butcher-paper-wrap">📦 Phase 3: The Butcher Paper Wrap</h2>
+<ul>
+<li>12:00 PM: Wrap Baby Backs in pink butcher paper with a touch of glaze and butter/tallow. No heavy sugar baths.</li>
+<li>12:30 PM: Wrap Beef Plate Ribs when bark is dark mahogany and doesn&rsquo;t wipe off. Optional: Add a splash of beef tallow.</li>
+<li>Pork Rack Note: Leave unwrapped. Only tent loosely with paper if the exterior color gets too dark near the finish.</li>
+</ul>
+<hr>
+<h2 id="-target-finish--pull-parameters">🏁 Target Finish &amp; Pull Parameters</h2>
+<table>
+<thead>
+<tr>
+<th>Meat Cut</th>
+<th>Pull Temp</th>
+<th>Physical Target Indicator</th>
+<th>Rest Time</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pork Rack</td>
+<td>145°F – 150°F</td>
+<td>Juicy, pork prime rib texture</td>
+<td>30+ Mins (Foil tent)</td>
+</tr>
+<tr>
+<td>Baby Backs</td>
+<td>195°F – 200°F</td>
+<td>Clean bend test; bone exposure</td>
+<td>30–60 Mins (In paper)</td>
+</tr>
+<tr>
+<td>Beef Plate</td>
+<td>200°F – 205°F</td>
+<td>Probe tender (like warm butter)</td>
+<td>60+ Mins (Cooler/Oven)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="-troubleshooting--kb-notes">🧠 Troubleshooting &amp; KB Notes</h2>
+<ul>
+<li>Grill Temp Fluctuations: Trust the process. Anywhere between 265°F and 285°F is completely fine for these cuts.</li>
+<li>The Pork Rack Finish: It will finish first. Keep it warm by tenting with foil on the counter—do not let it overcook.</li>
+<li>The Beef Rib Stall: If the beef stalls hard around 175°F, verify the bark is fully set, wrap tightly, and don&rsquo;t be afraid to push the pit to 285°F to cross the finish line.</li>
+</ul>
+
+</div>
+
+<div class="card">
+  <h3>System Context</h3>
+  <ul>
+    <li>Stream: recipes</li>
+    <li>Pipeline: Hugo Render Engine</li>
+    <li>Status: Published</li>
+  </ul>
+</div>
+
+
+  </div>
+
+  <div class="footer">
+  Onwuachi Platform © 2026
+</div>
+
+
+
+</body>
+</html>
+

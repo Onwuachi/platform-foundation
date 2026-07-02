@@ -1,0 +1,42 @@
+{{ $kbPages := where site.RegularPages "Section" "kb" }}
+{{ $kbCount := len (where $kbPages "WordCount" "gt" 0) }}
+
+{{ $recipePages := where site.RegularPages "Section" "recipes" }}
+{{ $recipeCount := len (where $recipePages "WordCount" "gt" 0) }}
+
+{{ $reviewCount := 0 }}
+{{ range $kbPages }}
+  {{ if and (gt .WordCount 0) (in .RelPermalink "/kb/bourbon/reviews/") }}
+    {{ $reviewCount = add $reviewCount 1 }}
+  {{ end }}
+{{ end }}
+
+{{ $serviceCount := len site.Data.platform.services.services }}
+
+<section class="grid-2">
+
+  <div class="metric-card">
+    <div class="metric-title">Knowledge Articles</div>
+    <div class="metric-value">{{ $kbCount }}</div>
+    <div class="metric-sub">Infrastructure + bourbon KB</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-title">Pitmaster Runbooks</div>
+    <div class="metric-value">{{ $recipeCount }}</div>
+    <div class="metric-sub">Smoker methodology, documented</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-title">Bottle Reviews</div>
+    <div class="metric-value">{{ $reviewCount }}</div>
+    <div class="metric-sub">{{ if eq $reviewCount 0 }}In progress{{ else }}Tasted & documented{{ end }}</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-title">Platform Services</div>
+    <div class="metric-value">{{ $serviceCount }}</div>
+    <div class="metric-sub">Behind HAProxy</div>
+  </div>
+
+</section>
