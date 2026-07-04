@@ -1,0 +1,132 @@
+#!/usr/bin/env python3
+import os
+import sys
+import yaml
+import re
+from datetime import datetime
+
+BASE = os.path.dirname(os.path.abspath(__file__))
+DOMAINS = os.path.join(BASE, "domains")
+
+
+# ----------------------------
+# YAML LOADER
+# ----------------------------
+def load_yaml(path):
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
+
+
+# ----------------------------
+# TEMPLATE RENDERER (simple but safe)
+# ----------------------------
+def render_template(template_path, data):
+    with open(template_path, "r") as f:
+        template = f.read()
+
+    for k, v in data.items():
+        template = template.replace("{{" + k + "}}", str(v))
+
+    return template
+
+
+# ----------------------------
+# SIMPLE MARKDOWN EXTRACTOR
+# ----------------------------
+def extract_sections(content):
+    sections = {}
+
+    current = "body"
+    buffer = []
+
+    for line in content.splitlines():
+        heading = re.match(r"^##\s+(.*)", line)
+        if heading:
+            sections[current] = "\n".join(buffer).strip()
+            current = heading.group(1).strip().lower().replace(" ", "_")
+            buffer = []
+        else:
+            buffer.append(line)
+
+    sections[current] = "\n".join(buffer).strip()
+    return sections
+
+
+def extract_overview(sections, raw):
+    # prefer structured content if present
+    for key in ["overview", "objectives", "summary"]:
+        if key in sections and sections[key]:
+            return sections[key][:400]
+
+    # fallback
+    return raw[:300]
+
+
+def extract_observations(sections):
+    for key in ["observations", "lessons_learned", "results", "notes"]:
+        if key in sections and sections[key]:
+            return sections[key]
+    return "auto-generated"
+
+
+# ----------------------------
+# GENERATOR CORE
+# ----------------------------
+def generate(domain, rule, source_file):
+    domain_path = os.path.join(DOMAINS, domain)
+
+    config = load_yaml(os.path.join(domain_path, "mappings.yaml"))
+
+    if rule not in config["rules"]:
+        raise KeyError(f"Unknown rule: {rule}")
+
+    rule_cfg = config["rules"][rule]
+
+    template_key = rule_cfg["template"]
+    template_path = os.path.join(domain_path, config["templates"][template_key])
+
+    # ---- load source ----
+    with open(source_file, "r") as f:
+        raw = f.read()
+
+    sections = extract_sections(raw)
+
+    overview = extract_overview(sections, raw)
+    observations = extract_observations(sections)
+
+    # ---- build output model ----
+    data = {
+        "title": rule_cfg.get("title", rule),
+        "source": source_file,
+        "overview": overview,
+        "observations": observations,
+        "decisions": sections.get("decisions", "pending"),
+        "result": sections.get("result", "pending"),
+        "date": datetime.utcnow().strftime("%Y-%m-%d")
+    }
+
+    # ---- render ----
+    output = render_template(template_path, data)
+
+    output_path = os.path.join(BASE, rule_cfg["output"])
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    with open(output_path, "w") as f:
+        f.write(output)
+
+    print(f"✔ generated: {output_path}")
+
+
+# ----------------------------
+# CLI ENTRYPOINT
+# ----------------------------
+if __name__ == "__main__":
+    if len(sys.argv) < 4:
+        print("Usage: ctl <domain> <rule> <source_file>")
+        sys.exit(1)
+
+    domain = sys.argv[1]
+    rule = sys.argv[2]
+    source = sys.argv[3]
+
+    generate(domain, rule, source)

@@ -19,3 +19,5 @@ node_modules/
 
 
 
+apps/hugo/*.tar.gz
+apps/hugo/service-bak/

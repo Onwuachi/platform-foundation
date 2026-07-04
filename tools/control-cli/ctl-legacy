@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+
+BASE_DIR="$HOME/cicd/platform-foundation/apps/hugo/service/content/kb/recipes"
+
+TYPE=$1
+NAME=$2
+
+DATE=$(date +"%Y-%m-%d")
+
+function usage {
+  echo "Usage:"
+  echo "  recipe new protein <name>"
+  echo "  recipe new technique <name>"
+  echo "  recipe new smoke-session <name>"
+  exit 1
+}
+
+if [ "$TYPE" != "new" ]; then
+  usage
+fi
+
+CATEGORY=$2
+NAME=$3
+
+if [ -z "$CATEGORY" ] || [ -z "$NAME" ]; then
+  usage
+fi
+
+FILENAME=$(echo "$NAME" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
+
+case "$CATEGORY" in
+
+  protein)
+    FILE="$BASE_DIR/proteins/${FILENAME}.md"
+    TITLE=$(echo "$NAME" | sed 's/\b\(.\)/\u\1/g')
+    TEMPLATE="protein"
+    ;;
+
+  technique)
+    FILE="$BASE_DIR/techniques/${FILENAME}.md"
+    TITLE=$(echo "$NAME" | sed 's/\b\(.\)/\u\1/g')
+    TEMPLATE="technique"
+    ;;
+
+  smoke-session)
+    FILE="$BASE_DIR/smoke-sessions/${DATE}-${FILENAME}.md"
+    TITLE="$NAME"
+    TEMPLATE="smoke-session"
+    ;;
+
+  *)
+    usage
+    ;;
+esac
+
+if [ -f "$FILE" ]; then
+  echo "File already exists: $FILE"
+  exit 1
+fi
+
+mkdir -p "$(dirname "$FILE")"
+
+cat <<EOF > "$FILE"
+---
+title: "$TITLE"
+date: $DATE
+draft: false
+tags:
+  - bbq
+  - recipes
+---
+
+# $TITLE
+
+## Overview
+
+TBD
+
+## System Notes
+
+Generated via recipe CLI system.
+EOF
+
+echo "Created: $FILE"
+
+

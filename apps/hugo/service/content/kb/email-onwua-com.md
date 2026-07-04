@@ -23,13 +23,13 @@ Email forwarding for `@onwua.com` using ImprovMX free tier.
 No mail server. No paid service. Forwards to Gmail.
 
 ```
-sender → derrick@onwua.com
+sender → <user>@onwua.com
               │
               ▼
        mx1.improvmx.com
               │
               ▼
-       onwuabus@gmail.com
+       <account>@<domain.com>
 ```
 
 **Verified working:** SPF ✅ · DKIM ✅ · DMARC ✅

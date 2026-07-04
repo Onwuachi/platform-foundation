@@ -1,0 +1,15 @@
+domain: recipes
+
+templates:
+  rib: templates/ribs.md.tpl
+
+sources:
+  smoke_sessions: content/kb/recipes/smoke-sessions/
+  proteins: content/kb/recipes/proteins/
+  techniques: content/kb/recipes/techniques/
+
+rules:
+  rib_generation:
+    input: smoke_session
+    output: proteins/st-louis-ribs.md
+    template: rib
