@@ -80,6 +80,15 @@ defaults
   timeout http-request 10s
   timeout http-keep-alive 5s
 
+
+########################################
+# METRICS (8404) — Prometheus exporter
+########################################
+frontend stats
+  bind 127.0.0.1:8404
+  http-request use-service prometheus-exporter if { path /metrics }
+  no log
+
 ########################################
 # HTTP (80)
 ########################################
