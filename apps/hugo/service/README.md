@@ -1,3 +1,22 @@
+## Hugo Knowledge Base
+
+Documentation about Hugo itself lives under:
+
+content/kb/infrastructure/hugo/
+
+Current topics include:
+
+- Front Matter
+- Archetypes
+- Content Model
+- Template Language
+- Taxonomies
+- Partials
+- Shortcodes
+- Data Files
+
+These articles document the architecture of this Hugo platform and serve as internal engineering documentation.
+
 # Onwuachi Hugo Platform
 
 Self-hosted documentation and knowledge platform for the Onwuachi Control Plane.
@@ -222,6 +241,65 @@ YAML data files drive dynamic content on the homepage and platform page.
 | `data/engineering/stack.yaml` | Engineering stack reference |
 
 ---
+## Content Authoring Workflow
+
+New content should be created using Hugo archetypes rather than copying existing files.
+
+Examples:
+
+```bash
+# Infrastructure KB article
+hugo new --kind kb-article \
+  kb/infrastructure/hugo/my-new-article.md
+
+# Bourbon bottle review
+hugo new --kind bourbon-bottle \
+  kb/bourbon/bottles/rare-breed.md
+```
+
+Archetypes provide:
+
+- Consistent Front Matter
+- Standard document structure
+- Automatic title generation
+- Automatic timestamps
+- Reusable templates
+
+Avoid manually copying existing Markdown files.
+
+---
+
+## Front Matter Philosophy
+
+Every content page begins with Front Matter.
+
+Think of Front Matter as metadata for content.
+
+Infrastructure analogy:
+
+Terraform
+    variables.tf
+        ↓
+Terraform Engine
+        ↓
+Infrastructure
+
+Hugo
+
+Front Matter
+      ↓
+Hugo
+      ↓
+Generated HTML
+
+The Markdown body contains the content.
+
+The Front Matter contains the metadata Hugo uses during the build.
+
+Custom Front Matter fields are encouraged where they improve organization and automation.
+
+---
+
 
 ## Hugo KB Learning Path
 
