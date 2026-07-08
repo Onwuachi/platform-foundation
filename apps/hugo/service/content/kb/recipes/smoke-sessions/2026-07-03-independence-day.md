@@ -16,7 +16,7 @@ tags:
   - bbq
 ---
 
-# 🇺🇸 2026 Independence Day Smoke Session
+# US 2026 Independence Day Smoke Session
 
 > Production execution log for the July 3, 2026 holiday smoke.
 

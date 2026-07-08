@@ -16,7 +16,7 @@ proof = 86
 age = "12 Years"
 
 msrp = "$49.99"
-paid = ""
+paid = "$34.99"
 
 rating = 0
 

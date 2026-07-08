@@ -1,14 +1,14 @@
 ---
-title: "KB-CLI-001: sed Cheatsheet"
+title: "sed Cheatsheet"
 date: 2026-06-23
-description: "A working reference for sed — stream editor mental model, substitution syntax, the -i in-place flag, delimiter switching, and when sed is the wrong tool for structured files like YAML or JSON."
+description: "Stream editor reference — substitution syntax, in-place editing, delimiter switching, and when sed is the wrong tool."
 tags: ["sed", "bash", "cli", "linux", "cheatsheet"]
-categories: ["kb"]
-summary: "sed substitution patterns actually used while debugging this platform — delimiter switching, escaping special characters, and the in-place -i flag, with real examples pulled from this session."
+categories: ["infrastructure", "general"]
+summary: "sed patterns used throughout platform builds — with real examples from prometheus.yml, HAProxy, and GitHub Actions."
 ---
 # KB-CLI-001: sed Cheatsheet
 
-**Where this lives:** `platform-foundation/apps/hugo/service/content/kb/sed-cheatsheet.md`
+**Where this lives:** `content/kb/infrastructure/general/sed-cheatsheet.md`
 
 ---
 
