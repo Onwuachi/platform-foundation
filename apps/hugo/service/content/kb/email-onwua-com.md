@@ -1,4 +1,4 @@
-# KB: Email Setup — derrick@onwua.com
+# KB: Email Setup — To Domain <onwua.com> 
 
 **Date:** June 14, 2026  
 **Status:** ✅ Complete and verified
