@@ -5,6 +5,8 @@ draft = true
 
 type = "beer-bottle"
 
+image = ""
+
 brewery = ""
 style = ""
 country = ""
