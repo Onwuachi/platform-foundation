@@ -2,211 +2,143 @@
 title = "Knob Creek Smoked Maple"
 date = 2026-07-06T12:21:36-05:00
 draft = false
-
 type = "bourbon-bottle"
-
+image = "/images/beer/knob-creek-smoked-maple.png"
 brand = "Knob Creek"
 distillery = "Jim Beam"
 producer = "Beam Suntory"
-
 classification = "Flavored Bourbon"
-
 proof = 90
 age = ""
+size = "750 mL"
 msrp = "$34.99"
 paid = "$34.99"
-
-rating = 84
-
+rating = 6.0
 tags = [
   "knob creek",
   "jim beam",
   "maple",
   "flavored bourbon"
 ]
-
 categories = ["Bourbon Bottles"]
 +++
 
-# Why I Bought It
+## Why I Bought It
 
 I wasn't actively looking for another flavored whiskey.
 
-After hearing several reviewers describe **Knob Creek Smoked Maple** as one of the few flavored bourbons that still tastes like bourbon, curiosity finally won. Cub Liquor happened to have it on sale for **$34.99**, making it an easy opportunity to see whether it deserved its reputation.
+After hearing several reviewers describe Knob Creek Smoked Maple as one of the few flavored bourbons that still tasted like real bourbon, curiosity eventually won. Cub Liquor happened to have it on sale for $34.99, making it an easy bottle to experiment with.
 
-I expected something overly sweet.
-
-Instead, I found something much more balanced.
+As someone who generally avoids flavored whiskey, I wanted to find out whether this was the exception people claimed it was.
 
 ---
 
-# Bottle Information
+## Bottle Information
 
 | Property | Value |
-|----------|-------|
-| Brand | Knob Creek |
-| Distillery | Jim Beam |
-| Classification | Flavored Bourbon |
-| Proof | 90 |
-| Price Paid | $34.99 |
-| Size | 750 mL |
+| :--- | :--- |
+| **Brand** | Knob Creek |
+| **Distillery** | Jim Beam |
+| **Producer** | Beam Suntory |
+| **Classification** | Flavored Bourbon |
+| **Proof** | 90 |
+| **Size** | 750 mL |
+| **Price Paid** | $34.99 |
 
 ---
 
-# Appearance
+## Tasting Notes
 
-Deep amber with good color.
+### Appearance
+Deep amber with excellent color. The whiskey shows thick legs and a rich viscosity that hints at a full-bodied pour. Nothing about the appearance immediately suggests a flavored whiskey.
 
-Excellent legs and viscosity.
+### Nose
+The aroma immediately leans toward dessert. 
 
-Nothing about the appearance immediately says "flavored whiskey."
+*   Cotton candy
+*   Maple syrup
+*   Brown sugar
+*   Vanilla
+*   Caramel
 
----
+The nose is much sweeter than I normally enjoy and immediately suggested this might drink like maple syrup.
 
-# Nose
+### Palate
+The first sip surprised me. Unlike the nose, the bourbon itself still comes through. 
 
-The nose immediately announces itself.
+*   Caramel
+*   Sweet cherry
+*   Maple syrup
+*   Baking spice
+*   Oak
 
-Notes included:
+Initially, I appreciated that I could still recognize the Knob Creek beneath the flavoring. However, after spending more time with the bottle, the sweetness became more dominant and the maple began tasting increasingly artificial. While the bourbon remains detectable, it ultimately plays second fiddle to the added flavoring.
 
-- Cotton candy
-- Maple syrup
-- Brown sugar
-- Vanilla
-- Caramel
-
-The sweetness is much stronger on the nose than I expected.
-
-Based on aroma alone, I thought this might drink like maple syrup.
-
----
-
-# Palate
-
-Fortunately, that's not what happened.
-
-The maple is definitely present, but it doesn't completely overpower the bourbon.
-
-I found:
-
-- Caramel
-- Sweet cherry
-- Maple
-- Baking spice
-- Oak
-
-The sweetness is noticeable but remains reasonably controlled.
-
-Most importantly...
-
-It still tastes like Knob Creek underneath the flavoring.
+### Finish
+Medium length. The maple sweetness slowly fades while some oak and baking spice linger. The finish reminds you that this started as Knob Creek, but the sugary maple remains the lasting impression.
 
 ---
 
-# Finish
+## Pros & Cons
 
-Medium length.
+### What I Liked
+For a flavored bourbon, it preserves more bourbon character than I expected. 
 
-The maple slowly fades while oak and spice linger.
+*   Noticeable oak
+*   Decent viscosity
+*   Some remaining baking spice
+*   The ability to still taste the underlying bourbon
 
-The finish remains recognizably bourbon rather than becoming candy-like.
+Those qualities kept it from becoming completely undrinkable.
 
----
+### What I'd Change
+The sweetness ultimately became too much for me. 
 
-# What I Liked
+*   Considerably less maple sweetness
+*   A more natural maple profile
+*   Less artificial syrup character
+*   Bottled at 100 proof
+*   More oak and baking spice allowed to shine
 
-This bottle surprised me.
-
-Instead of tasting artificial or syrupy, the maple felt integrated into the bourbon.
-
-I also appreciated that:
-
-- Oak was still present.
-- The mouthfeel remained fairly rich.
-- The spice wasn't completely lost.
-- It retained enough bourbon character to stay interesting.
-
-For a flavored bourbon, that's a genuine accomplishment.
+The underlying bourbon has potential, but the flavoring overwhelms it.
 
 ---
 
-# What I'd Change
+## Pairings & Alternatives
 
-If I could redesign this bottle...
+### Food Pairings
+This works best as a dessert pour. 
 
-I'd bottle it at **100 proof**.
+*   Bread pudding
+*   Smoked pecan pie
+*   Candied bacon
+*   Vanilla ice cream
+*   Smoked ham
+*   Thanksgiving desserts
 
-A little more proof would:
+### Where It Fits
+This won't replace anything on my regular shelf. I'd much rather reach for:
 
-- reduce the perceived sweetness
-- increase the oak presence
-- bring more baking spice
-- make the bourbon stand out even more
+*   Heaven Hill 7-Year Bottled-in-Bond
+*   Russell's Reserve Single Barrel
+*   Wild Turkey Rare Breed
+*   Woodford Reserve Double Oaked
+*   Buffalo Trace
 
-I also wouldn't mind dialing the maple back just a touch.
-
----
-
-# Food Pairings
-
-This feels like an excellent dessert or seasonal bourbon.
-
-I'd pair it with:
-
-- Smoked pecan pie
-- Bread pudding
-- Vanilla ice cream
-- Candied bacon
-- Smoked ham
-- Thanksgiving desserts
+Even when I want something sweeter, I generally prefer a naturally sweet bourbon over a flavored whiskey. This bottle confirmed that preference.
 
 ---
 
-# Where It Fits
+## Final Thoughts
 
-This doesn't replace my everyday bourbons.
+Knob Creek Smoked Maple reminded me why flavored bourbon isn't really my style.
 
-I'm still reaching first for:
+At first, I was encouraged that I could still taste the Knob Creek beneath the maple. Unfortunately, that excitement faded after several pours. The sweetness became increasingly syrupy, and the maple leaned more artificial than natural. While the underlying bourbon is still recognizable, it never fully escapes the added flavoring.
 
-- Heaven Hill 7 Year Bottled-in-Bond
-- Russell's Reserve Single Barrel
-- Wild Turkey Rare Breed
-- Woodford Double Oaked
+I'm glad I tried it because curiosity had gotten the better of me, but it ultimately reinforced that I prefer oak, proof, balance, and natural barrel influence over added sweetness. I'll finish the bottle, but this is a one-and-done purchase for me.
 
-Instead, this occupies a different niche.
-
-It's a bourbon I'll reach for when I'm specifically in the mood for something sweeter or when introducing someone to bourbon who normally prefers sweeter drinks.
-
----
-
-# Final Thoughts
-
-Knob Creek Smoked Maple challenged one of my assumptions.
-
-I generally avoid flavored whiskey because many examples taste artificial or overly sweet.
-
-This bottle isn't perfect, but it's far more restrained than expected.
-
-The maple complements the bourbon instead of completely replacing it.
-
-It's still sweeter than my preferred profile, so it won't become a regular pour.
-
-But I'm genuinely glad I bought a bottle and expect to enjoy finishing it.
-
-For me, it's less of a daily bourbon and more of an occasional dessert pour.
-
----
-
-# Rating
-
-**84 / 100**
-
-A surprisingly well-executed flavored bourbon that keeps enough of Knob Creek's character to remain enjoyable.
-
-**Would I buy again?**
-
-Probably.
-
-Not as a permanent shelf staple, but I'd happily keep a bottle around during the fall and holiday season.
-
+### Summary
+*   **Rating:** 6.0 / 10 — A respectable attempt at a flavored bourbon, but ultimately too sweet and too artificial for my palate. The underlying Knob Creek is still there—but not enough to overcome the maple.
+*   **Would I Buy Again?:** No. This was a worthwhile experiment, but not a bottle I'll purchase again.
+*   **Personal Tier:** **C Tier** (Drinkable, but not something I want on my shelf once it's gone).
 

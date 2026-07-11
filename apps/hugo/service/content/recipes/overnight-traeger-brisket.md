@@ -5,7 +5,7 @@ draft: false
 image: "/images/Overnight-Traeger-brisket-guide.png"
 ---
 
-![Overnight Traeger Brisket](/images/Overnight-Traeger-brisket-guide.png)
+#![Overnight Traeger Brisket](/images/Overnight-Traeger-brisket-guide.png)
 
 # 🥩 Overnight Traeger Brisket Runbook v1.1
 

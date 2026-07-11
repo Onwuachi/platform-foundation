@@ -15,7 +15,7 @@ image: "/images/Derricks-Baby-Spare-Ribs-Compressed-Pitmaster-Runbook.png"
 * Aggressive Post-Wrap: Run 275°F–290°F to crush the stall and finish the meat decisively.
 * Texture Over Numbers: Rely primarily on the surface bend test rather than just raw digital probe data.
 
-![Derricks-Baby-Spare-Ribs-Compressed-Pitmaster-Runbook](/images/Derricks-Baby-Spare-Ribs-Compressed-Pitmaster-Runbook.png)
+#![Derricks-Baby-Spare-Ribs-Compressed-Pitmaster-Runbook](/images/Derricks-Baby-Spare-Ribs-Compressed-Pitmaster-Runbook.png)
 
 ------------------------------
 ## 📅 The Profile & Prep

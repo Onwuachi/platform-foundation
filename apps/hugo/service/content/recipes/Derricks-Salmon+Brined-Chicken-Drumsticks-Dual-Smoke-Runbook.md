@@ -22,7 +22,7 @@ This method ensures:
 * Drumsticks are safely cooked from thawed state
 * Both proteins finish at the same time
 
-![Derricks-Salmon+Brined-Chicken-Drumsticks-Dual-Smoke-Runbook](/images/Derricks-Salmon+Brined-Chicken-Drumsticks-Dual-Smoke-Runbook.png)
+#![Derricks-Salmon+Brined-Chicken-Drumsticks-Dual-Smoke-Runbook](/images/Derricks-Salmon+Brined-Chicken-Drumsticks-Dual-Smoke-Runbook.png)
 
 ---
 

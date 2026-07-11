@@ -10,7 +10,7 @@ image: "/images/Derricks-Smoked-Salmon-in-a-Foil-Boat.png"
 
 ## Derrick's Hybrid Super Smoke Method
 
-![Derricks-Smoked-Salmon-in-a-Foil-Boat](/images/Derricks-Smoked-Salmon-in-a-Foil-Boat.png)
+#![Derricks-Smoked-Salmon-in-a-Foil-Boat](/images/Derricks-Smoked-Salmon-in-a-Foil-Boat.png)
 
 ### Objective
 
