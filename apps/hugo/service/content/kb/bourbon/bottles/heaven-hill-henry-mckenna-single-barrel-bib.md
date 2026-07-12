@@ -5,7 +5,7 @@ draft = false
 
 type = "bourbon-bottle"
 
-image = "/images/beer/heaven-hill-henry-mckenna-single-barrel-bib.png"
+image = "/images/bourbon/heaven-hill-henry-mckenna-single-barrel-bib.png"
 
 brand = "Henry McKenna"
 distillery = "Heaven Hill Distillery"

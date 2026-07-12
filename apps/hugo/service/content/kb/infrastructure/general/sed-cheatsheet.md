@@ -155,8 +155,86 @@ sed -n '10,20p' file
 ```bash
 sed -i 's/foo/bar/g; s/baz/qux/g' file
 ```
+# Replace text
+sed -i 's/old/new/g' file.md
+# ie. vim %s/old/new/g 
+
+# Delete a line
+sed -i '/pattern/d' file.md
+
+# Insert after a line
+sed -i '/pattern/a New text' file.md
+
+# Insert before a line
+sed -i '/pattern/i New text' file.md
+
+# Print a range
+sed -n '1,20p' file.md
+# ie head -n 20 file.md 
+
+# Multiple edits
+sed -i -e 's/a/b/' -e 's/c/d/' file.md
 
 ---
+
+Multiple edits at once
+
+Instead of
+
+vim
+:%s/foo/bar/g
+:%s/apple/orange/g
+
+You can do
+
+sed -i \
+-e 's/foo/bar/g' \
+-e 's/apple/orange/g' \
+-e 's/bourbon/whiskey/g' \
+file.md
+
+---
+
+# Why DevOps people love sed
+
+Imagine you decide six months from now:
+
+Every bourbon article needs
+
+image = ""
+
+Instead of editing 40 files...
+
+find content/kb/bourbon \
+-name "*.md" \
+-exec sed -i '/type = "bourbon-bottle"/a\
+image = ""
+' {} +
+
+Done.
+
+---
+
+# Combine with grep
+
+Find every file missing an image
+
+grep -L 'image =' *.md
+
+Now fix them
+
+for f in $(grep -L 'image =' *.md)
+do
+    sed -i '/type =/a image = ""' "$f"
+done
+
+# Populate common fields automatically:
+
+sed -i \
+-e 's/draft = true/draft = false/' \
+-e 's/rating = 0/rating = 88/' \
+-e 's|image = ""|image = "/images/bourbon/knob-creek-12.png"|' \
+content/kb/bourbon/bottles/knob-creek-12.md
 
 ## When sed isn't the right tool
 

@@ -5,7 +5,7 @@ draft = false
 
 type = "bourbon-bottle"
 
-image = "/images/beer/center-stave-port-cask-finished-bourbon-cask-strength.png"
+image = "/images/bourbon/center-stave-port-cask-finished-bourbon-cask-strength.png"
 
 brand = "Center Stave"
 distillery = "Center Stave"
@@ -18,8 +18,7 @@ age = "Minimum 4 Years"
 msrp = "$44.99"
 paid = "$44.99"
 
-rating = 88
-
+rating = 8.8
 tags = [
   "center stave",
   "port finish",
