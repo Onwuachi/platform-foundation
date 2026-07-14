@@ -25,7 +25,7 @@ availability = "Costco"
 
 batch = ""
 
-rating = 8.7
+rating = 8.5
 
 shelf_role = "Value Bottle"
 

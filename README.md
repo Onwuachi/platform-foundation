@@ -1,8 +1,8 @@
 # Platform Foundation
 
-**[Derrick Onwuachi](https://onwua.com)** · DevOps Engineer · Platform & Infrastructure · St. Paul, MN
+**[Derrick Onwuachi](https://onwua.com)** · DevOps Engineer · Platform & Infrastructure · Apple Valley, MN
 
-> This is my engineering lab. The production portfolio is at **[onwua.com](https://onwua.com)**.
+> This is my personally operated infrastructure platform. The production portfolio is at **[onwua.com](https://onwua.com)**.
 
 ---
 
@@ -314,6 +314,74 @@ automatically with no manual intervention.
 
 ---
 
+## Content Platform (Hugo)
+
+The Hugo site started as a single static dashboard and evolved into an
+actual content platform with sections for infrastructure KB, a bourbon
+knowledge base, pitmaster recipes, and culture — the homepage needed to
+evolve with it.
+
+**Before:** homepage duplicated `/platform/` almost verbatim (hero, metrics,
+architecture, services, observability, roadmap — the same partials, twice).
+
+**Now:** homepage is a portal — hero, a **Quick Stats** row (Knowledge
+Articles, Runbooks, Bottle Reviews, Platform Services — all computed at
+build time from real `WordCount`/section counts, not hardcoded numbers),
+cards linking out to each section, a **Platform Snapshot** widget reading
+live `data/signals/telemetry.yaml`, and an auto-generated **Latest Updates**
+feed. `/platform/` alone now owns the full dashboard.
+
+Other fixes from the same pass:
+
+- Syntax-highlighted code blocks in KB articles were rendering with a fixed
+  dark palette baked in as inline styles (Hugo's default Chroma behavior),
+  so they ignored the light/dark theme toggle entirely. Fixed by emitting
+  CSS classes instead (`noClasses = false`) and mapping them to the site's
+  own theme variables.
+- Recipe thumbnails moved from a hardcoded slug→filename lookup in the
+  template to a front-matter `image:` field — new recipes no longer require
+  a template edit.
+- Removed a duplicate header/nav partial on `/culture/` and a partial that
+  rendered the same anime-links data twice.
+
+**KB authoring tooling** (`tools/hugo/`): `create-kb-article.sh`,
+`create-kb-bottle.sh`, `create-kb-domain.sh` scaffold new content with
+correct front matter, reducing the KB → new page.
+
+---
+
+## Infra Audit CLI (Python)
+
+A small, deliberately-scoped Python toolkit for reading and inspecting
+infrastructure state, developed alongside the platform rather than as a
+standalone exercise — each script reads real Terraform/AWS-shaped JSON.
+
+```
+infra/infra_audit/
+├── cli/
+│   ├── log_analyzer.py       reads EC2 JSON, flags Public/Private
+│   └── terraform_parser.py   reads terraform show -json, describes resources
+│                              per type (aws_instance, aws_eip, aws_vpc, ...)
+├── data/                     sample JSON fixtures for local development
+├── utils/                    scaffolded, not yet in use
+└── tests/                    scaffolded, not yet in use
+```
+
+```bash
+cd infra/infra_audit/cli
+python log_analyzer.py        # Instance i-12345 is Public / Private
+python terraform_parser.py    # per-resource description, one block per resource
+```
+
+Development pattern: build a small representative sample JSON file first,
+write the parser against it, verify output, then point the same script at
+real `terraform show -json` output with no logic changes. `utils/` and
+`tests/` are scaffolded for the next iteration (richer filtering — public
+resources, missing tags, drift detection) but intentionally not built out
+ahead of an actual need.
+
+---
+
 ## Platform CLI
 
 ```bash
@@ -359,6 +427,7 @@ platform shell                       # SSM interactive session
 | Phase 4.5 | Path-level content auth (HAProxy + SSM Parameter Store) | ✅ Complete |
 | Phase 4.6 | Automated TLS renewal (Certbot deploy hook → HAProxy reload) | ✅ Complete |
 | Phase 4.7 | Grafana dashboards · alerting (SNS/email) | 🔧 In Progress |
+| Phase 4.8 | Content platform reorg — portal homepage, live Quick Stats + Platform Snapshot (data-driven, not hardcoded), theme-aware syntax highlighting, KB authoring scripts | ✅ Complete |
 | Phase 5 | EKS module · Kubernetes familiarity layer | 📋 Planned |
 
 ---
@@ -391,21 +460,39 @@ platform shell                       # SSM interactive session
 ```
 platform-foundation/
 ├── apps/
-│   └── hugo/service/          Hugo documentation platform
+│   └── hugo/service/          Hugo content platform (KB, recipes, culture, platform dashboard)
 ├── infra/
 │   ├── backend.tf             S3 remote state
 │   ├── main.tf                Core infrastructure
 │   ├── shared/                VPC, IAM, OIDC
-│   ├── ops/                   EC2, EIP, S3, Route53
 │   ├── security/               Security groups
-│   └── packer/                AMI build templates + scripts
+│   ├── ops/                   EC2, EIP, S3, Route53 — the only always-on compute
+│   ├── packer/                AMI build templates + scripts
+│   ├── environments/           Per-environment .tfvars (dev/uat/stage/prod)
+│   ├── infra_audit/            Python CLI — see "Infra Audit CLI" above
+│   └── web/, wordpress/, app/, admin-ui-instance/, cloud-init/
+│                               Legacy modules from the pre-consolidation
+│                               architecture, gated behind enable_* flags
+│                               that default to false — not deployed, kept
+│                               for reference rather than deleted outright
 ├── onwua-portfolio/           onwua.com static portfolio site
 │   ├── infra/portfolio/       S3 + CloudFront + ACM Terraform
 │   ├── site/                  Hugo source
 │   └── .github/workflows/     Deploy pipeline
-├── scripts/                   Platform CLI + automation
-└── docs/                      Architecture documentation
+├── tools/
+│   ├── platform                Platform CLI entrypoint
+│   ├── hugo/                   KB authoring scripts (create-kb-*.sh)
+│   └── control-cli/             Domain-mapping CLI (ctl) + legacy version
+└── scripts/                    Setup/bootstrap shell scripts
+                                (accumulated duplication here — cleanup
+                                candidate, not yet done)
 ```
+
+**Known pending cleanup** (tracked here rather than pretending it's already
+done): `hugo-updated/` at repo root is a stale duplicate of
+`apps/hugo/service/` and still needs to be removed; `CHANGELOG.md` still
+reflects the very first infrastructure pass and hasn't been updated since —
+next real housekeeping pass, not urgent.
 
 ---
 

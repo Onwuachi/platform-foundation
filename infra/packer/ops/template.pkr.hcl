@@ -247,8 +247,8 @@ build {
     ]
   }
 
-  
-  
+
+
   ################################
   # Platform Render HAProxy
   ################################
@@ -275,9 +275,9 @@ build {
   }
 
   provisioner "file" {
-  source      = "scripts/platform-shutdown.sh"
-  destination = "/tmp/platform-shutdown.sh"
-}
+    source      = "scripts/platform-shutdown.sh"
+    destination = "/tmp/platform-shutdown.sh"
+  }
 
   provisioner "file" {
     source      = "systemd/platform-rehydrate.service"

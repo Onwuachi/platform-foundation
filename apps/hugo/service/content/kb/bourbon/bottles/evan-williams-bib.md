@@ -214,7 +214,7 @@ For me, it's one of the best values in bourbon and remains my favorite everyday 
 
 # Rating
 
-**9.0 / 10**
+**8.5 / 10**
 
 A benchmark budget Bottled-in-Bond bourbon with outstanding value, classic Heaven Hill character, and enough spice and oak to keep every pour interesting.
 
