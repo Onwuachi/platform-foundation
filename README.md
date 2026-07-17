@@ -359,7 +359,7 @@ automatically with no manual intervention.
 
 ## Docker Runtime Hardening
 
-Following investigation of a production file descriptor incident (DO-5543), Docker daemon defaults were updated to ensure all containers receive appropriate file descriptor limits.
+Docker daemon defaults were updated to ensure all containers receive appropriate file descriptor limits.
 
 Docker daemon configuration now defines:
 
