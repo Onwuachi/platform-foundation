@@ -25,6 +25,7 @@ variable "ami_keep_last" {
   default = 2
 }
 
+
 ############################
 # Source AMI
 ############################
@@ -38,9 +39,10 @@ source "amazon-ebs" "ops" {
   force_deregister      = true
   force_delete_snapshot = true
 
+
   source_ami_filter {
     filters = {
-      name                = "ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"
+      name                = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"
       virtualization-type = "hvm"
       root-device-type    = "ebs"
     }
@@ -48,6 +50,19 @@ source "amazon-ebs" "ops" {
     owners      = ["099720109477"]
     most_recent = true
   }
+
+
+  #  source_ami_filter {
+  #    filters = {
+  #      name                = "ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"
+  #      virtualization-type = "hvm"
+  #      root-device-type    = "ebs"
+  #    }
+
+  #    owners      = ["099720109477"]
+  #    most_recent = true
+  #  }
+
 }
 
 ############################
@@ -84,9 +99,10 @@ build {
       "scripts/install_certbot.sh",
       "scripts/install_blackbox_exporter.sh",
       "scripts/docker.sh",
+      "scripts/hardening.sh",
       "scripts/systemd.sh",
       "scripts/install_pushgateway.sh",
-      "scripts/hardening.sh"
+      "scripts/validate-runtime.sh"
     ]
   }
 

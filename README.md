@@ -27,7 +27,40 @@ Built and operated end-to-end: from AMI to edge routing, CI/CD to disaster recov
 
 ---
 
-## Architecture
+## Platform Architecture
+
+The platform is built around an immutable infrastructure model.
+
+- Packer produces a hardened Ubuntu 24.04 Golden AMI.
+- The latest AMI ID is published to AWS Systems Manager Parameter Store.
+- Terraform provisions infrastructure using the current Golden AMI.
+- Platform services run as Docker containers managed by systemd.
+- Configuration is rehydrated at boot from AWS Systems Manager.
+- Operational access is provided exclusively through AWS Systems Manager Session Manager (SSH disabled).
+- Prometheus, Grafana, Node Exporter, Blackbox Exporter, and Pushgateway provide platform observability.
+
+
+GitHub
+   │
+   ▼
+GitHub Actions
+   │
+   ▼
+Packer
+   │
+   ▼
+Golden AMI
+   │
+Terraform
+   │
+   ▼
+EC2
+   │
+AWS SSM
+   │
+   ▼
+Platform Rehydrate
+
 
 ![Platform Architecture](apps/hugo/service/static/images/platform-architecture.png)
 
@@ -37,22 +70,30 @@ Built and operated end-to-end: from AMI to edge routing, CI/CD to disaster recov
 
 | Layer | Technology |
 |---|---|
-| AMI Build | Packer (Ubuntu 22.04) |
-| AMI Registry | AWS SSM Parameter Store |
-| Infrastructure | Terraform v1.12.2 · AWS Provider v6.35.1 |
-| Edge Routing | HAProxy (TLS termination, dynamic backends) |
-| Container Runtime | Docker + ECR |
+| Base Operating System | Ubuntu 24.04 LTS (Noble) |
+| Image Build | Packer 1.9.4 |
+| Golden AMI Registry | AWS SSM Parameter Store |
+| Infrastructure as Code | Terraform 1.12.2 + AWS Provider 6.35.1 |
+| Cloud Platform | Amazon Web Services (AWS) |
+| Compute | Amazon EC2 |
+| Identity & Access | AWS IAM |
+| Container Runtime | Docker Engine 29.x |
+| Container Runtime Engine | containerd 2.2.x |
+| Container Registry | Amazon ECR |
 | Service Orchestration | systemd |
-| Runtime State | Amazon S3 (primary + backup) |
-| TLS Management | Certbot (ACME) |
-| Metrics | Prometheus + Node Exporter + Blackbox Exporter |
-| Dashboards | Grafana |
-| Documentation | Hugo (self-hosted, containerized) |
-| Portfolio Site | Hugo → S3 → CloudFront (onwua.com) |
+| Reverse Proxy | HAProxy |
+| TLS Automation | Certbot (Let's Encrypt ACME) |
+| Runtime Configuration | AWS Systems Manager Parameter Store |
+| Remote Administration | AWS SSM Session Manager (SSH disabled) |
+| Monitoring | Prometheus 2.51.2 |
+| Metrics Exporters | Node Exporter · Blackbox Exporter · Pushgateway |
+| Dashboards | Grafana 10.4.2 |
+| Logging | systemd journal |
+| Documentation Platform | Hugo (containerized) |
+| Portfolio Website | Hugo → S3 → CloudFront |
 | CI/CD | GitHub Actions + OIDC |
-| Operational Access | AWS SSM Session Manager (no SSH, no bastion) |
-| Secrets | AWS SSM Parameter Store (SecureString) |
-
+| Source Control | Git + GitHub |
+| Configuration Management | Bash + systemd + Packer Provisioners |
 ---
 
 ## ① Infrastructure Lifecycle
@@ -314,6 +355,28 @@ automatically with no manual intervention.
 
 ---
 
+---
+
+## Docker Runtime Hardening
+
+Following investigation of a production file descriptor incident (DO-5543), Docker daemon defaults were updated to ensure all containers receive appropriate file descriptor limits.
+
+Docker daemon configuration now defines:
+
+- Soft Limit: 524288
+- Hard Limit: 524288
+
+Critical platform services also explicitly define systemd `LimitNOFILE` values where appropriate.
+
+Validation includes:
+
+- Docker daemon limits
+- systemd service limits
+- Kernel limits
+- Running container limits
+
+---
+
 ## Content Platform (Hugo)
 
 The Hugo site started as a single static dashboard and evolved into an
@@ -487,6 +550,34 @@ platform-foundation/
                                 (accumulated duplication here — cleanup
                                 candidate, not yet done)
 ```
+``
+## Recent Platform Improvements (July 2026)
+
+The platform recently underwent a significant modernization.
+
+### Infrastructure
+
+- Ubuntu 24.04 LTS (Noble)
+- Linux 6.17 AWS kernel
+- Docker Engine 29.x
+- containerd 2.2.x
+
+### Immutable Infrastructure
+
+The platform is fully rebuilt using Packer rather than upgraded in-place.
+
+Every deployment creates a fresh AMI, provisions a new EC2 instance via Terraform, and rehydrates configuration using AWS Systems Manager.
+
+Benefits include:
+
+- zero configuration drift
+- repeatable infrastructure
+- safer operating system upgrades
+- rapid disaster recovery
+- infrastructure as code from image to deployment
+
+```
+
 
 **Known pending cleanup** (tracked here rather than pretending it's already
 done): `hugo-updated/` at repo root is a stale duplicate of

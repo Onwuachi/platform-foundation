@@ -6,7 +6,7 @@
 </div>
 
 <div class="recipe-grid">
-  {{ range .Pages }}
+  {{ range .RegularPagesRecursive.ByTitle }}
     <a href="{{ .RelPermalink }}" class="recipe-card">
       <div class="recipe-thumb"
         {{ with .Params.image }}style="background-image: url('{{ . }}');"{{ end }}

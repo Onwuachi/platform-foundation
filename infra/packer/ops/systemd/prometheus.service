@@ -10,6 +10,7 @@ After=docker.service network-online.target
 Wants=network-online.target
 
 [Service]
+LimitNOFILE=524288
 ExecStartPre=-/usr/bin/docker rm -f prometheus
 
 ExecStart=/usr/bin/docker run \

@@ -4,6 +4,7 @@ After=docker.service network-online.target
 Requires=docker.service
 
 [Service]
+LimitNOFILE=524288
 Restart=always
 RestartSec=5
 

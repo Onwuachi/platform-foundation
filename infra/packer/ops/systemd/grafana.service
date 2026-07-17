@@ -9,6 +9,7 @@ After=docker.service
 Wants=network-online.target
 
 [Service]
+LimitNOFILE=524288
 ExecStartPre=-/usr/bin/docker rm -f grafana
 ExecStart=/usr/bin/docker run \
   --name grafana \

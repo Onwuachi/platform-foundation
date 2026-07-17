@@ -11,7 +11,7 @@ title: "Resume"
 - Operate AWS-based production infrastructure using Terraform and AWS Organizations across Dev / UAT / Prod environments
 - Maintain containerized application platforms on hardened EC2 instances using Docker and automated deployment pipelines
 - Lead incident response and production troubleshooting across infrastructure and application layers
-- Root-caused an upstream container runtime regression that silently lowered a critical resource limit under production load during a fleet-wide OS upgrade; shipped a fix and added it to standard validation procedures
+- Investigated and validated an upstream Docker Engine runtime regression that reduced container file descriptor limits after Ubuntu 24.04 upgrades, engineered the fleet-wide remediation, and incorporated automated validation into the production upgrade standard
 - Manage IAM/RBAC access controls, patching, OS hardening, and vulnerability remediation across AWS environments
 - Support SOC2 and HITRUST audit requirements through system hardening, logging, and evidence collection
 - Execute disaster recovery testing using AWS Backup, EC2 restoration, and full environment rebuild workflows
