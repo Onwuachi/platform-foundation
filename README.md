@@ -585,10 +585,10 @@ done): `hugo-updated/` at repo root is a stale duplicate of
 reflects the very first infrastructure pass and hasn't been updated since —
 next real housekeeping pass, not urgent.
 
+```
 ---
 
 ## Author
 
 **Derrick C. Onwuachi** · Cloud · DevOps · Platform Engineer
-
 [onwua.com](https://onwua.com) · [github.com/Onwuachi](https://github.com/Onwuachi) · [linkedin.com/in/derrick-o-a0777729](https://linkedin.com/in/derrick-o-a0777729)
