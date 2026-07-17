@@ -568,24 +568,15 @@ The platform is fully rebuilt using Packer rather than upgraded in-place.
 
 Every deployment creates a fresh AMI, provisions a new EC2 instance via Terraform, and rehydrates configuration using AWS Systems Manager.
 
+```
 Benefits include:
-
 - zero configuration drift
 - repeatable infrastructure
 - safer operating system upgrades
 - rapid disaster recovery
 - infrastructure as code from image to deployment
-
 ```
 
-
-**Known pending cleanup** (tracked here rather than pretending it's already
-done): `hugo-updated/` at repo root is a stale duplicate of
-`apps/hugo/service/` and still needs to be removed; `CHANGELOG.md` still
-reflects the very first infrastructure pass and hasn't been updated since —
-next real housekeeping pass, not urgent.
-
-```
 ---
 
 ## Author
