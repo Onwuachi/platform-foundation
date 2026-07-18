@@ -37,6 +37,7 @@ Usage:
   platform deregister <service>
   platform shell
   platform health
+  Platform validate
 EOF
   exit 1
 }
@@ -127,8 +128,10 @@ ssm_exec() {
 
 ssm_exec_multi() {
   local SCRIPT="$1"
+  local ENCODED
+  ENCODED=$(printf '%s' "$SCRIPT" | base64 -w0)
 
-  local WRAPPED_SCRIPT="bash -c '$SCRIPT'"
+  local WRAPPED_SCRIPT="echo $ENCODED | base64 -d | bash"
 
   aws ssm send-command \
     --region "$REGION" \
@@ -139,7 +142,6 @@ ssm_exec_multi() {
     --query "Command.CommandId" \
     --output text
 }
-
 
 
 ########################################
@@ -784,6 +786,31 @@ state-pull)
 
   aws s3 sync s3://platform-api-services/platform/services ./services-state
 ;;
+
+
+
+
+########################################
+# Validate
+########################################
+validate)
+
+    require_instance
+
+    CHECK="${SERVICE:-platform}"
+
+    echo "Running validation: $CHECK"
+
+    SCRIPT=$(<"$HOME/cicd/platform-foundation/tools/validation/${CHECK}-validation.sh")
+
+    CMD_ID=$(ssm_exec_multi "$SCRIPT")
+
+    echo "Command ID: $CMD_ID"
+
+    wait_for_ssm "$CMD_ID"
+
+;;
+
 
 ########################################
 # DEFAULT
