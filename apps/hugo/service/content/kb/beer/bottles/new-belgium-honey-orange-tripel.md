@@ -6,7 +6,6 @@ draft = false
 type = "beer-bottle"
 
 image = "/images/beer/new-belgium-honey-orange-tripel.png"
-#![New Belgium Honey Orange Tripel](/images/beer/new-belgium-honey-orange-tripel.png)
 
 brewery = "New Belgium Brewing"
 style = "Belgian-Style Tripel"

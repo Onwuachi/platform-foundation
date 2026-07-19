@@ -15,7 +15,6 @@ image: "/images/Derricks-3-Rib-Fest-Guide.png"
 * Controlled Heat Push: Operating at 265°F–275°F delivers better bark and rendering.
 * Adhesion, then Acceleration: Short 225°F window for smoke, then push the gas.
 
-#![Derricks-3-Rib-Fest-Guide](/images/Derricks-3-Rib-Fest-Guide.png)
 
 ------------------------------
 ## 📅 Night Before: Prep & Dry Brine

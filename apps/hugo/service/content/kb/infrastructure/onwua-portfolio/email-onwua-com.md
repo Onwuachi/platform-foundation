@@ -1,46 +1,11 @@
 ---
-title: "Onwua-portfolio Email Config"
-date: 2026-07-14
+title: "KB: Email Setup — To Domain <onwua.com>"
+date: 2026-06-14
 draft: false
-description: ""
-summary: ""
-tags: []
+description: "Custom email routing setup for the onwua.com domain using ImprovMX, including SPF/DKIM/DMARC verification."
+summary: "How inbound email for onwua.com is routed and verified (SPF/DKIM/DMARC pass) via ImprovMX, plus optional paid Send As setup."
+tags: ["email", "dns", "improvmx", "spf", "dkim", "dmarc"]
 categories: ["runbooks"]
----
-
-title: ""
-
-date: 2026-07-14
-
-draft: false
-
-description: ""
-
-summary: ""
-
-tags: []
-
-categories: ["runbooks"]
-
----
-
-
----
-
-title: "KB: Email Setup — To Domain <onwua.com> "
-
-date: 2026-07-14
-
-draft: false
-
-description: ""
-
-summary: ""
-
-tags: []
-
-categories: ["runbooks"]
-
 ---
 
 # KB: Email Setup — To Domain <onwua.com> 

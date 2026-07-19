@@ -12,7 +12,7 @@ style = "Bourbon Barrel-Aged Imperial Stout"
 country = "United States"
 city = "Chicago, Illinois"
 
-abv = "14.7%"
+abv = "14.8%"
 ibu = "60"
 package = "4 × 10 oz Bottles"
 msrp = "$24.99"

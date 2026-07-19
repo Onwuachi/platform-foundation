@@ -5,6 +5,8 @@ draft = false
 
 type = "rum-bottle"
 
+image = "/images/rum/appleton-estate-12-year-rare-casks.png"
+
 brand = "Appleton Estate"
 distillery = "Appleton Estate"
 country = "Jamaica"
@@ -18,7 +20,7 @@ age = "12 Years"
 msrp = "$49.99"
 paid = "$34.99"
 
-rating = 0
+rating = 9.0
 
 tags = [
   "appleton estate",

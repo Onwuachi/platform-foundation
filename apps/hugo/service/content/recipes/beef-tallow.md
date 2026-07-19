@@ -5,7 +5,6 @@ draft: false
 image: "/images/making-beef-tallow-pitmasters-guide.png"
 ---
 
-#![Making Beef Tallow](/images/making-beef-tallow-pitmasters-guide.png)
 
 # 🔥 Derrick’s Pitmaster Tallow KB Cheat Sheet
 

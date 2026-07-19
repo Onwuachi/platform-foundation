@@ -1,19 +1,10 @@
 ---
-title: "---"
-date: 2026-07-14
-draft: false
-summary: ""
-tags: []
-categories: ["runbooks"]
----
-
----
 title: "Ubuntu In-Place OS Upgrade (20.04 → 24.04) — Production Fleet + Physical Edge Appliances"
 date: 2026-07-14
 draft: false
-description: ""
-summary: ""
-tags: []
+description: "Validated end-to-end procedure for upgrading Ubuntu 20.04 to 24.04 across a mixed fleet of ~36 AWS EC2 production instances and physical edge appliances."
+summary: "In-place Ubuntu 20.04 → 24.04 upgrade validated in UAT before rollout across cloud and physical edge fleet."
+tags: ["ubuntu", "os-upgrade", "fleet-management"]
 categories: ["runbooks"]
 ---
 

@@ -1,19 +1,10 @@
 ---
-title: "---"
-date: 2026-07-14
-draft: false
-summary: ""
-tags: []
-categories: ["runbooks"]
----
-
----
 title: "Filescanner: ClamAV Malware Scanning Architecture"
 date: 2026-07-14
 draft: false
-description: ""
-summary: ""
-tags: []
+description: "How uploaded files are scanned for malware in a multi-tenant SaaS platform using ClamAV in TCP mode."
+summary: "ClamAV-based signature scanning architecture for uploaded files in a multi-tenant SaaS platform."
+tags: ["security", "clamav", "malware-scanning"]
 categories: ["runbooks"]
 ---
 

@@ -1,19 +1,10 @@
 ---
-title: "---"
-date: 2026-07-14
-draft: false
-summary: ""
-tags: []
-categories: ["runbooks"]
----
-
----
 title: "FortiGate HA Upgrade Runbook (AWS Production)"
 date: 2026-07-14
 draft: false
-description: ""
-summary: ""
-tags: []
+description: "Standardized process for performing a zero-downtime firmware upgrade on FortiGate HA clusters in AWS (Active-Passive, automatic failover)."
+summary: "Zero-downtime FortiGate HA firmware upgrade procedure for AWS production clusters."
+tags: ["fortigate", "aws", "ha", "firewall"]
 categories: ["runbooks"]
 ---
 

@@ -1,19 +1,10 @@
 ---
-title: "---"
-date: 2026-07-14
-draft: false
-summary: ""
-tags: []
-categories: ["runbooks"]
----
-
----
 title: "Oracle OCI DNS Access & Onboarding Runbook"
 date: 2026-07-14
 draft: false
-description: ""
-summary: ""
-tags: []
+description: "Defines how DNS records are managed in OCI for a multi-domain SaaS platform, eliminating shared admin credentials in favor of per-user identity and group-based access."
+summary: "Per-user OCI DNS access and onboarding model replacing shared admin credentials, with console + CLI support."
+tags: ["oci", "dns", "iam"]
 categories: ["runbooks"]
 ---
 

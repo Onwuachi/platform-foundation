@@ -1,19 +1,10 @@
 ---
-title: "---"
-date: 2026-07-14
-draft: false
-summary: ""
-tags: []
-categories: ["runbooks"]
----
-
----
 title: "AWS Client VPN — TLS Handshake Fix & Runbook"
 date: 2026-07-14
 draft: false
-description: ""
-summary: ""
-tags: []
+description: "End-to-end runbook to fix an AWS Client VPN TLS handshake failure, reissue certificates, rebuild the client profile, and restore private VPC network access."
+summary: "Real production incident: AWS Client VPN TLS handshake failure resolved by reissuing certs and rebuilding the client profile."
+tags: ["aws", "vpn", "tls", "certificates"]
 categories: ["runbooks"]
 ---
 

@@ -1,19 +1,10 @@
 ---
-title: "---"
-date: 2026-07-14
-draft: false
-summary: ""
-tags: []
-categories: ["runbooks"]
----
-
----
 title: "TLS/SSL Certificate Renewal Process (HAProxy, Multi-Environment)"
 date: 2026-07-14
 draft: false
-description: ""
-summary: ""
-tags: []
+description: "Standard process for renewing, validating, and deploying TLS/SSL certificates across Production, UAT, and Dev environments using HAProxy."
+summary: "TLS/SSL certificate renewal, HAProxy reload, validation, and rollback procedures across multiple environments."
+tags: ["tls", "ssl", "haproxy", "certificates"]
 categories: ["runbooks"]
 ---
 

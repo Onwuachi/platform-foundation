@@ -19,7 +19,6 @@ categories:
   - Recipes
 ---
 
-#![Derrick Onwuachi's High Heat Mixed Smoke Runbook](/images/derrick-onwuachi-high-heat-mixed-smoke-runbook-v1.png)
 
 # Derrick Onwuachi's High Heat Mixed Smoke Runbook
 

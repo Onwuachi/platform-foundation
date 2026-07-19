@@ -1,19 +1,10 @@
 ---
-title: "---"
-date: 2026-07-14
-draft: false
-summary: ""
-tags: []
-categories: ["runbooks"]
----
-
----
 title: "Runbook — Private Group Migration (Zero-Downtime, Single-Active-UC Model)"
 date: 2026-07-14
 draft: false
-description: ""
-summary: ""
-tags: []
+description: "Controlled migration process for moving a customer group between UC environments with zero downtime under a single-active-UC constraint."
+summary: "Zero-downtime customer group migration between UC-A and UC-B under a single-active-UC (no dual event processing) constraint."
+tags: ["migration", "zero-downtime"]
 categories: ["runbooks"]
 ---
 
