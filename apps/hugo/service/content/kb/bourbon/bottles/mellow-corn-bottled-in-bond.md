@@ -27,7 +27,7 @@ availability = "Widely Available"
 
 batch = ""
 
-rating = 8.9
+rating = 8.8
 
 shelf_role = "Value Pour"
 
@@ -271,6 +271,6 @@ This bottle accomplished exactly that.
 
 # Rating
 
-**8.9 / 10**
+**8.8 / 10**
 
 A remarkably well-made Bottled-in-Bond corn whiskey that proves great whiskey doesn't have to be expensive.

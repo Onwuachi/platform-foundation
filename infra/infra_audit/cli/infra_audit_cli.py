@@ -9,6 +9,7 @@ terraform_parser.py / log_analyzer.py modules.
 Usage:
     python infra_audit_cli.py bill                 # last 30 days cost by service
     python infra_audit_cli.py bill --days 7         # last 7 days
+    python infra_audit_cli.py bill --by USAGE_TYPE --filter-service "Amazon Elastic Compute Cloud - Compute" --start 2026-06-01 --end 2026-07-01  # Billing service with date range     
     python infra_audit_cli.py snapshots             # your owned EBS snapshots
     python infra_audit_cli.py snapshots --stale 30  # snapshots older than 30 days
     python infra_audit_cli.py images                # your owned AMIs

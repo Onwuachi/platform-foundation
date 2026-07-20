@@ -1,6 +1,6 @@
 # Platform Foundation
 
-**[Derrick Onwuachi](https://onwua.com)** · DevOps Engineer · Platform & Infrastructure · Apple Valley, MN
+**[Derrick Onwuachi](https://onwua.com)** · DevOps Engineer · Platform & Infrastructure · <!-- FLAG: README says "Apple Valley, MN", earlier draft says "St. Paul, MN" — confirm which is current -->
 
 > This is my personally operated infrastructure platform. The production portfolio is at **[onwua.com](https://onwua.com)**.
 
@@ -13,6 +13,8 @@ A single-engineer AWS platform implementing immutable infrastructure, declarativ
 Built and operated end-to-end: from AMI to edge routing, CI/CD to disaster recovery, observability to documentation.
 
 > **Compute is disposable. State is durable. Recovery is deterministic.**
+
+Full operational detail — lifecycle diagrams, DR procedures, TLS internals, tooling — lives in **[docs/OPERATIONS.md](docs/OPERATIONS.md)**.
 
 ---
 
@@ -39,30 +41,13 @@ The platform is built around an immutable infrastructure model.
 - Operational access is provided exclusively through AWS Systems Manager Session Manager (SSH disabled).
 - Prometheus, Grafana, Node Exporter, Blackbox Exporter, and Pushgateway provide platform observability.
 
-
-GitHub
-   │
-   ▼
-GitHub Actions
-   │
-   ▼
-Packer
-   │
-   ▼
-Golden AMI
-   │
-Terraform
-   │
-   ▼
-EC2
-   │
-AWS SSM
-   │
-   ▼
-Platform Rehydrate
-
+```
+GitHub → GitHub Actions → Packer → Golden AMI → Terraform → EC2 → AWS SSM → Platform Rehydrate
+```
 
 ![Platform Architecture](apps/hugo/service/static/images/platform-architecture.png)
+
+Step-by-step build and recovery diagrams: see [OPERATIONS.md § Infrastructure Lifecycle](docs/OPERATIONS.md#infrastructure-lifecycle) and [§ Runtime Recovery Lifecycle](docs/OPERATIONS.md#runtime-recovery-lifecycle).
 
 ---
 
@@ -70,23 +55,21 @@ Platform Rehydrate
 
 | Layer | Technology |
 |---|---|
-| Base Operating System | Ubuntu 24.04 LTS (Noble) |
+| Base Operating System | Ubuntu 24.04 LTS (Noble), Linux 6.17 AWS kernel |
 | Image Build | Packer 1.9.4 |
 | Golden AMI Registry | AWS SSM Parameter Store |
 | Infrastructure as Code | Terraform 1.12.2 + AWS Provider 6.35.1 |
 | Cloud Platform | Amazon Web Services (AWS) |
 | Compute | Amazon EC2 |
 | Identity & Access | AWS IAM |
-| Container Runtime | Docker Engine 29.x |
-| Container Runtime Engine | containerd 2.2.x |
+| Container Runtime | Docker Engine 29.x, containerd 2.2.x |
 | Container Registry | Amazon ECR |
 | Service Orchestration | systemd |
 | Reverse Proxy | HAProxy |
 | TLS Automation | Certbot (Let's Encrypt ACME) |
 | Runtime Configuration | AWS Systems Manager Parameter Store |
 | Remote Administration | AWS SSM Session Manager (SSH disabled) |
-| Monitoring | Prometheus 2.51.2 |
-| Metrics Exporters | Node Exporter · Blackbox Exporter · Pushgateway |
+| Monitoring | Prometheus 2.51.2, Node Exporter, Blackbox Exporter, Pushgateway |
 | Dashboards | Grafana 10.4.2 |
 | Logging | systemd journal |
 | Documentation Platform | Hugo (containerized) |
@@ -94,88 +77,24 @@ Platform Rehydrate
 | CI/CD | GitHub Actions + OIDC |
 | Source Control | Git + GitHub |
 | Configuration Management | Bash + systemd + Packer Provisioners |
----
 
-## ① Infrastructure Lifecycle
-
-Terraform provisions infrastructure. SSM Parameter Store is the handoff between Packer and Terraform — the AMI ID never gets hardcoded.
-
-```
-Packer Build
-      │  Ubuntu 22.04 + Docker + HAProxy + SSM agent + base packages
-      ▼
-AMI Created
-      │
-      ▼
-SSM Parameter Store
-      │  /devopslab/ami/ops/latest
-      ▼
-Terraform Apply
-      │  VPC · Subnets · EC2 · EIP · IAM · S3 · Route53
-      ▼
-EC2 Launch
-```
+The platform migrated from Ubuntu 22.04 → 24.04 via a full immutable rebuild (fresh AMI, fresh EC2, no in-place upgrade) — consistent with the "rebuild over repair" principle below, not an exception to it.
 
 ---
 
-## ② Runtime Recovery Lifecycle
+## State Ownership Model
 
-Once EC2 is up, Terraform's job is done. The runtime reconstructs itself independently — no Terraform involvement.
+The core architectural distinction of the platform: infrastructure and runtime state are owned separately, and destroying one does not destroy the other.
 
-```
-EC2 Launch
-      │
-      ▼
-systemd Startup
-      │  platform-rehydrate.service
-      ▼
-S3 State Sync
-      │  platform/services/* → local
-      ▼
-Certificate Recovery
-      │  TLS certs from S3 / certbot validation
-      ▼
-HAProxy Render
-      │  dynamic backend map generation
-      ▼
-Docker Pull + Start
-      │  ECR → hugo · api · grafana · prometheus
-      ▼
-Platform Online ✅
-```
+**Terraform owns:** VPC/Subnets, Security Groups, EC2 Instance, Elastic IP, IAM, the S3 bucket resource (not its contents), Route53 Records.
+
+**Terraform does not own:** Docker containers, HAProxy runtime config, service registrations, TLS certificates, S3 runtime objects, the DR bucket and snapshots.
+
+> `terraform destroy` removes compute and networking only. It does not touch runtime state or DR data — that survival is intentional. Full ownership tables and rationale: [OPERATIONS.md § State Ownership Model](docs/OPERATIONS.md#state-ownership-model).
 
 ---
 
-## ③ State Ownership Model
-
-This is the core architectural distinction of the platform.
-
-### Terraform Owns (infrastructure layer)
-
-- VPC + Subnets
-- Security Groups
-- EC2 Instance
-- Elastic IP
-- IAM Roles + Policies
-- S3 Bucket (the bucket resource, not its contents)
-- Route53 Records
-
-### Terraform Does NOT Own (runtime layer)
-
-- Docker containers and running workloads
-- HAProxy runtime configuration
-- Service definitions and registrations
-- TLS certificates
-- S3 runtime objects (service state, certs, metadata)
-- Disaster Recovery bucket and snapshots
-
-> The DR S3 bucket and Route53 hosted zone were provisioned outside of Terraform and predate it.
-> A `terraform destroy` removes compute and networking. It does not touch runtime state or DR data.
-> This is intentional — recovery data must survive infrastructure destruction.
-
----
-
-## ④ Runtime Services
+## Runtime Services
 
 All services bind to `127.0.0.1`. HAProxy handles all public ingress on ports 80 and 443.
 
@@ -190,272 +109,7 @@ All services bind to `127.0.0.1`. HAProxy handles all public ingress on ports 80
 | Node Exporter | Host metrics | 127.0.0.1:9100 |
 | Pushgateway | Batch metrics | 127.0.0.1:9091 |
 
----
-
-## ⑤ Observability
-
-Prometheus scrapes the platform and feeds Grafana dashboards. Runs with
-`--network host` so it can reach all loopback-bound services directly —
-no Docker bridge networking translation needed.
-
-**Scrape targets — current state:**
-
-| Target | Status | Notes |
-|---|---|---|
-| Prometheus | ✅ Up | `127.0.0.1:9090` |
-| Node Exporter | ✅ Up | `127.0.0.1:9100` — host CPU/mem/disk |
-| HAProxy Metrics | ✅ Up | `127.0.0.1:8404/metrics` — native Prometheus exporter |
-| Blackbox HTTPS | ✅ Up | probing `onwuachi.com` + `/ready` |
-| Blackbox SSL | ✅ Up | TLS expiry for `onwuachi.com` + `www` |
-| Platform API | 🔧 In Progress | container running, `/metrics` endpoint not yet instrumented |
-| Pushgateway | 🔧 Under review | running but unused — candidate for removal |
-
-**Resolved networking issue:**
-
-Prometheus previously ran in default Docker bridge mode, which meant it could
-not reach services bound to the host's `127.0.0.1` (HAProxy stats, node
-exporter, blackbox exporter). Fixed by switching the Prometheus container to
-`--network host`, removing the now-unnecessary port mapping, and standardizing
-every scrape target to `127.0.0.1`.
-
-**HAProxy Prometheus exporter:**
-
-```
-frontend stats
-    bind 127.0.0.1:8404
-    mode http
-    http-request use-service prometheus-exporter if { path /metrics }
-    no log
-```
-
-Bound to loopback only — not reachable from the public internet, so no
-additional auth layer needed on top of the path-level Basic Auth already
-protecting `/kb`, `/private`, `/family`.
-
-**Grafana provisioning:**
-
-Grafana auto-loads its Prometheus datasource and dashboard definitions from
-disk on container start — no manual UI configuration required. This depends
-on the container actually mounting those paths:
-
-```
--v /etc/grafana/provisioning:/etc/grafana/provisioning:ro
--v /opt/grafana/dashboards:/opt/grafana/dashboards:ro
-```
-
-(In addition to the persistent `/opt/grafana/data` mount for Grafana's own
-database.) Without these two mounts, Grafana starts clean every time with no
-datasource and no dashboards, silently ignoring the provisioning files that
-exist on the host — this was fixed in Phase 4.4.
-
-**Useful diagnostic command:**
-```bash
-curl -s localhost:9090/api/v1/targets \
-  | jq '.data.activeTargets[] | select(.health != "up") | {job, health, lastError}'
-```
-
----
-
-## ⑥ Terraform State
-
-```hcl
-terraform {
-  backend "s3" {
-    bucket       = "devops-lab-tfstate-bucket"
-    key          = "platform-foundation/terraform.tfstate"
-    region       = "us-east-1"
-    encrypt      = true
-    use_lockfile = true
-  }
-}
-```
-
-| Setting | Value |
-|---|---|
-| Backend | AWS S3 |
-| Encryption | Enabled |
-| State Locking | Native S3 lock (`use_lockfile = true`) |
-| DynamoDB | Not required — Terraform ≥ 1.10 |
-| Versioning | S3 versioning enabled on state bucket |
-
----
-
-## TLS Certificate Lifecycle
-
-Certificates are fully self-managing — zero manual renewal steps required.
-
-```
-Packer Build
-      │  temp.pem bootstrap cert (self-signed, AMI build only)
-      ▼
-AMI Boot
-      │
-      ▼
-platform-rehydrate
-      │  requests real cert via certbot if missing/invalid
-      ▼
-certbot.timer (every 12h)
-      │
-      ▼
-certbot renew
-      │  if renewal occurs:
-      ▼
-renewal-hooks/deploy/haproxy-renew.sh
-      │  rebuilds /etc/haproxy/certs/<domain>.pem
-      │  from fresh fullchain.pem + privkey.pem
-      ▼
-systemctl reload haproxy
-      │
-      ▼
-New certificate live — zero downtime, zero manual steps
-```
-
-**Key design decisions:**
-
-- Fallback/self-signed certs are allowed only during AMI build (`temp.pem`).
-  Runtime fallback was deliberately removed — a missing or invalid cert at
-  runtime now fails loudly (`platform-rehydrate` exits non-zero) instead of
-  silently serving a self-signed cert that masks the real failure.
-- The deploy hook uses Certbot's own `$RENEWED_DOMAINS` / `$RENEWED_LINEAGE`
-  environment variables rather than a hardcoded domain — any current or future
-  domain on this box renews and reloads correctly with zero hook changes.
-- HAProxy's `bind *:443 ssl crt /etc/haproxy/certs/` loads every `.pem` file
-  in the directory and selects the right one via SNI — this is what makes the
-  "any domain renews safely" property work without per-domain HAProxy config.
-- The hook content is written inline during AMI build (`install_certbot.sh`)
-  rather than referencing a sibling script path, because Packer's shell
-  provisioner stages each script independently and doesn't guarantee a shared
-  `/tmp/scripts/` directory persists across script executions.
-
----
-
-## ⑦ Disaster Recovery
-
-```
-Primary S3:  platform-api-services/
-             ├── platform/services/*     service registry
-             ├── certs/                  TLS certificates
-             ├── haproxy/                runtime maps
-             └── metadata/
-
-Backup S3:   platform-api-services-backup/
-             └── snapshots/YYYY-MM-DD/   nightly via GitHub Actions
-```
-
-**Full node loss recovery:**
-
-```
-EC2 destroyed → terraform apply → platform-rehydrate → S3 sync → Platform online
-```
-
-Zero manual steps. Validated in practice — Phase 4.4's rebuild replaced the
-running instance end-to-end (`terraform apply` destroyed and recreated
-`aws_instance.ops` against the new AMI) and the platform came back online
-automatically with no manual intervention.
-
----
-
----
-
-## Docker Runtime Hardening
-
-Docker daemon defaults were updated to ensure all containers receive appropriate file descriptor limits.
-
-Docker daemon configuration now defines:
-
-- Soft Limit: 524288
-- Hard Limit: 524288
-
-Critical platform services also explicitly define systemd `LimitNOFILE` values where appropriate.
-
-Validation includes:
-
-- Docker daemon limits
-- systemd service limits
-- Kernel limits
-- Running container limits
-
----
-
-## Content Platform (Hugo)
-
-The Hugo site started as a single static dashboard and evolved into an
-actual content platform with sections for infrastructure KB, a bourbon
-knowledge base, pitmaster recipes, and culture — the homepage needed to
-evolve with it.
-
-**Before:** homepage duplicated `/platform/` almost verbatim (hero, metrics,
-architecture, services, observability, roadmap — the same partials, twice).
-
-**Now:** homepage is a portal — hero, a **Quick Stats** row (Knowledge
-Articles, Runbooks, Bottle Reviews, Platform Services — all computed at
-build time from real `WordCount`/section counts, not hardcoded numbers),
-cards linking out to each section, a **Platform Snapshot** widget reading
-live `data/signals/telemetry.yaml`, and an auto-generated **Latest Updates**
-feed. `/platform/` alone now owns the full dashboard.
-
-Other fixes from the same pass:
-
-- Syntax-highlighted code blocks in KB articles were rendering with a fixed
-  dark palette baked in as inline styles (Hugo's default Chroma behavior),
-  so they ignored the light/dark theme toggle entirely. Fixed by emitting
-  CSS classes instead (`noClasses = false`) and mapping them to the site's
-  own theme variables.
-- Recipe thumbnails moved from a hardcoded slug→filename lookup in the
-  template to a front-matter `image:` field — new recipes no longer require
-  a template edit.
-- Removed a duplicate header/nav partial on `/culture/` and a partial that
-  rendered the same anime-links data twice.
-
-**KB authoring tooling** (`tools/hugo/`): `create-kb-article.sh`,
-`create-kb-bottle.sh`, `create-kb-domain.sh` scaffold new content with
-correct front matter, reducing the KB → new page.
-
----
-
-## Infra Audit CLI (Python)
-
-A small, deliberately-scoped Python toolkit for reading and inspecting
-infrastructure state, developed alongside the platform rather than as a
-standalone exercise — each script reads real Terraform/AWS-shaped JSON.
-
-```
-infra/infra_audit/
-├── cli/
-│   ├── log_analyzer.py       reads EC2 JSON, flags Public/Private
-│   └── terraform_parser.py   reads terraform show -json, describes resources
-│                              per type (aws_instance, aws_eip, aws_vpc, ...)
-├── data/                     sample JSON fixtures for local development
-├── utils/                    scaffolded, not yet in use
-└── tests/                    scaffolded, not yet in use
-```
-
-```bash
-cd infra/infra_audit/cli
-python log_analyzer.py        # Instance i-12345 is Public / Private
-python terraform_parser.py    # per-resource description, one block per resource
-```
-
-Development pattern: build a small representative sample JSON file first,
-write the parser against it, verify output, then point the same script at
-real `terraform show -json` output with no logic changes. `utils/` and
-`tests/` are scaffolded for the next iteration (richer filtering — public
-resources, missing tags, drift detection) but intentionally not built out
-ahead of an actual need.
-
----
-
-## Platform CLI
-
-```bash
-platform up                          # bring platform online
-platform down                        # graceful shutdown
-platform deploy <service>            # deploy a service
-platform register <service> <port> <domain>  # register new service
-platform rehydrate                   # full runtime restore from S3
-platform health                      # validate service health
-platform shell                       # SSM interactive session
-```
+Observability setup, scrape targets, and Grafana provisioning details: [OPERATIONS.md § Observability](docs/OPERATIONS.md#observability).
 
 ---
 
@@ -464,16 +118,13 @@ platform shell                       # SSM interactive session
 - Public ports: 80 (redirect only) and 443 (TLS termination) only
 - All backend services bind exclusively to `127.0.0.1`
 - Operational access via AWS SSM Session Manager — no SSH keys, no bastion host
-- TLS managed by Certbot with automated renewal — deploy hook rebuilds the
-  HAProxy PEM and reloads HAProxy automatically after every successful renewal,
-  zero manual steps
-- Path-level HTTP Basic Auth on private content (`/kb`, `/private`, `/family`)
-  enforced at the HAProxy edge — Hugo itself has no auth layer
-- Auth credentials stored as SSM Parameter Store SecureString, never committed
-  to the repo or baked into the AMI — `platform-rehydrate` injects the real
-  password hash at boot; AMIs only ever contain a bootstrap placeholder
+- TLS managed by Certbot with automated renewal — deploy hook rebuilds the HAProxy PEM and reloads HAProxy automatically after every successful renewal, zero manual steps
+- Path-level HTTP Basic Auth on private content (`/kb`, `/private`, `/family`) enforced at the HAProxy edge — Hugo itself has no auth layer
+- Auth credentials stored as SSM Parameter Store SecureString, never committed to the repo or baked into the AMI — `platform-rehydrate` injects the real password hash at boot; AMIs only ever contain a bootstrap placeholder
 - HAProxy validates config before every reload — no unsafe reloads
 - GitHub Actions authenticates via OIDC — no long-lived AWS credentials
+
+TLS certificate lifecycle in full: [OPERATIONS.md § TLS Certificate Lifecycle](docs/OPERATIONS.md#tls-certificate-lifecycle).
 
 ---
 
@@ -491,6 +142,7 @@ platform shell                       # SSM interactive session
 | Phase 4.6 | Automated TLS renewal (Certbot deploy hook → HAProxy reload) | ✅ Complete |
 | Phase 4.7 | Grafana dashboards · alerting (SNS/email) | 🔧 In Progress |
 | Phase 4.8 | Content platform reorg — portal homepage, live Quick Stats + Platform Snapshot (data-driven, not hardcoded), theme-aware syntax highlighting, KB authoring scripts | ✅ Complete |
+| Phase 4.9 | OS migration: Ubuntu 22.04 → 24.04 (Noble) via full Packer rebuild, no in-place upgrade | ✅ Complete |
 | Phase 5 | EKS module · Kubernetes familiarity layer | 📋 Planned |
 
 ---
@@ -528,11 +180,11 @@ platform-foundation/
 │   ├── backend.tf             S3 remote state
 │   ├── main.tf                Core infrastructure
 │   ├── shared/                VPC, IAM, OIDC
-│   ├── security/               Security groups
+│   ├── security/              Security groups
 │   ├── ops/                   EC2, EIP, S3, Route53 — the only always-on compute
 │   ├── packer/                AMI build templates + scripts
-│   ├── environments/           Per-environment .tfvars (dev/uat/stage/prod)
-│   ├── infra_audit/            Python CLI — see "Infra Audit CLI" above
+│   ├── environments/          Per-environment .tfvars (dev/uat/stage/prod)
+│   ├── infra_audit/           Python CLI — see OPERATIONS.md
 │   └── web/, wordpress/, app/, admin-ui-instance/, cloud-init/
 │                               Legacy modules from the pre-consolidation
 │                               architecture, gated behind enable_* flags
@@ -546,35 +198,11 @@ platform-foundation/
 │   ├── platform                Platform CLI entrypoint
 │   ├── hugo/                   KB authoring scripts (create-kb-*.sh)
 │   └── control-cli/             Domain-mapping CLI (ctl) + legacy version
+├── docs/
+│   └── OPERATIONS.md           Full operational runbook
 └── scripts/                    Setup/bootstrap shell scripts
                                 (accumulated duplication here — cleanup
                                 candidate, not yet done)
-```
-``
-## Recent Platform Improvements (July 2026)
-
-The platform recently underwent a significant modernization.
-
-### Infrastructure
-
-- Ubuntu 24.04 LTS (Noble)
-- Linux 6.17 AWS kernel
-- Docker Engine 29.x
-- containerd 2.2.x
-
-### Immutable Infrastructure
-
-The platform is fully rebuilt using Packer rather than upgraded in-place.
-
-Every deployment creates a fresh AMI, provisions a new EC2 instance via Terraform, and rehydrates configuration using AWS Systems Manager.
-
-```
-Benefits include:
-- zero configuration drift
-- repeatable infrastructure
-- safer operating system upgrades
-- rapid disaster recovery
-- infrastructure as code from image to deployment
 ```
 
 ---
