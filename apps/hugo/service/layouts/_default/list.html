@@ -10,6 +10,16 @@
   <h3>Entries <span style="opacity:0.5; font-weight:normal;">({{ len .Pages }})</span></h3>
   {{ range .Pages }}
     <div class="list-item">
+      {{ if .Params.signal_type }}
+        {{ $type := .Params.signal_type }}
+        {{ $color := "#8a8a8a" }}
+        {{ if eq $type "deployment" }}{{ $color = "#4a9eff" }}{{ end }}
+        {{ if eq $type "incident" }}{{ $color = "#ff5c5c" }}{{ end }}
+        {{ if eq $type "recovery" }}{{ $color = "#3ecf6d" }}{{ end }}
+        {{ if eq $type "infra-metric" }}{{ $color = "#c084fc" }}{{ end }}
+        {{ if eq $type "platform-change" }}{{ $color = "#f4b740" }}{{ end }}
+        <span class="signal-badge" style="display:inline-block; padding:2px 8px; margin-right:8px; border-radius:4px; font-size:0.75em; font-weight:600; color:#0a0a0a; background-color:{{ $color }};">{{ $type }}</span>
+      {{ end }}
       <a href="{{ .RelPermalink }}"><strong>{{ .Title }}</strong></a>
       {{ if not .Date.IsZero }}
         <span class="list-date">{{ .Date.Format "Jan 2, 2006" }}</span>

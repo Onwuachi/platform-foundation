@@ -15,11 +15,11 @@ producer = "Beam Suntory"
 
 classification = "Kentucky Straight Bourbon"
 
-proof = 110-114
+proof = "110-114"
 age = "NAS"
 
 msrp = "$50"
-paid = "#45"
+paid = "$45"
 
 availability = "Widely Available"
 

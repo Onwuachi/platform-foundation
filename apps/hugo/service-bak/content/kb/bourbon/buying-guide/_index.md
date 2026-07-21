@@ -1,4 +1,0 @@
----
-title: "Buying Guide"
-description: ""
----

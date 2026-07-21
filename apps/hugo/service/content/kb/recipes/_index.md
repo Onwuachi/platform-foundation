@@ -1,5 +1,5 @@
 ---
-title: "Recipes"
+title: "Recipes Knowledge Base"
 description: "Operational BBQ runbooks, techniques, and reference material for repeatable smoking sessions."
 ---
 

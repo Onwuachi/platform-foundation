@@ -56,6 +56,27 @@ ecr_login() {
 }
 
 ########################################
+# WRITE SIGNAL
+#
+# Auto-logs a platform event as a Hugo signal entry. Non-fatal —
+# a signal-logging failure should never break a deploy/refresh.
+########################################
+
+write_signal() {
+  local TITLE="$1"
+  local TYPE="$2"
+  local DESC="$3"
+  local ROOT
+  ROOT=$(git rev-parse --show-toplevel)
+
+  echo
+  echo "==> Logging signal: $TITLE"
+
+  "$ROOT/tools/hugo/create-signal.sh" "$TITLE" "$TYPE" "$DESC" || \
+    echo "⚠️  Signal logging failed (non-fatal), continuing"
+}
+
+########################################
 # GET INSTANCE ID
 ########################################
 
@@ -430,6 +451,10 @@ EOF
   wait_for_ssm "$CMD_ID"
 
   echo "🚀 Deploy complete"
+  
+  write_signal "Deployed ${SERVICE}" "deployment" "Deployed ${SERVICE} (commit ${GIT_COMMIT}, built ${BUILD_TIME})"
+  
+  echo "🚀 Deploy complete"
 ;;
 
 ########################################
@@ -539,6 +564,9 @@ EOF
  
   wait_for_ssm "$CMD_ID"
  
+
+  write_signal "Refreshed ${SERVICE}" "platform-change" "Pulled latest image and restarted ${UNIT}"
+
   echo "🔄 $SERVICE refreshed"
 ;;
 

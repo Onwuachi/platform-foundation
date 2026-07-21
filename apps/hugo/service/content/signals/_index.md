@@ -2,7 +2,6 @@
 title: "Signals"
 ---
 
-# Signals
 
 Operational and platform telemetry:
 

@@ -1,4 +1,4 @@
 ---
-title: "Infrastructure"
+title: "Infrastructure Knowledge Base"
 description: "Cheat sheets and reference notes for AWS, Docker, Terraform, and systemd."
 ---
