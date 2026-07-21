@@ -8,11 +8,9 @@ Full operational detail behind [README.md](../README.md): lifecycle diagrams, st
 
 Terraform provisions infrastructure. SSM Parameter Store is the handoff between Packer and Terraform — the AMI ID never gets hardcoded.
 
-<!-- FLAG: this diagram still shows "Ubuntu 22.04" as the Packer build target; README/Tech Stack say 24.04 (Noble). Confirm which is current post-migration and I'll fix this line. -->
-
 ```
 Packer Build
-      │  Ubuntu 22.04 + Docker + HAProxy + SSM agent + base packages
+      │  Ubuntu 24.04 + Docker + HAProxy + SSM agent + base packages
       ▼
 AMI Created
       │
@@ -82,6 +80,14 @@ This is the core architectural distinction of the platform.
 > The DR S3 bucket and Route53 hosted zone were provisioned outside of Terraform and predate it.
 > A `terraform destroy` removes compute and networking. It does not touch runtime state or DR data.
 > This is intentional — recovery data must survive infrastructure destruction.
+
+---
+
+## Network Architecture
+
+The VPC (`devopslab-vpc`, 10.50.0.0/16) currently consists of two public subnets only. There is no NAT gateway and no VPC endpoints — all instance traffic, including SSM Session Manager, reaches AWS APIs over the public internet via the Internet Gateway. "No NAT" here is a byproduct of the current flat topology, not evidence of private isolation.
+
+A future phase may introduce a private subnet with SSM interface endpoints (`ssm`, `ssmmessages`, `ec2messages`) to remove public internet dependency for operational access. Cost check at time of writing: 3 interface endpoints in a single AZ run roughly $22/month, which exceeds the cost of a single NAT gateway (~$33-40/month with data processing) only in the sense that NAT would additionally cover ECR/S3/CloudWatch access that interface endpoints would otherwise require paying for individually. Whether to pursue this is an open decision, not yet a commitment.
 
 ---
 

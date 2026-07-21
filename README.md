@@ -1,6 +1,6 @@
 # Platform Foundation
 
-**[Derrick Onwuachi](https://onwua.com)** · DevOps Engineer · Platform & Infrastructure · <!-- FLAG: README says "Apple Valley, MN", earlier draft says "St. Paul, MN" — confirm which is current -->
+**[Derrick Onwuachi](https://onwua.com)** · DevOps Engineer · Platform & Infrastructure · Apple Valley, MN
 
 > This is my personally operated infrastructure platform. The production portfolio is at **[onwua.com](https://onwua.com)**.
 
@@ -150,6 +150,7 @@ TLS certificate lifecycle in full: [OPERATIONS.md § TLS Certificate Lifecycle](
 ## Known Constraints
 
 - Single-node architecture (by design — simplicity over scaling)
+- Public subnets only — no NAT gateway, no VPC endpoints, no private isolation layer yet
 - Platform API metrics endpoint not yet instrumented
 - No autoscaling or blue/green deployments
 - No multi-node clustering
