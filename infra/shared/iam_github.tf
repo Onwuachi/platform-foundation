@@ -151,3 +151,62 @@ resource "aws_iam_role_policy_attachment" "github_oidc_attach" {
   role       = aws_iam_role.github_oidc_role.name
   policy_arn = aws_iam_policy.packer_policy.arn
 }
+
+
+###############################################
+# IAM Role for GitHub Actions (Platform State Backup)
+###############################################
+resource "aws_iam_role" "github_backup_role" {
+  name = "github-backup-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.github.arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+            "token.actions.githubusercontent.com:sub" = "repo:Onwuachi/platform-foundation:ref:refs/heads/main"
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "backup_policy" {
+  name        = "platform-backup-policy"
+  description = "Least-privilege permissions for nightly state backup"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = ["s3:ListBucket", "s3:GetObject"]
+        Resource = [
+          "arn:aws:s3:::platform-api-services",
+          "arn:aws:s3:::platform-api-services/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = ["s3:ListBucket", "s3:PutObject"]
+        Resource = [
+          "arn:aws:s3:::platform-api-services-backup",
+          "arn:aws:s3:::platform-api-services-backup/*"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "github_backup_attach" {
+  role       = aws_iam_role.github_backup_role.name
+  policy_arn = aws_iam_policy.backup_policy.arn
+}

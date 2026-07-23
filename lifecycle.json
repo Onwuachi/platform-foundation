@@ -1,0 +1,28 @@
+{
+  "Rules": [
+    {
+      "ID": "cleanup-old-versions",
+      "Filter": {},
+      "Status": "Enabled",
+      "Expiration": {
+        "ExpiredObjectDeleteMarker": true
+      },
+      "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 7
+      }
+    },
+    {
+      "ID": "expire-old-snapshots",
+      "Filter": { "Prefix": "snapshots/" },
+      "Status": "Enabled",
+      "Expiration": { "Days": 14 },
+      "NoncurrentVersionExpiration": { "NoncurrentDays": 7 }
+    },
+    {
+      "ID": "expire-noncurrent-live-state",
+      "Filter": { "Prefix": "platform/" },
+      "Status": "Enabled",
+      "NoncurrentVersionExpiration": { "NoncurrentDays": 30 }
+    }
+  ]
+}
