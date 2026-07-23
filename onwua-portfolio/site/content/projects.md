@@ -1,4 +1,4 @@
-Platform Foundation
+## Platform Foundation
 
 Production AWS platform · Personal lab · Active development
 
@@ -114,20 +114,6 @@ Replaced a shared-credential DNS administration model with per-user cloud IAM id
 
 **Stack:** Oracle Cloud Infrastructure (OCI) · IAM · DNS · CLI tooling
 
----
-
-## Malware Scanning Pipeline for File Uploads
-
-**Security architecture · Reverse-proxy routing design**
-
-Designed the file-upload security architecture for a multi-tenant SaaS platform, routing every uploaded file through a dedicated malware-scanning tier before it ever reaches the application layer.
-
-**What was actually built:**
-- Designed HAProxy routing rules to transparently intercept upload/download traffic and forward it through a ClamAV-based scanning service
-- Enforced origin validation so files could only enter the pipeline from authorized application domains
-- Documented signature-database update tracking and engine-version monitoring as an operational health check, distinct from whether the signatures themselves were current
-
-**Stack:** ClamAV · HAProxy · Docker
 
 ---
 

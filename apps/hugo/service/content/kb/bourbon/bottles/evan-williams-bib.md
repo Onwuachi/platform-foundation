@@ -1,6 +1,8 @@
 +++
 title = "Evan Williams Bottled-in-Bond"
 date = 2026-07-11T18:20:59-05:00
+version = "2.0"
+last_reviewed = 2026-07-23
 draft = false
 
 type = "bourbon-bottle"
@@ -167,11 +169,17 @@ Compared with Kirkland Signature Bottled-in-Bond:
 - Slightly rougher
 - More expressive
 
-Kirkland drinks smoother and leans slightly floral.
+Kirkland drinks smoother and leans slightly floral. Evan Williams has more personality. If I could only choose one budget Bottled-in-Bond bourbon, I'd still reach for Evan Williams.
 
-Evan Williams has more personality.
+As my palate has evolved, Evan Williams Bottled-in-Bond has become more useful as a reference point for understanding how filtration, proof, and barrel influence affect bourbon.
 
-If I could only choose one budget Bottled-in-Bond bourbon, I'd still reach for Evan Williams.
+Compared with higher-proof bottles such as Wild Turkey Rare Breed or Russell's Reserve Single Barrel, Evan Williams Bottled-in-Bond feels more polished and restrained.
+
+The charcoal-filtered character is becoming more apparent to me over time. It contributes to the clean, approachable profile, but it also creates a noticeable contrast in mouthfeel and intensity when compared with bourbons that retain more of their natural barrel character.
+
+This doesn't make Evan Williams Bottled-in-Bond worse. It makes it a useful benchmark.
+
+It represents a different approach to bourbon: affordable, consistent, approachable, and traditionally styled, with a cleaner presentation that I now recognize more clearly than I did earlier in my bourbon journey.
 
 ---
 
@@ -218,4 +226,25 @@ For me, it's one of the best values in bourbon and remains my favorite everyday 
 
 A benchmark budget Bottled-in-Bond bourbon with outstanding value, classic Heaven Hill character, and enough spice and oak to keep every pour interesting.
 
+# Palate Evolution / Revisit Notes
 
+**Revisit Date:** July 23, 2026
+
+My palate has continued to evolve since my original review of Evan Williams Bottled-in-Bond.
+
+On this revisit, I am noticing the effects of charcoal filtration more clearly than I did previously. The whiskey presents with a cleaner, more polished character, and the filtration appears to contribute to a smoother overall entry.
+
+This is not necessarily a negative. In fact, it reinforces one of the reasons this bottle remains such a strong benchmark in my collection: it delivers a consistent, approachable bourbon profile without excessive rough edges.
+
+However, compared with less-filtered or higher-proof bourbons in my collection, I can now more clearly identify a difference in texture and intensity.
+
+My palate has become more sensitive to the distinction between **smoothness created by filtration** and **depth created by proof, barrel influence, and concentration**.
+
+That distinction is something I would not have recognized as clearly when I first started reviewing bourbon.
+
+### Updated Observation
+
+- **Charcoal filtration:** More noticeable to my palate on this revisit
+- **Effect:** Cleaner, smoother, more polished presentation
+- **Trade-off:** Some reduction in perceived texture and intensity compared with more robust, higher-proof expressions
+- **Overall impact:** Still an excellent value and benchmark bourbon, but my palate now recognizes the role filtration plays in its profile

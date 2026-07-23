@@ -111,6 +111,8 @@ All services bind to `127.0.0.1`. HAProxy handles all public ingress on ports 80
 
 Observability setup, scrape targets, and Grafana provisioning details: [OPERATIONS.md § Observability](docs/OPERATIONS.md#observability).
 
+- If you don't observe the resource that kills you, you don't actually have observability.
+
 ---
 
 ## Security Model
