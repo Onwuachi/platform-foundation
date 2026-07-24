@@ -168,6 +168,12 @@ terraform {
 
 ---
 
+## Branch Protection Policy
+
+`main` requires a pull request per the configured branch protection rule, but **"Do not allow bypassing the above settings" is deliberately left unchecked** — the repo admin (sole maintainer) bypasses the PR requirement by design. This is a conscious tradeoff, not an oversight: branch+PR+self-approval overhead adds latency without adding real review value for a single-engineer repo, and direct push has repeatedly been the right call during active incident debugging (e.g., the 2026-07-23 IAM/backup hardening session). The rule stays configured, unenforced-for-admin, as forward-looking protection — the moment a second collaborator is added, revisit whether the bypass should be narrowed.
+
+---
+
 ## TLS Certificate Lifecycle
 
 Certificates are fully self-managing — zero manual renewal steps required.
