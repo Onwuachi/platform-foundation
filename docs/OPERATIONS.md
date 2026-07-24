@@ -24,6 +24,8 @@ Terraform Apply
 EC2 Launch
 ```
 
+**Known side effect**: `data.aws_ssm_parameter.ops_ami` reads the *latest* value on every plan/apply — not just intentional AMI promotions. Any Packer build since the last apply will force-replace the running instance on the next apply for *anything*, including changes unrelated to the AMI (IAM, DNS, etc.). Observed in practice 2026-07-23 during an IAM-only apply. Currently accepted as consistent with "always run latest" immutable-infra philosophy; pinning the AMI explicitly and promoting it as a deliberate step is an open option if the coupling becomes a problem.
+
 ---
 
 ## Runtime Recovery Lifecycle
@@ -79,7 +81,7 @@ This is the core architectural distinction of the platform.
 
 > The DR S3 bucket and Route53 hosted zone were provisioned outside of Terraform and predate it.
 > A `terraform destroy` removes compute and networking. It does not touch runtime state or DR data.
-> This is intentional — recovery data must survive infrastructure destruction.
+> This is intentional — recovery data must survive infrastructure destruction, including destruction triggered from the same control plane that manages primary infrastructure.
 
 ---
 
@@ -218,13 +220,32 @@ Backup S3:   platform-api-services-backup/
              └── snapshots/YYYY-MM-DD/   nightly via GitHub Actions
 ```
 
+**Backup bucket isolation (deliberate):** the backup bucket is intentionally not Terraform-managed, keeping it outside the blast radius of a `terraform destroy` or a bad apply against primary infrastructure — the same logic as an air-gapped backup. This isolation is enforced at the IAM level, not just by omission from Terraform state: the role that writes to it (`github-backup-role`, added 2026-07-23) has read-only access to primary and write-only (no delete) access to backup. Full audit: [dr-hardening-2026-07-23.md](dr-hardening-2026-07-23.md).
+
+**Backup job credentials:** as of 2026-07-23, the nightly snapshot workflow authenticates via scoped GitHub OIDC (`github-backup-role`), replacing a static long-lived IAM user key (`serverless-admin`, which held full `AdministratorAccess`) that had been in use since the workflow was created. See the hardening writeup for the full before/after.
+
+**Snapshot retention:** `snapshots/` prefix on the backup bucket expires after 14 days (noncurrent versions after 7) via S3 lifecycle rule, added 2026-07-23. Prior to this, nightly snapshots had accumulated unpruned since May 9.
+
 **Full node loss recovery:**
 
 ```
-EC2 destroyed → terraform apply → platform-rehydrate → S3 sync → Platform online
+EC2 destroyed → terraform apply (manual trigger) → platform-rehydrate → S3 sync → Platform online
 ```
 
-Zero manual steps. Validated in practice — Phase 4.4's rebuild replaced the running instance end-to-end (`terraform apply` destroyed and recreated `aws_instance.ops` against the new AMI) and the platform came back online automatically with no manual intervention.
+Recovery is **manually triggered by design** — no auto-healing (ASG/EventBridge) exists, deliberately, to preserve the ability to terminate an instance for debugging without the platform immediately respawning it underneath the investigation.
+
+**Validated via an actual node-loss test, 2026-07-23** (not inferred from architecture, not a side effect of an unrelated apply):
+
+| Milestone | Elapsed |
+|---|---|
+| Instance terminated | — |
+| `terraform apply` run → new instance + EIP created | ~17s (Terraform-side) |
+| `platform-rehydrate` complete (S3 sync, HAProxy render/validate, cert renewal, container start) | ~1 min after boot |
+| Confirmed healthy — correct site content, HAProxy auth functioning | within a few minutes of trigger |
+
+Verified against the actual `/var/log/ops-user-data.log` on the rebuilt instance, not just an HTTP 200 — rehydrate ran S3 state sync, HAProxy auth credential injection, certbot renewal, HAProxy config validation (twice), and Docker container start, in sequence, with retry/wait logic for S3 and Docker readiness, and completed without error.
+
+**Still open — not yet built:** if the *primary* S3 bucket itself is lost (not just the EC2 instance), there is currently no automated or scripted restore path from `platform-api-services-backup/snapshots/` back into primary. `platform-rehydrate` pulls from primary's live `platform/` prefix only — restoring primary from a backup snapshot first is a manual, undocumented gap. A `platform restore-from-backup [--date YYYY-MM-DD]` command (S3 sync from the latest snapshot into primary, run before rehydrate) is the planned fix, not yet built.
 
 ---
 
@@ -268,26 +289,38 @@ Other fixes from the same pass:
 
 ## Infra Audit CLI (Python)
 
-A small, deliberately-scoped Python toolkit for reading and inspecting infrastructure state, developed alongside the platform rather than as a standalone exercise — each script reads real Terraform/AWS-shaped JSON.
+A small, deliberately-scoped Python toolkit for reading and inspecting infrastructure state, developed alongside the platform rather than as a standalone exercise.
 
 ```
 infra/infra_audit/
 ├── cli/
-│   ├── log_analyzer.py       reads EC2 JSON, flags Public/Private
-│   └── terraform_parser.py   reads terraform show -json, describes resources
-│                              per type (aws_instance, aws_eip, aws_vpc, ...)
-├── data/                     sample JSON fixtures for local development
+│   ├── infra_audit_cli.py    Typer/boto3 CLI — real, working AWS queries:
+│   │                          `bill` (Cost Explorer, by service/usage-type),
+│   │                          `snapshots` (EBS, with --stale threshold),
+│   │                          `images` (AMIs, with --unused filter)
+│   ├── log_analyzer.py       reads a sample EC2 JSON fixture, flags Public/Private
+│   │                          — not yet wired to live `describe-instances` output
+│   └── terraform_parser.py   reads a sample `terraform show -json` fixture,
+│                              describes resources per type — not yet wired to
+│                              live/remote Terraform state
+├── data/                     sample JSON fixtures backing the two stub scripts above
 ├── utils/                    scaffolded, not yet in use
 └── tests/                    scaffolded, not yet in use
 ```
 
 ```bash
-cd infra/infra_audit/cli
-python log_analyzer.py        # Instance i-12345 is Public / Private
-python terraform_parser.py    # per-resource description, one block per resource
+cd infra/infra_audit
+python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+
+python cli/infra_audit_cli.py bill                 # cost by service, last 30 days
+python cli/infra_audit_cli.py snapshots --stale 30 # EBS snapshots older than 30 days
+python cli/infra_audit_cli.py images --unused      # AMIs not referenced by any instance
+
+python cli/log_analyzer.py       # sample-data only, see note above
+python cli/terraform_parser.py   # sample-data only, see note above
 ```
 
-Development pattern: build a small representative sample JSON file first, write the parser against it, verify output, then point the same script at real `terraform show -json` output with no logic changes. `utils/` and `tests/` are scaffolded for the next iteration (richer filtering — public resources, missing tags, drift detection) but intentionally not built out ahead of an actual need.
+`infra_audit_cli.py` is the working piece — real credential-chain auth, real AWS API calls, useful output today. `log_analyzer.py` and `terraform_parser.py` are stubs against fixture data, worth pointing at live sources next (`utils/aws_helpers.py` and `utils/file_io.py` are empty scaffolding for exactly that). No test coverage yet on any of the three.
 
 ---
 

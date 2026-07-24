@@ -8,7 +8,7 @@
 
 ### *Stateless Compute · Declarative Runtime State · Deterministic Recovery*
 
-A single-engineer AWS platform implementing immutable infrastructure, declarative runtime state, and a self-rehydrating control plane. The platform rebuilds its entire runtime deterministically from a single source of truth — no manual steps required.
+A single-engineer AWS platform implementing immutable infrastructure, declarative runtime state, and a self-rehydrating control plane. Recovery is manually triggered by a single command — once triggered, the platform rebuilds its entire runtime deterministically from a single source of truth, with no further manual intervention required.
 
 Built and operated end-to-end: from AMI to edge routing, CI/CD to disaster recovery, observability to documentation.
 
@@ -92,6 +92,8 @@ The core architectural distinction of the platform: infrastructure and runtime s
 
 > `terraform destroy` removes compute and networking only. It does not touch runtime state or DR data — that survival is intentional. Full ownership tables and rationale: [OPERATIONS.md § State Ownership Model](docs/OPERATIONS.md#state-ownership-model).
 
+The DR bucket's isolation from Terraform is deliberate, not incidental: it keeps the backup copy outside the blast radius of a bad `terraform destroy` or a compromised deploy pipeline against the primary infrastructure. The IAM role that writes to it is scoped read-only on primary and write-only (no delete) on backup — see [OPERATIONS.md § DR Hardening](docs/dr-hardening-2026-07-23.md) for the full audit and fix.
+
 ---
 
 ## Runtime Services
@@ -124,7 +126,7 @@ Observability setup, scrape targets, and Grafana provisioning details: [OPERATIO
 - Path-level HTTP Basic Auth on private content (`/kb`, `/private`, `/family`) enforced at the HAProxy edge — Hugo itself has no auth layer
 - Auth credentials stored as SSM Parameter Store SecureString, never committed to the repo or baked into the AMI — `platform-rehydrate` injects the real password hash at boot; AMIs only ever contain a bootstrap placeholder
 - HAProxy validates config before every reload — no unsafe reloads
-- GitHub Actions authenticates via OIDC — no long-lived AWS credentials
+- All GitHub Actions workflows authenticate via scoped OIDC roles — no long-lived AWS credentials anywhere in CI/CD (the nightly backup job was the last one still using a static admin key; retired 2026-07-23, see [DR Hardening writeup](docs/dr-hardening-2026-07-23.md))
 
 TLS certificate lifecycle in full: [OPERATIONS.md § TLS Certificate Lifecycle](docs/OPERATIONS.md#tls-certificate-lifecycle).
 
@@ -145,6 +147,7 @@ TLS certificate lifecycle in full: [OPERATIONS.md § TLS Certificate Lifecycle](
 | Phase 4.7 | Grafana dashboards · alerting (SNS/email) | 🔧 In Progress |
 | Phase 4.8 | Content platform reorg — portal homepage, live Quick Stats + Platform Snapshot (data-driven, not hardcoded), theme-aware syntax highlighting, KB authoring scripts | ✅ Complete |
 | Phase 4.9 | OS migration: Ubuntu 22.04 → 24.04 (Noble) via full Packer rebuild, no in-place upgrade | ✅ Complete |
+| Phase 4.10 | IAM/backup hardening — scoped OIDC role replacing static admin key on backup job, S3 lifecycle rules, validated node-loss recovery test | ✅ Complete |
 | Phase 5 | EKS module · Kubernetes familiarity layer | 📋 Planned |
 
 ---
@@ -158,6 +161,9 @@ TLS certificate lifecycle in full: [OPERATIONS.md § TLS Certificate Lifecycle](
 - No multi-node clustering
 - No automated alerting (Grafana alerts not yet wired — Phase 4.7)
 - Pushgateway running but currently unused — under review for removal
+- Node-loss recovery is manually triggered by design (preserves operator control during debugging) — validated 2026-07-23, ~20s Terraform recreation + ~1min rehydrate to healthy
+- Full primary-S3-loss recovery has no automated or tested restore path yet — backup snapshots exist and are isolated, but there is no scripted procedure to restore them into primary
+- The account's sole IAM user (`serverless-admin`) still holds `AdministratorAccess` with no MFA assigned — scoped down for CI/CD use, but not yet addressed for interactive/local use
 
 ---
 
@@ -202,7 +208,9 @@ platform-foundation/
 │   ├── hugo/                   KB authoring scripts (create-kb-*.sh)
 │   └── control-cli/             Domain-mapping CLI (ctl) + legacy version
 ├── docs/
-│   └── OPERATIONS.md           Full operational runbook
+│   ├── OPERATIONS.md           Full operational runbook
+│   └── dr-hardening-2026-07-23.md   IAM/backup credential audit, S3 lifecycle
+│                               fix, and node-loss recovery test writeup
 └── scripts/                    Setup/bootstrap shell scripts
                                 (accumulated duplication here — cleanup
                                 candidate, not yet done)
