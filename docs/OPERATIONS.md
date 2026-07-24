@@ -226,7 +226,9 @@ Backup S3:   platform-api-services-backup/
 
 **Snapshot retention:** `snapshots/` prefix on the backup bucket expires after 14 days (noncurrent versions after 7) via S3 lifecycle rule, added 2026-07-23. Prior to this, nightly snapshots had accumulated unpruned since May 9.
 
-**Full node loss recovery:**
+Two failure modes, two tested recovery paths — kept separate deliberately, since they exercise different parts of the architecture.
+
+**Failure mode 1 — EC2 instance loss (primary S3 intact):**
 
 ```
 EC2 destroyed → terraform apply (manual trigger) → platform-rehydrate → S3 sync → Platform online
@@ -245,7 +247,17 @@ Recovery is **manually triggered by design** — no auto-healing (ASG/EventBridg
 
 Verified against the actual `/var/log/ops-user-data.log` on the rebuilt instance, not just an HTTP 200 — rehydrate ran S3 state sync, HAProxy auth credential injection, certbot renewal, HAProxy config validation (twice), and Docker container start, in sequence, with retry/wait logic for S3 and Docker readiness, and completed without error.
 
-**Still open — not yet built:** if the *primary* S3 bucket itself is lost (not just the EC2 instance), there is currently no automated or scripted restore path from `platform-api-services-backup/snapshots/` back into primary. `platform-rehydrate` pulls from primary's live `platform/` prefix only — restoring primary from a backup snapshot first is a manual, undocumented gap. A `platform restore-from-backup [--date YYYY-MM-DD]` command (S3 sync from the latest snapshot into primary, run before rehydrate) is the planned fix, not yet built.
+**Failure mode 2 — primary S3 loss:**
+
+```
+S3 primary lost → platform restore-from-backup [YYYY-MM-DD] → platform-rehydrate → Platform online
+```
+
+`platform restore-from-backup` (added 2026-07-23, `tools/platform`): confirms the primary bucket exists (guides you to `terraform apply` first if the bucket resource itself is gone), finds the latest snapshot in the backup bucket (or accepts an explicit date), counts objects in the snapshot, requires typing the date back to confirm before doing anything destructive, syncs the snapshot into primary with `--delete`, verifies the restored object count matches the snapshot, then triggers `platform-rehydrate` via SSM on the running instance so it actually picks up the restored state (rehydrate won't run again on its own if the instance itself never rebooted).
+
+**Validated via an actual restore test, 2026-07-23** — real snapshot (`2026-07-23`, 28 objects, including TLS cert chain, HAProxy auth, service registry) synced from backup into primary, restored count confirmed matching (28/28), rehydrate re-run and completed cleanly: HAProxy auth re-injected, certificate renewal succeeded, config validated twice, Hugo container pulled and started, HAProxy activated. Not a dry run — an actual overwrite-and-recover cycle against the real buckets.
+
+Both failure modes are now genuinely tested, not assumed. Full audit trail for both, including the credential/lifecycle hardening that preceded them: [dr-hardening-2026-07-23.md](dr-hardening-2026-07-23.md).
 
 ---
 

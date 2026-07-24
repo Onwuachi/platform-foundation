@@ -28,6 +28,7 @@ Usage:
   platform list
   platform describe <service>
   platform rehydrate
+  platform restore-from-backup [YYYY-MM-DD]
   platform deploy <service>
   platform refresh <service>
   platform restart <service>
@@ -365,6 +366,93 @@ rehydrate)
   echo "Command ID: $CMD_ID"
 
   wait_for_ssm "$CMD_ID"
+;;
+
+########################################
+# RESTORE FROM BACKUP
+#
+# For primary S3 loss, not EC2 loss. Restores a nightly snapshot
+# from the backup bucket back into primary, then re-runs rehydrate
+# so the running instance picks up the restored state. Destructive
+# (--delete sync) by design — requires typing the date back to confirm.
+########################################
+
+restore-from-backup)
+  require_instance
+
+  PRIMARY_BUCKET="platform-api-services"
+  BACKUP_BUCKET="platform-api-services-backup"
+
+  if ! aws s3api head-bucket --bucket "$PRIMARY_BUCKET" 2>/dev/null; then
+    echo "❌ Primary bucket ${PRIMARY_BUCKET} does not exist."
+    echo "   Run 'terraform apply' in infra/ to recreate the bucket resource first,"
+    echo "   then re-run: platform restore-from-backup"
+    exit 1
+  fi
+
+  SNAPSHOT_DATE="$SERVICE"
+
+  if [ -z "$SNAPSHOT_DATE" ]; then
+    echo "No date given — finding latest snapshot..."
+
+    SNAPSHOT_DATE=$(aws s3 ls "s3://${BACKUP_BUCKET}/snapshots/" \
+      | awk '{print $2}' | sed 's#/##' | sort | tail -n1)
+
+    if [ -z "$SNAPSHOT_DATE" ]; then
+      echo "❌ No snapshots found in s3://${BACKUP_BUCKET}/snapshots/"
+      exit 1
+    fi
+
+    echo "Latest snapshot: $SNAPSHOT_DATE"
+  fi
+
+  SNAPSHOT_PATH="s3://${BACKUP_BUCKET}/snapshots/${SNAPSHOT_DATE}"
+
+  SNAPSHOT_COUNT=$(aws s3 ls "${SNAPSHOT_PATH}/" --recursive | wc -l)
+
+  if [ "$SNAPSHOT_COUNT" -eq 0 ]; then
+    echo "❌ No objects found at ${SNAPSHOT_PATH}/ — check the date and try again"
+    exit 1
+  fi
+
+  echo "Found ${SNAPSHOT_COUNT} objects in snapshot ${SNAPSHOT_DATE}"
+  echo
+  echo "⚠️  This will overwrite the CURRENT contents of s3://${PRIMARY_BUCKET}"
+  echo "    with the contents of ${SNAPSHOT_PATH}"
+  read -p "Type the snapshot date (${SNAPSHOT_DATE}) to confirm: " CONFIRM
+
+  if [ "$CONFIRM" != "$SNAPSHOT_DATE" ]; then
+    echo "❌ Confirmation did not match — aborting, nothing changed"
+    exit 1
+  fi
+
+  echo
+  echo "==> Restoring ${SNAPSHOT_DATE} into ${PRIMARY_BUCKET}"
+
+  aws s3 sync "${SNAPSHOT_PATH}" "s3://${PRIMARY_BUCKET}" --delete
+
+  RESTORED_COUNT=$(aws s3 ls "s3://${PRIMARY_BUCKET}/" --recursive | wc -l)
+
+  echo "Primary bucket now has ${RESTORED_COUNT} objects (snapshot had ${SNAPSHOT_COUNT})"
+
+  if [ "$RESTORED_COUNT" -lt "$SNAPSHOT_COUNT" ]; then
+    echo "⚠️  Restored count is lower than snapshot count — verify manually before rehydrating"
+    exit 1
+  fi
+
+  echo
+  echo "==> Triggering rehydrate on running instance to pick up restored state"
+
+  CMD_ID=$(ssm_exec "sudo /usr/local/bin/platform-rehydrate.sh")
+
+  echo "Command ID: $CMD_ID"
+
+  wait_for_ssm "$CMD_ID"
+
+  write_signal "Restored from backup" "recovery" "Restored primary S3 state from snapshot ${SNAPSHOT_DATE} and re-ran rehydrate"
+
+  echo
+  echo "✅ Primary restored from ${SNAPSHOT_DATE} and rehydrate complete"
 ;;
 
 ########################################
