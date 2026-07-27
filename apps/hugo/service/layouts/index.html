@@ -24,6 +24,35 @@
   </a>
   {{ end }}
 
+
+  {{ with .Site.GetPage "private" }}
+  <a href="{{ .RelPermalink }}" class="portal-card">
+    <div class="portal-icon">🔒</div>
+    <h3>Private</h3>
+    <p>Infrastructure runbooks, cheat sheets, and the bourbon/beer/rum/scotch wiki.</p>
+    <span class="portal-link">Browse →</span>
+  </a>
+  {{ end }}
+
+  {{ with .Site.GetPage "family" }}
+  <a href="{{ .RelPermalink }}" class="portal-card">
+    <div class="portal-icon">👨‍👩‍👧</div>
+    <h3>Family</h3>
+    <p>Family space.</p>
+    <span class="portal-link">Browse →</span>
+  </a>
+  {{ end }}
+
+  {{ with .Site.GetPage "secure" }}
+  <a href="{{ .RelPermalink }}" class="portal-card">
+    <div class="portal-icon">🔐</div>
+    <h3>Secure</h3>
+    <p>Private secure KB wiki space.</p>
+    <span class="portal-link">Browse →</span>
+  </a>
+  {{ end }}
+
+
   {{ with .Site.GetPage "recipes" }}
   <a href="{{ .RelPermalink }}" class="portal-card">
     <div class="portal-icon">🔥</div>
