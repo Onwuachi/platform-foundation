@@ -15,6 +15,7 @@ ExecStart=/usr/bin/docker run \
   --name grafana \
   --network host \
   -e GF_SERVER_HTTP_PORT=4000 \
+  --env-file /etc/grafana/smtp.env \
   -v /opt/grafana/data:/var/lib/grafana \
   -v /etc/grafana/provisioning:/etc/grafana/provisioning:ro \
   -v /opt/grafana/dashboards:/opt/grafana/dashboards:ro \

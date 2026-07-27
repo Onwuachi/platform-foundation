@@ -4,7 +4,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 echo "=== install_base.sh starting ==="
 
-cloud-init status --wait
+cloud-init status --wait || { rc=$?; if [ "$rc" -ne 2 ]; then exit "$rc"; fi; echo "⚠️ cloud-init degraded (exit 2) — continuing"; }
 
 #################################
 # Clean and prepare APT state

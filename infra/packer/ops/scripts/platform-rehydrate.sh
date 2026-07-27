@@ -108,6 +108,66 @@ else
   echo "✅ Auth credentials injected for user: derrick"
 fi
 
+
+########################################
+# REHYDRATE GRAFANA SMTP CREDENTIALS
+# Source: SSM Parameter Store (SecureString)
+# Cost:   $0.00 — SSM standard tier is free
+# Rotate: aws ssm put-parameter \
+#           --name /platform/grafana/smtp/password \
+#           --type SecureString --value '...' \
+#           --overwrite --region us-east-1
+#         then: platform rehydrate
+########################################
+
+echo
+echo "=== Rehydrating Grafana SMTP credentials ==="
+
+SMTP_USER=$(aws ssm get-parameter \
+  --name "/platform/grafana/smtp/username" \
+  --with-decryption \
+  --region "$REGION" \
+  --query Parameter.Value \
+  --output text 2>/dev/null) || true
+
+SMTP_PASS=$(aws ssm get-parameter \
+  --name "/platform/grafana/smtp/password" \
+  --with-decryption \
+  --region "$REGION" \
+  --query Parameter.Value \
+  --output text 2>/dev/null) || true
+
+if [ -z "$SMTP_USER" ] || [ -z "$SMTP_PASS" ]; then
+  echo "⚠️  SMTP SSM parameters not found — Grafana SMTP will remain disabled"
+  {
+    echo "GF_SMTP_ENABLED=false"
+  } > /etc/grafana/smtp.env
+else
+  {
+    echo "GF_SMTP_ENABLED=true"
+    echo "GF_SMTP_HOST=email-smtp.us-east-1.amazonaws.com:587"
+    echo "GF_SMTP_USER=${SMTP_USER}"
+    echo "GF_SMTP_PASSWORD=${SMTP_PASS}"
+    echo "GF_SMTP_FROM_ADDRESS=onwuabus@gmail.com"
+    echo "GF_SMTP_FROM_NAME=Platform Foundation Alerts"
+  } > /etc/grafana/smtp.env
+
+  echo "✅ Grafana SMTP credentials injected"
+fi
+
+chmod 600 /etc/grafana/smtp.env
+
+
+########################################
+# RESTART GRAFANA (picks up fresh SMTP env)
+########################################
+
+echo
+echo "=== Restarting Grafana ==="
+
+systemctl restart grafana || echo "⚠️  Grafana restart failed (continuing)"
+
+
 ########################################
 # LETSENCRYPT PERSISTENCE
 ########################################

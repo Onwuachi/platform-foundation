@@ -140,7 +140,7 @@ frontend https_in
   http-request deny deny_status 429 if { sc_http_req_rate(0) gt 100 }
 
   # Protected paths — evaluated before routing
-  acl is_private path_beg /kb /private /family
+  acl is_private path_beg  /private /family /secure 
 
   http-request auth realm "Onwuachi Private" if is_private !{ http_auth(private_users) }
 
