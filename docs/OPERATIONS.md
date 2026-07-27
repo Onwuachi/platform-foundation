@@ -87,9 +87,39 @@ This is the core architectural distinction of the platform.
 
 ## Network Architecture
 
-The VPC (`devopslab-vpc`, 10.50.0.0/16) currently consists of two public subnets only. There is no NAT gateway and no VPC endpoints — all instance traffic, including SSM Session Manager, reaches AWS APIs over the public internet via the Internet Gateway. "No NAT" here is a byproduct of the current flat topology, not evidence of private isolation.
+The VPC (`devopslab-vpc`, 10.50.0.0/16) consists of two public subnets and two private subnets, one pair per AZ. The public subnets (`devopslab-public-a`/`-b`) route `0.0.0.0/0` via the Internet Gateway and host the only always-on compute (`ops-01`). The private subnets (`devopslab-private-a`/`-b`, added Phase 5) have an explicit route table with **no default route to the Internet Gateway, no NAT gateway, and no VPC endpoints** — they exist as architectural/network foundation for future workloads, not as active isolation for anything running today. All instance traffic, including SSM Session Manager, still reaches AWS APIs over the public internet via the Internet Gateway from the public subnets. "No NAT" on the private side here means true isolation (nothing routes out at all), not the "no NAT, still public" situation on the public subnets.
 
-A future phase may introduce a private subnet with SSM interface endpoints (`ssm`, `ssmmessages`, `ec2messages`) to remove public internet dependency for operational access. Cost check at time of writing: 3 interface endpoints in a single AZ run roughly $22/month, which exceeds the cost of a single NAT gateway (~$33-40/month with data processing) only in the sense that NAT would additionally cover ECR/S3/CloudWatch access that interface endpoints would otherwise require paying for individually. Whether to pursue this is an open decision, not yet a commitment.
+Introducing SSM interface endpoints (`ssm`, `ssmmessages`, `ec2messages`) into the private subnets to remove public internet dependency for operational access remains a future phase, not yet started. Cost check at time of writing: 3 interface endpoints in a single AZ run roughly $22/month, which exceeds the cost of a single NAT gateway (~$33-40/month with data processing) only in the sense that NAT would additionally cover ECR/S3/CloudWatch access that interface endpoints would otherwise require paying for individually. Whether to pursue this is an open decision, not yet a commitment.
+
+---
+
+## Identity & Access
+
+Interactive/local account access (console login, `aws configure sso` for CLI/scripts) goes through **IAM Identity Center** (organization instance), not root sign-in or a static IAM user key.
+
+```
+AWS Organizations (management account: this account, no members)
+      │
+      ▼
+IAM Identity Center — organization instance
+      │  us-east-1 · Identity Center directory (no external IdP)
+      ▼
+User (donwuachi) ── Permission Set (AdministratorAccess, 8h session) ── Account assignment
+      │
+      ▼
+AWS access portal (https://d-90667959c1.awsapps.com/start)
+      │  aws configure sso / aws sso login
+      ▼
+Short-lived temporary CLI credentials — no static keys
+```
+
+**Why an organization instance:** Identity Center's standalone **account instance** mode cannot assign access to AWS accounts at all — only to AWS-managed applications (SAML SaaS apps). Account/permission-set assignment (what CLI/console SSO needs) requires AWS Organizations, even for a single-account setup. Enabling Organizations here just marks this account as the management account — no other accounts required or added, no additional cost.
+
+**Known gotcha (resolved):** the instance-level Authentication → MFA "Prompt users for MFA" setting can silently fail to persist on save — confirm it actually stuck by reloading the Settings page before relying on it. Also, MFA device registration isn't offered on the access portal's Security page while the prompt is set to Never — set the prompt to context-aware (or always) first, then device registration becomes available. MFA is now enabled (context-aware) with an authenticator-app device registered for `donwuachi`.
+
+Full setup writeup, including the account-instance dead end and the MFA troubleshooting: [sso-setup-2026-07-27.md](sso-setup-2026-07-27.md).
+
+This addresses the constraint (previously noted in the README) that the account's sole IAM user (`serverless-admin`) held `AdministratorAccess` with no MFA for interactive/local use — that user's disposition (retire vs. keep CI/CD-scoped-only) is still an open decision.
 
 ---
 

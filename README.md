@@ -127,6 +127,7 @@ Observability setup, scrape targets, and Grafana provisioning details: [OPERATIO
 - Auth credentials stored as SSM Parameter Store SecureString, never committed to the repo or baked into the AMI — `platform-rehydrate` injects the real password hash at boot; AMIs only ever contain a bootstrap placeholder
 - HAProxy validates config before every reload — no unsafe reloads
 - All GitHub Actions workflows authenticate via scoped OIDC roles — no long-lived AWS credentials anywhere in CI/CD (the nightly backup job was the last one still using a static admin key; retired 2026-07-23, see [DR Hardening writeup](docs/dr-hardening-2026-07-23.md))
+- Interactive/local account access (console + CLI) uses IAM Identity Center SSO — short-lived, browser-issued temporary credentials in place of root sign-in or a static IAM user key; see [SSO setup writeup](docs/sso-setup-2026-07-27.md)
 
 TLS certificate lifecycle in full: [OPERATIONS.md § TLS Certificate Lifecycle](docs/OPERATIONS.md#tls-certificate-lifecycle).
 
@@ -148,14 +149,15 @@ TLS certificate lifecycle in full: [OPERATIONS.md § TLS Certificate Lifecycle](
 | Phase 4.8 | Content platform reorg — portal homepage, live Quick Stats + Platform Snapshot (data-driven, not hardcoded), theme-aware syntax highlighting, KB authoring scripts | ✅ Complete |
 | Phase 4.9 | OS migration: Ubuntu 22.04 → 24.04 (Noble) via full Packer rebuild, no in-place upgrade | ✅ Complete |
 | Phase 4.10 | IAM/backup hardening — scoped OIDC role replacing static admin key on backup job, S3 lifecycle rules, validated node-loss recovery test | ✅ Complete |
-| Phase 5 | EKS module · Kubernetes familiarity layer | 📋 Planned |
+| Phase 4.11 | IAM Identity Center SSO for interactive/local access (org instance, permission set, account assignment) — replaces root sign-in / static IAM user for console + CLI use | ✅ Complete |
+| Phase 5 | Private subnet network foundation (isolated route table, no default route) · EKS module · Kubernetes familiarity layer | 🔧 In Progress |
 
 ---
 
 ## Known Constraints
 
 - Single-node architecture (by design — simplicity over scaling)
-- Public subnets only — no NAT gateway, no VPC endpoints, no private isolation layer yet
+- Private subnets exist as network foundation (isolated route table, no default route) but nothing runs in them yet — no NAT gateway, no VPC endpoints, no active isolation layer
 - Platform API metrics endpoint not yet instrumented
 - No autoscaling or blue/green deployments
 - No multi-node clustering
@@ -163,7 +165,8 @@ TLS certificate lifecycle in full: [OPERATIONS.md § TLS Certificate Lifecycle](
 - Pushgateway running but currently unused — under review for removal
 - Node-loss recovery is manually triggered by design (preserves operator control during debugging) — validated 2026-07-23, ~20s Terraform recreation + ~1min rehydrate to healthy
 - Full primary-S3-loss recovery has no automated or tested restore path yet — backup snapshots exist and are isolated, but there is no scripted procedure to restore them into primary
-- The account's sole IAM user (`serverless-admin`) still holds `AdministratorAccess` with no MFA assigned — scoped down for CI/CD use, but not yet addressed for interactive/local use
+- Interactive/local access (console + CLI/scripts) goes through IAM Identity Center SSO instead of the root user or a static key, with MFA enforced (context-aware) and an authenticator-app device registered — see [OPERATIONS.md § Identity & Access](docs/OPERATIONS.md#identity--access)
+- The account's original static-key IAM user (`serverless-admin`, `AdministratorAccess`, no MFA) still exists — whether to retire it now that interactive access goes through SSO, or keep it scoped to CI/CD only, is still an open decision
 
 ---
 
