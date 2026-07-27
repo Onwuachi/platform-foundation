@@ -1,0 +1,63 @@
+name: Deploy Portfolio — onwua.com
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "onwua-portfolio/site/**"
+      - "onwua-portfolio/.github/workflows/deploy-portfolio.yml"
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: "0.128.0"
+          extended: true
+
+      - name: Build site
+        run: |
+          cd onwua-portfolio/site
+          hugo --minify --gc
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-oidc-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Sync to S3
+        run: |
+          aws s3 sync onwua-portfolio/site/public/ s3://onwua-portfolio-site/ \
+            --delete \
+            --cache-control "max-age=86400" \
+            --exclude "*.html" \
+            --exclude "index.xml"
+
+          aws s3 sync onwua-portfolio/site/public/ s3://onwua-portfolio-site/ \
+            --delete \
+            --cache-control "no-cache, no-store, must-revalidate" \
+            --include "*.html" \
+            --include "index.xml"
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id E127HW59AHJWZG \
+            --paths "/*"
+
+      - name: Done
+        run: echo "Deployed to https://onwua.com"

@@ -1,521 +1,224 @@
-# Platform Foundation – Immutable Edge + Container Runtime
+# Platform Foundation
 
-A production-style infrastructure platform built using immutable infrastructure principles and disciplined cloud engineering patterns.
+**[Derrick Onwuachi](https://onwua.com)** · DevOps Engineer · Platform & Infrastructure · Apple Valley, MN
 
----
-
-### Platform Architecture Diagram (Pending completion)
-
-Internet
-   ↓
-Route53
-   ↓
-HAProxy
-   ↓
-Docker services
-   ↓
-Prometheus metrics
-   ↓
-Grafana dashboards
+> This is my personally operated infrastructure platform. The production portfolio is at **[onwua.com](https://onwua.com)**.
 
 ---
 
-## 🔧 Stack
+### *Stateless Compute · Declarative Runtime State · Deterministic Recovery*
 
-- **Packer** – Hardened AMI baking
-- **Terraform** – Infrastructure as Code
-- **HAProxy** – Edge reverse proxy + TLS termination
-- **Docker** – Application runtime
-- **Let’s Encrypt** – Automated TLS lifecycle
-- **AWS SSM Parameter Store** – AMI version tracking
-- **Amazon ECR** – Container registry
+A single-engineer AWS platform implementing immutable infrastructure, declarative runtime state, and a self-rehydrating control plane. Recovery is manually triggered by a single command — once triggered, the platform rebuilds its entire runtime deterministically from a single source of truth, with no further manual intervention required.
 
----
+Built and operated end-to-end: from AMI to edge routing, CI/CD to disaster recovery, observability to documentation.
 
-## 🎯 Platform Objectives
+> **Compute is disposable. State is durable. Recovery is deterministic.**
 
-- Build hardened, repeatable AMIs
-- Separate build-time from run-time logic
-- Terminate TLS strictly at the edge
-- Run containerized workloads behind HAProxy
-- Eliminate manual server mutation
-- Enforce deterministic infrastructure replacement
-- Maintain cost-aware cloud discipline
-- Evolve architecture in controlled, documented phases
+Full operational detail — lifecycle diagrams, DR procedures, TLS internals, tooling — lives in **[docs/OPERATIONS.md](docs/OPERATIONS.md)**.
 
 ---
 
-# 🧱 Current Architecture (Phase 3 – Stable)
+## Status Badges
 
-            Internet
-                │
-                ▼
-          Route53 (DNS)
-                │
-           Elastic IP
-                │
-          EC2 (Ops Node)
-                │
-            HAProxy
-         (TLS Termination)
-                │
-      ┌────────────────────┐
-      │ 127.0.0.1:3000     │ → Platform API (Docker)
-      │ 127.0.0.1:8080     │ → Hugo (nginx container)
-      └────────────────────┘
-
-Phase 3.2
-
-                GitHub
-                  │
-                  │ push
-                  ▼
-           GitHub Actions
-            (CI Pipeline)
-                  │
-                  │ docker build
-                  ▼
-                 ECR
-    (Elastic Container Registry)
-                  │
-                  │ docker pull
-                  ▼
-             EC2 Host
-       ┌─────────────────┐
-       │    systemd      │
-       │ (orchestrator)  │
-       └────────┬────────┘
-                │
-                ▼
-             Docker
-    ┌──────────┼──────────┐
-    │          │          │
-    ▼          ▼          ▼
-platform-api  hugo    grafana
-                           │
-                           ▼
-                       prometheus
-
-
+| Workflow | Status |
+|---|---|
+| Platform Up | ![Platform Up](https://github.com/Onwuachi/platform-foundation/actions/workflows/platform-up.yml/badge.svg) |
+| Platform Down | ![Platform Down](https://github.com/Onwuachi/platform-foundation/actions/workflows/platform-down.yml/badge.svg) |
+| Hugo CI | ![Hugo CI](https://github.com/Onwuachi/platform-foundation/actions/workflows/hugo.yml/badge.svg) |
+| Portfolio Deploy | ![Deploy Portfolio](https://github.com/Onwuachi/platform-foundation/actions/workflows/deploy-portfolio.yml/badge.svg) |
 
 ---
 
-### Public Surface Area
+## Platform Architecture
 
-Only the following ports are exposed:
+The platform is built around an immutable infrastructure model.
 
-- **80** (HTTP → redirected to HTTPS)
-- **443** (TLS)
+- Packer produces a hardened Ubuntu 24.04 Golden AMI.
+- The latest AMI ID is published to AWS Systems Manager Parameter Store.
+- Terraform provisions infrastructure using the current Golden AMI.
+- Platform services run as Docker containers managed by systemd.
+- Configuration is rehydrated at boot from AWS Systems Manager.
+- Operational access is provided exclusively through AWS Systems Manager Session Manager (SSH disabled).
+- Prometheus, Grafana, Node Exporter, Blackbox Exporter, and Pushgateway provide platform observability.
 
-All containers bind to:
+```
+GitHub → GitHub Actions → Packer → Golden AMI → Terraform → EC2 → AWS SSM → Platform Rehydrate
+```
 
+![Platform Architecture](apps/hugo/service/static/images/platform-architecture.png)
 
-127.0.0.1
-
-
-No backend services are publicly reachable.
-
----
-
-# 📦 Phase Evolution
-
----
-
-## ✅ Phase 1 – Infrastructure Foundation
-**Tag:** `phase-1-infra-stable`
-
-Established immutable infrastructure baseline.
-
-### Delivered
-
-- Ubuntu 22.04 hardened AMI built with Packer
-- HAProxy installed and validated at image build time
-- Dummy certificate baked to validate configuration
-- Let’s Encrypt certificate issued at first boot
-- Certbot renewal timer enabled
-- Renewal deploy hook reloads HAProxy safely
-- Deterministic 503 baseline response
-
-### Principle Reinforced
-
-> Validate infrastructure during image build — not at runtime.
+Step-by-step build and recovery diagrams: see [OPERATIONS.md § Infrastructure Lifecycle](docs/OPERATIONS.md#infrastructure-lifecycle) and [§ Runtime Recovery Lifecycle](docs/OPERATIONS.md#runtime-recovery-lifecycle).
 
 ---
 
-## ✅ Phase 2 – Containerized Runtime
-**Tag:** `phase-2-app-backends`
+## Technology Stack
 
-Introduced application lifecycle management using containers.
+| Layer | Technology |
+|---|---|
+| Base Operating System | Ubuntu 24.04 LTS (Noble), Linux 6.17 AWS kernel |
+| Image Build | Packer 1.9.4 |
+| Golden AMI Registry | AWS SSM Parameter Store |
+| Infrastructure as Code | Terraform 1.12.2 + AWS Provider 6.35.1 |
+| Cloud Platform | Amazon Web Services (AWS) |
+| Compute | Amazon EC2 |
+| Identity & Access | AWS IAM |
+| Container Runtime | Docker Engine 29.x, containerd 2.2.x |
+| Container Registry | Amazon ECR |
+| Service Orchestration | systemd |
+| Reverse Proxy | HAProxy |
+| TLS Automation | Certbot (Let's Encrypt ACME) |
+| Runtime Configuration | AWS Systems Manager Parameter Store |
+| Remote Administration | AWS SSM Session Manager (SSH disabled) |
+| Monitoring | Prometheus 2.51.2, Node Exporter, Blackbox Exporter, Pushgateway |
+| Dashboards | Grafana 10.4.2 |
+| Logging | systemd journal |
+| Documentation Platform | Hugo (containerized) |
+| Portfolio Website | Hugo → S3 → CloudFront |
+| CI/CD | GitHub Actions + OIDC |
+| Source Control | Git + GitHub |
+| Configuration Management | Bash + systemd + Packer Provisioners |
 
-### Delivered
-
-- Docker installed in AMI
-- systemd-managed container services
-- Platform API container (Node.js)
-- Hugo static site served via nginx container
-- Health endpoint (`/ready`)
-- HAProxy backend routing
-- ECR authentication via IAM role
-- AMI ID stored in SSM Parameter Store
-
-### Principle Reinforced
-
-> Infrastructure and application runtime must remain independent layers.
-
----
-
-## ✅ Phase 3 – Edge Routing Hardening & Immutable Replacement
-**Tag:** `phase-3-edge-observability-stable`
-
----
-
-### 🔐 HAProxy Routing Hardening
-
-- Removed duplicate `default_backend`
-- Deterministic routing model enforced
-
-### ♻ Immutable Replacement Validation
-
-- Full EC2 replacement cycle validated
-- No drift, no manual intervention
-
-### ⚙ Runtime Hardening
-
-- systemd restart policies validated
-- HAProxy health checks enforced
-- TLS renewal automation verified
+The platform migrated from Ubuntu 22.04 → 24.04 via a full immutable rebuild (fresh AMI, fresh EC2, no in-place upgrade) — consistent with the "rebuild over repair" principle below, not an exception to it.
 
 ---
 
-## 🏷 Phase 3.1 – OIDC Namespace Convergence
-**Tag:** `phase-3-namespace-converged`
+## State Ownership Model
 
-- Corrected IAM trust relationship to canonical repo
-- Eliminated legacy lab namespace
-- Validated via full immutable rebuild
+The core architectural distinction of the platform: infrastructure and runtime state are owned separately, and destroying one does not destroy the other.
 
----
+**Terraform owns:** VPC/Subnets, Security Groups, EC2 Instance, Elastic IP, IAM, the S3 bucket resource (not its contents), Route53 Records.
 
-## 📊 Phase 3.2 – Observability Layer Prep
+**Terraform does not own:** Docker containers, HAProxy runtime config, service registrations, TLS certificates, S3 runtime objects, the DR bucket and snapshots.
 
-- Prometheus + Grafana baked into AMI
-- Node exporter + blackbox exporter enabled
-- Local persistent storage under `/opt`
+> `terraform destroy` removes compute and networking only. It does not touch runtime state or DR data — that survival is intentional. Full ownership tables and rationale: [OPERATIONS.md § State Ownership Model](docs/OPERATIONS.md#state-ownership-model).
+
+The DR bucket's isolation from Terraform is deliberate, not incidental: it keeps the backup copy outside the blast radius of a bad `terraform destroy` or a compromised deploy pipeline against the primary infrastructure. The IAM role that writes to it is scoped read-only on primary and write-only (no delete) on backup — see [OPERATIONS.md § DR Hardening](docs/dr-hardening-2026-07-23.md) for the full audit and fix.
 
 ---
 
-## 🚀 Phase 3.3 – Platform Auto-Provisioning
-**Tag:** `phase-3-platform-autoprovision`
+## Runtime Services
 
-This phase introduces **self-service deployment capabilities**, transitioning the system from a deployment script to a platform.
+All services bind to `127.0.0.1`. HAProxy handles all public ingress on ports 80 and 443.
 
----
+| Service | Role | Internal Port |
+|---|---|---|
+| HAProxy | Edge routing + TLS termination | 80, 443 |
+| Hugo | Documentation platform | 127.0.0.1:8081 |
+| Node API | Platform API | 127.0.0.1:3000 |
+| Grafana | Dashboards | 127.0.0.1:4000 |
+| Prometheus | Metrics collection | 127.0.0.1:9090 |
+| Blackbox Exporter | HTTPS + TLS expiry probes | 127.0.0.1:9115 |
+| Node Exporter | Host metrics | 127.0.0.1:9100 |
+| Pushgateway | Batch metrics | 127.0.0.1:9091 |
 
-### 🔥 Capabilities Introduced
+Observability setup, scrape targets, and Grafana provisioning details: [OPERATIONS.md § Observability](docs/OPERATIONS.md#observability).
 
-- Automatic **ECR repository creation**
-- Dynamic **service port allocation**
-- Runtime **PORT environment injection**
-- Persistent **service registry**
-- HAProxy backend generation per service
-- systemd-based lifecycle orchestration
-- S3-backed platform state recovery
-
----
-
-### ⚙ Deployment Behavior
-
-```bash
-platform deploy <service>
-
-
-No backend services are publicly reachable.
+- If you don't observe the resource that kills you, you don't actually have observability.
 
 ---
 
-# 📦 Phase Evolution
+## Security Model
+
+- Public ports: 80 (redirect only) and 443 (TLS termination) only
+- All backend services bind exclusively to `127.0.0.1`
+- Operational access via AWS SSM Session Manager — no SSH keys, no bastion host
+- TLS managed by Certbot with automated renewal — deploy hook rebuilds the HAProxy PEM and reloads HAProxy automatically after every successful renewal, zero manual steps
+- Path-level HTTP Basic Auth on private content (`/kb`, `/private`, `/family`) enforced at the HAProxy edge — Hugo itself has no auth layer
+- Auth credentials stored as SSM Parameter Store SecureString, never committed to the repo or baked into the AMI — `platform-rehydrate` injects the real password hash at boot; AMIs only ever contain a bootstrap placeholder
+- HAProxy validates config before every reload — no unsafe reloads
+- All GitHub Actions workflows authenticate via scoped OIDC roles — no long-lived AWS credentials anywhere in CI/CD (the nightly backup job was the last one still using a static admin key; retired 2026-07-23, see [DR Hardening writeup](docs/dr-hardening-2026-07-23.md))
+
+TLS certificate lifecycle in full: [OPERATIONS.md § TLS Certificate Lifecycle](docs/OPERATIONS.md#tls-certificate-lifecycle).
 
 ---
 
-## ✅ Phase 1 – Infrastructure Foundation
-**Tag:** `phase-1-infra-stable`
+## Platform Evolution
 
-Established immutable infrastructure baseline.
-
-### Delivered
-
-- Ubuntu 22.04 hardened AMI built with Packer
-- HAProxy installed and validated at image build time
-- Dummy certificate baked to validate configuration
-- Let’s Encrypt certificate issued at first boot
-- Certbot renewal timer enabled
-- Renewal deploy hook reloads HAProxy safely
-- Deterministic 503 baseline response
-
-### Principle Reinforced
-
-> Validate infrastructure during image build — not at runtime.
-
----
-
-## ✅ Phase 2 – Containerized Runtime
-**Tag:** `phase-2-app-backends`
-
-Introduced application lifecycle management using containers.
-
-### Delivered
-
-- Docker installed in AMI
-- systemd-managed container services
-- Platform API container (Node.js)
-- Hugo static site served via nginx container
-- Health endpoint (`/ready`)
-- HAProxy backend routing
-- ECR authentication via IAM role
-- AMI ID stored in SSM Parameter Store
-
-### Principle Reinforced
-
-> Infrastructure and application runtime must remain independent layers.
+| Phase | Description | Status |
+|---|---|---|
+| Phase 1 | Immutable Foundation | ✅ Complete |
+| Phase 2 | Container Runtime | ✅ Complete |
+| Phase 3 | Edge Stability + TLS | ✅ Complete |
+| Phase 4 | Declarative Control Plane | ✅ Complete |
+| Phase 4.3 | Content Platform · Observability · State Hardening | ✅ Complete |
+| Phase 4.4 | Prometheus host networking · HAProxy metrics · Node Exporter · Grafana provisioning mounts | ✅ Complete |
+| Phase 4.5 | Path-level content auth (HAProxy + SSM Parameter Store) | ✅ Complete |
+| Phase 4.6 | Automated TLS renewal (Certbot deploy hook → HAProxy reload) | ✅ Complete |
+| Phase 4.7 | Grafana dashboards · alerting (SNS/email) | 🔧 In Progress |
+| Phase 4.8 | Content platform reorg — portal homepage, live Quick Stats + Platform Snapshot (data-driven, not hardcoded), theme-aware syntax highlighting, KB authoring scripts | ✅ Complete |
+| Phase 4.9 | OS migration: Ubuntu 22.04 → 24.04 (Noble) via full Packer rebuild, no in-place upgrade | ✅ Complete |
+| Phase 4.10 | IAM/backup hardening — scoped OIDC role replacing static admin key on backup job, S3 lifecycle rules, validated node-loss recovery test | ✅ Complete |
+| Phase 5 | EKS module · Kubernetes familiarity layer | 📋 Planned |
 
 ---
 
-## ✅ Phase 3 – Edge Routing Hardening & Immutable Replacement
-**Tag:** `phase-3-edge-observability-stable`
+## Known Constraints
+
+- Single-node architecture (by design — simplicity over scaling)
+- Public subnets only — no NAT gateway, no VPC endpoints, no private isolation layer yet
+- Platform API metrics endpoint not yet instrumented
+- No autoscaling or blue/green deployments
+- No multi-node clustering
+- No automated alerting (Grafana alerts not yet wired — Phase 4.7)
+- Pushgateway running but currently unused — under review for removal
+- Node-loss recovery is manually triggered by design (preserves operator control during debugging) — validated 2026-07-23, ~20s Terraform recreation + ~1min rehydrate to healthy
+- Full primary-S3-loss recovery has no automated or tested restore path yet — backup snapshots exist and are isolated, but there is no scripted procedure to restore them into primary
+- The account's sole IAM user (`serverless-admin`) still holds `AdministratorAccess` with no MFA assigned — scoped down for CI/CD use, but not yet addressed for interactive/local use
 
 ---
 
-### 🔐 HAProxy Routing Hardening
+## Engineering Principles
 
-- Removed duplicate `default_backend`
-- Deterministic routing model enforced
-
-### ♻ Immutable Replacement Validation
-
-- Full EC2 replacement cycle validated
-- No drift, no manual intervention
-
-### ⚙ Runtime Hardening
-
-- systemd restart policies validated
-- HAProxy health checks enforced
-- TLS renewal automation verified
+- Immutability over mutation
+- Declarative state over imperative logic
+- Stateless compute, stateful recovery
+- Rebuild over repair
+- Operational determinism
+- Automation by default
+- Cost accountability — if it runs, it has a reason to run
 
 ---
 
-## 🏷 Phase 3.1 – OIDC Namespace Convergence
-**Tag:** `phase-3-namespace-converged`
+## Repository Structure
 
-- Corrected IAM trust relationship to canonical repo
-- Eliminated legacy lab namespace
-- Validated via full immutable rebuild
-
----
-
-## 📊 Phase 3.2 – Observability Layer Prep
-
-- Prometheus + Grafana baked into AMI
-- Node exporter + blackbox exporter enabled
-- Local persistent storage under `/opt`
-
----
-
-## 🚀 Phase 3.3 – Platform Auto-Provisioning
-**Tag:** `phase-3-platform-autoprovision`
-
-This phase introduces **self-service deployment capabilities**, transitioning the system from a deployment script to a platform.
-
----
-
-### 🔥 Capabilities Introduced
-
-- Automatic **ECR repository creation**
-- Dynamic **service port allocation**
-- Runtime **PORT environment injection**
-- Persistent **service registry**
-- HAProxy backend generation per service
-- systemd-based lifecycle orchestration
-- S3-backed platform state recovery
-
----
-
-### ⚙ Deployment Behavior
-
-```bash
-platform deploy <service>
-
-
-Now performs:
-
-Validate service directory
-→ Ensure ECR repository exists (auto-create if missing)
-→ Build container image
-→ Push to ECR
-→ Allocate or retrieve service port
-→ Create systemd service (if new)
-→ Register HAProxy backend dynamically
-→ Restart service
-→ Validate HAProxy configuration
-→ Sync platform state to S3
-→ Health check validation
-
-
-🧠 Architectural Shift
-
-Previously:
-
-Infrastructure had to be pre-provisioned
-Services required manual setup
-
-Now:
-
-Platform provisions required infrastructure dynamically
-Services are deployable on demand
-🧠 Principle Reinforced
-
-Platforms should enable self-service deployment by abstracting infrastructure requirements.
-
-🏗 Immutable AMI Lifecycle
-
-Packer builds hardened image
-AMI stored in SSM Parameter Store
-Terraform consumes AMI
-EC2 replaced on change
-
-🚀 Deployment Model
-
-Infrastructure Pipeline
-packer build → SSM → terraform apply → EC2 replacement
-Application Pipeline
-build → push (ECR) → pull → run → route (HAProxy)
-
-🛠 Repository Structure
-
-platform-foundation
-├─ apps
-│   ├─ api
-│   ├─ analytics
-│   ├─ billings
-│   ├─ hugo
-│   └─ payments
-│
-├─ infra
-│   ├─ packer
-│   └─ terraform
-│
-├─ tools
-│   └─ platform
-
-⚠️ Known Constraints
-
-Single-node runtime
-No autoscaling
-No blue/green deployments
-No centralized alerting
-Observability not isolated
-
-🔜 Phase 4 – Private Observability Isolation
-
-Private subnet monitoring node
-No public exposure
-Cost-controlled lifecycle
-Full separation from edge runtime
-
-
-📌 Current Status
-
-Current Phase: 3.3 – Platform Auto-Provisioning
-Default Branch: main
-Latest Stable Tag: phase-3-platform-autoprovision
+```
+platform-foundation/
+├── apps/
+│   └── hugo/service/          Hugo content platform (KB, recipes, culture, platform dashboard)
+├── infra/
+│   ├── backend.tf             S3 remote state
+│   ├── main.tf                Core infrastructure
+│   ├── shared/                VPC, IAM, OIDC
+│   ├── security/              Security groups
+│   ├── ops/                   EC2, EIP, S3, Route53 — the only always-on compute
+│   ├── packer/                AMI build templates + scripts
+│   ├── environments/          Per-environment .tfvars (dev/uat/stage/prod)
+│   ├── infra_audit/           Python CLI — see OPERATIONS.md
+│   └── web/, wordpress/, app/, admin-ui-instance/, cloud-init/
+│                               Legacy modules from the pre-consolidation
+│                               architecture, gated behind enable_* flags
+│                               that default to false — not deployed, kept
+│                               for reference rather than deleted outright
+├── onwua-portfolio/           onwua.com static portfolio site
+│   ├── infra/portfolio/       S3 + CloudFront + ACM Terraform
+│   ├── site/                  Hugo source
+│   └── .github/workflows/     Deploy pipeline
+├── tools/
+│   ├── platform                Platform CLI entrypoint
+│   ├── hugo/                   KB authoring scripts (create-kb-*.sh)
+│   └── control-cli/             Domain-mapping CLI (ctl) + legacy version
+├── docs/
+│   ├── OPERATIONS.md           Full operational runbook
+│   └── dr-hardening-2026-07-23.md   IAM/backup credential audit, S3 lifecycle
+│                               fix, and node-loss recovery test writeup
+└── scripts/                    Setup/bootstrap shell scripts
+                                (accumulated duplication here — cleanup
+                                candidate, not yet done)
+```
 
 ---
-   Packer:
-   installs everything
-   enables services
-   does NOT run certbot
 
-   Terraform:
-   provisions infra
-   attaches volumes
-   bootstraps instance
-   does NOT manage certs
+## Author
 
-   Instance boot:
-   user_data → mount + sync only
-
-   Platform lifecycle:
-   systemctl restart platform-rehydrate
-      → webroot
-      → cert-bootstrap
-      → haproxy reload
-      → services restart
-
-
-   🔥 You now have:
-
-   ✅ HAProxy never stops
-   ✅ Certs are idempotent
-   ✅ Platform is reconstructible
-   ✅ Infra is stateless
-   ✅ Observability is integrated    
-
-   Infra awareness
-   instance down
-   disk fill
-   cpu/memory
-   Platform awareness
-   API health
-   HAProxy routing
-   🔥 Security awareness
-   SSL expiration monitoring
-
-dynamic infra (Terraform)
-immutable images (Packer)
-runtime orchestration (rehydrate)
-zero-downtime TLS
-proactive alerting
-
-👉 self-healing platform bootstrap system
-👉 stateless compute + stateful recovery
-👉 cert lifecycle fully automated
-👉 zero-downtime TLS rotation
-👉 observable from day 1
----
-
-# 3/31/2026
-🚧 Current State (Milestone Achieved)
-Immutable infrastructure fully operational via Terraform + Packer
-Platform node successfully rebuilt and rehydrated
-Core services running:
-API (healthy)
-Hugo frontend
-Prometheus + Grafana
-HAProxy routing functional (HTTP + HTTPS)
-End-to-end deployment pipeline validated (build → push → trigger)
-⚠️ Known Gaps
-TLS currently using self-signed certificate (LetsEncrypt integration pending)
-Service registry mismatch between /etc/platform/services and /opt/platform/services
-Dynamic service deployment not yet activating containers post-deploy
-Some backends (billings, analytics, payments) not yet running
-🎯 Next Steps
-Unify service registry path
-Implement automated TLS provisioning (Certbot + HAProxy integration)
-Finalize service lifecycle management (deploy → run → register)
-Add platform CLI command for service creation/registration
-
-
----
-4/1/2026
-
-• Implements immutable infrastructure replacement patterns using Terraform and AMI versioning, enabling zero-downtime-style instance rotation
-• Separates infrastructure, runtime, and persistent data layers (EBS, S3, configuration sync)
-• Designs platform for future blue/green and rolling deployment strategies via stateless compute and dynamic routing (HAProxy)
-• Demonstrates deterministic rebuild and self-healing platform patterns using rehydration workflows
----
-
-👤 Author
-
-Derrick C. Onwuachi
-Cloud / DevOps Engineer
-
-This repository reflects a production-minded infrastructure evolution emphasizing immutability, operational correctness, and platform engineering principles.
+**Derrick C. Onwuachi** · Cloud · DevOps · Platform Engineer
+[onwua.com](https://onwua.com) · [github.com/Onwuachi](https://github.com/Onwuachi) · [linkedin.com/in/derrick-o-a0777729](https://linkedin.com/in/derrick-o-a0777729)

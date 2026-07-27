@@ -25,6 +25,7 @@ variable "ami_keep_last" {
   default = 2
 }
 
+
 ############################
 # Source AMI
 ############################
@@ -38,9 +39,10 @@ source "amazon-ebs" "ops" {
   force_deregister      = true
   force_delete_snapshot = true
 
+
   source_ami_filter {
     filters = {
-      name                = "ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"
+      name                = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"
       virtualization-type = "hvm"
       root-device-type    = "ebs"
     }
@@ -48,6 +50,19 @@ source "amazon-ebs" "ops" {
     owners      = ["099720109477"]
     most_recent = true
   }
+
+
+  #  source_ami_filter {
+  #    filters = {
+  #      name                = "ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"
+  #      virtualization-type = "hvm"
+  #      root-device-type    = "ebs"
+  #    }
+
+  #    owners      = ["099720109477"]
+  #    most_recent = true
+  #  }
+
 }
 
 ############################
@@ -67,21 +82,27 @@ build {
 
   ################################
   # Base + Core Installs
+  #
+  # NOTE: install_certbot.sh must run AFTER install_haproxy.sh
+  # (haproxy package + cert dirs must exist) and is the ONLY
+  # place that installs the certbot renewal deploy hook.
   ################################
   provisioner "shell" {
     execute_command = "sudo -E bash '{{ .Path }}'"
     scripts = [
       "scripts/install_monitoring_users.sh",
       "scripts/install_base.sh",
+      "scripts/install_ecr_helper.sh",
       "scripts/install_swap.sh",
       "scripts/install_haproxy.sh",
       "scripts/install_dummy_cert.sh",
       "scripts/install_certbot.sh",
       "scripts/install_blackbox_exporter.sh",
       "scripts/docker.sh",
+      "scripts/hardening.sh",
       "scripts/systemd.sh",
       "scripts/install_pushgateway.sh",
-      "scripts/hardening.sh"
+      "scripts/validate-runtime.sh"
     ]
   }
 
@@ -166,19 +187,6 @@ build {
     destination = "/tmp/platform-api.service"
   }
 
-provisioner "file" {
-  source      = "systemd/hugo.service"
-  destination = "/tmp/hugo.service"
-}
-
-provisioner "shell" {
-  inline = [
-    "sudo mv /tmp/hugo.service /etc/systemd/system/hugo.service",
-    "sudo systemctl daemon-reload",
-    "sudo systemctl enable hugo"
-  ]
-}
-
 
   ################################
   # Platform Update Timer
@@ -255,77 +263,7 @@ provisioner "shell" {
     ]
   }
 
-  ################################
-  # HUGO (FIXED)
-  ################################
-  provisioner "shell" {
-    inline = [
-      "sudo mkdir -p /opt/hugo/site",
-      "sudo mkdir -p /opt/platform/scripts",
-      "sudo chown -R ubuntu:ubuntu /opt/hugo"
-    ]
-  }
 
-  provisioner "file" {
-    source      = "${path.root}/../../../apps/hugo/site"
-    destination = "/tmp/hugo-site"
-  }
-
-  provisioner "file" {
-    source      = "scripts/build-hugo.sh"
-    destination = "/tmp/build-hugo.sh"
-  }
-
-  provisioner "shell" {
-    inline = [
-      "sudo mkdir -p /opt/platform/scripts",
-
-      # MOVE FIRST
-      "sudo mv /tmp/build-hugo.sh /opt/platform/scripts/build-hugo.sh",
-      "sudo chmod +x /opt/platform/scripts/build-hugo.sh",
-
-      # VERIFY
-      "sudo test -f /opt/platform/scripts/build-hugo.sh || (echo 'MISSING HUGO SCRIPT' && exit 1)",
-
-      # THEN sync site
-      "sudo rsync -av --delete /tmp/hugo-site/ /opt/hugo/site/",
-      "sudo rm -rf /tmp/hugo-site",
-
-      # DEBUG
-      "echo '=== HUGO SCRIPT ==='",
-      "ls -la /opt/platform/scripts",
-      "echo '=== HUGO SITE ==='",
-      "ls -la /opt/hugo/site"
-    ]
-  }
-
-  provisioner "shell" {
-    inline = [
-      "sudo /opt/platform/scripts/build-hugo.sh"
-    ]
-  }
-
-  ################################
-  # Hugo sync timer
-  ################################
-  provisioner "file" {
-    source      = "systemd/hugo-sync.timer"
-    destination = "/tmp/hugo-sync.timer"
-  }
-
-  provisioner "file" {
-    source      = "systemd/hugo-sync.service"
-    destination = "/tmp/hugo-sync.service"
-  }
-
-  provisioner "shell" {
-    inline = [
-      "sudo mv /tmp/hugo-sync.service /etc/systemd/system/",
-      "sudo mv /tmp/hugo-sync.timer /etc/systemd/system/",
-      "sudo systemctl daemon-reload",
-      "sudo systemctl enable --now hugo-sync.timer"
-    ]
-  }
 
   ################################
   # Platform Render HAProxy
@@ -353,6 +291,11 @@ provisioner "shell" {
   }
 
   provisioner "file" {
+    source      = "scripts/platform-shutdown.sh"
+    destination = "/tmp/platform-shutdown.sh"
+  }
+
+  provisioner "file" {
     source      = "systemd/platform-rehydrate.service"
     destination = "/tmp/platform-rehydrate.service"
   }
@@ -361,6 +304,8 @@ provisioner "shell" {
     inline = [
       "sudo mv /tmp/platform-rehydrate.sh /usr/local/bin/platform-rehydrate.sh",
       "sudo chmod +x /usr/local/bin/platform-rehydrate.sh",
+      "sudo mv /tmp/platform-shutdown.sh /usr/local/bin/platform-shutdown.sh",
+      "sudo chmod +x /usr/local/bin/platform-shutdown.sh",
       "sudo mv /tmp/platform-rehydrate.service /etc/systemd/system/",
       "sudo systemctl daemon-reload",
       "sudo systemctl enable platform-rehydrate.service"

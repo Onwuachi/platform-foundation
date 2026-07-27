@@ -1,0 +1,122 @@
+{{ define "main" }}
+<style>
+  .hero { padding: 3rem 0 2.5rem; border-bottom: 1px solid var(--border); margin-bottom: 3rem; }
+  .hero-label { font-family: var(--mono); font-size: 0.78rem; color: var(--accent2); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.75rem; }
+  .hero h1 { font-size: 2.4rem; font-weight: 700; line-height: 1.15; color: var(--text); margin-bottom: 0.5rem; }
+  .hero-role { font-size: 1rem; color: var(--muted); margin-bottom: 1.4rem; }
+  .hero-summary { font-size: 1rem; color: var(--text); max-width: 560px; line-height: 1.7; margin-bottom: 1.8rem; }
+  .hero-cta { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .btn { display: inline-block; padding: 0.55rem 1.2rem; border-radius: 6px; font-size: 0.875rem; font-weight: 500; transition: opacity 0.15s; }
+  .btn:hover { opacity: 0.85; text-decoration: none; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-outline { border: 1px solid var(--border); color: var(--muted); }
+  .btn-outline:hover { color: var(--text); border-color: var(--muted); }
+
+  .section-label { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 1.25rem; }
+  .section { margin-bottom: 3rem; }
+
+  /* Skills grid */
+  .skills-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.6rem; }
+  .skill-pill { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.45rem 0.85rem; font-size: 0.825rem; color: var(--muted); }
+  .skill-pill span { color: var(--accent); font-family: var(--mono); font-size: 0.72rem; display: block; margin-bottom: 0.1rem; }
+
+  /* Project cards */
+  .projects-list { display: flex; flex-direction: column; gap: 1rem; }
+  .project-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem 1.5rem; transition: border-color 0.15s; }
+  .project-card:hover { border-color: var(--accent); }
+  .project-card h3 { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 0.3rem; }
+  .project-card h3 a { color: inherit; }
+  .project-card p { font-size: 0.85rem; color: var(--muted); line-height: 1.6; margin-bottom: 0.75rem; }
+  .project-tags { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .tag { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.72rem; color: var(--muted); font-family: var(--mono); }
+
+  /* Certs */
+  .certs-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .cert-item { display: flex; align-items: center; gap: 0.6rem; font-size: 0.875rem; color: var(--muted); }
+  .cert-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent2); flex-shrink: 0; }
+</style>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-label">Platform & Infrastructure</div>
+  <h1>Derrick Onwuachi</h1>
+  <p class="hero-role">DevOps Engineer · St. Paul, MN</p>
+  <p class="hero-summary">
+    6+ years operating production AWS infrastructure. I build systems that are
+    reliable by design — immutable, recoverable, and operationally disciplined.
+    Currently at LinkLive.ai scaling SaaS infrastructure across multi-account AWS environments.
+  </p>
+  <div class="hero-cta">
+    <a href="/resume/" class="btn btn-primary">View resume</a>
+    <a href="/projects/" class="btn btn-outline">Projects</a>
+    <a href="https://github.com/Onwuachi" class="btn btn-outline" target="_blank" rel="noopener">GitHub</a>
+    <a href="mailto:derrick@onwua.com" class="btn btn-outline">derrick@onwua.com</a>
+  </div>
+</section>
+
+<!-- CORE SKILLS -->
+<section class="section">
+  <div class="section-label">Core skills</div>
+  <div class="skills-grid">
+    <div class="skill-pill"><span>Cloud</span>AWS · multi-account</div>
+    <div class="skill-pill"><span>IaC</span>Terraform · Packer</div>
+    <div class="skill-pill"><span>Containers</span>Docker · ECR</div>
+    <div class="skill-pill"><span>CI/CD</span>GitHub Actions · OIDC</div>
+    <div class="skill-pill"><span>Observability</span>Prometheus · Grafana</div>
+    <div class="skill-pill"><span>Networking</span>HAProxy · VPC · VPN</div>
+    <div class="skill-pill"><span>Security</span>IAM · SOC2 · HITRUST</div>
+    <div class="skill-pill"><span>OS</span>Linux (Ubuntu) · systemd</div>
+  </div>
+</section>
+
+<!-- FEATURED PROJECTS -->
+<section class="section">
+  <div class="section-label">Featured projects</div>
+  <div class="projects-list">
+    <div class="project-card">
+      <h3><a href="https://github.com/Onwuachi/platform-foundation" target="_blank" rel="noopener">Platform Foundation</a></h3>
+      <p>
+        Production-style AWS platform with immutable infrastructure, declarative runtime state,
+        and deterministic disaster recovery. Full node loss → platform online with zero manual steps.
+      </p>
+      <div class="project-tags">
+        <span class="tag">Terraform</span>
+        <span class="tag">Packer</span>
+        <span class="tag">Docker</span>
+        <span class="tag">HAProxy</span>
+        <span class="tag">Prometheus</span>
+        <span class="tag">Grafana</span>
+        <span class="tag">GitHub Actions</span>
+        <span class="tag">SSM</span>
+      </div>
+    </div>
+
+    <div class="project-card">
+      <h3>LLCI UC Appliance Architecture</h3>
+      <p>
+        Designed deployment and recovery architecture for containerized UC appliances in isolated
+        customer environments. Includes artifact distribution, reverse SSH tunnel access model,
+        and deterministic rebuild procedures.
+      </p>
+      <div class="project-tags">
+        <span class="tag">Docker</span>
+        <span class="tag">Ubuntu 24.04</span>
+        <span class="tag">GCP Artifact Registry</span>
+        <span class="tag">SSH tunneling</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CERTIFICATIONS -->
+<section class="section">
+  <div class="section-label">Certifications</div>
+  <div class="certs-list">
+    <div class="cert-item"><div class="cert-dot"></div>AWS Certified SysOps Administrator – Associate</div>
+    <div class="cert-item"><div class="cert-dot"></div>CompTIA CySA+</div>
+    <div class="cert-item"><div class="cert-dot"></div>CompTIA Security+</div>
+    <div class="cert-item"><div class="cert-dot"></div>CompTIA Network+</div>
+    <div class="cert-item"><div class="cert-dot"></div>CompTIA A+</div>
+  </div>
+</section>
+{{ end }}

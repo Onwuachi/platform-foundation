@@ -1,0 +1,13 @@
+telemetry:
+  - name: deployments
+    state: healthy
+
+  - name: routing
+    state: healthy
+
+  - name: backups
+    state: validating
+
+  - name: observability
+    state: building
+

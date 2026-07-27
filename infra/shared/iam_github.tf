@@ -47,20 +47,28 @@ resource "aws_iam_role" "github_oidc_role" {
 # IAM Policy for Packer AMI Builds
 ###############################################
 resource "aws_iam_policy" "packer_policy" {
+
   name        = "packer-build-policy"
-  description = "Permissions for GitHub Actions to build AMIs with Packer"
+  description = "Permissions for GitHub Actions"
 
   policy = jsonencode({
     Version = "2012-10-17"
+
     Statement = [
-      # EC2 permissions required for Packer AMI builds
+
+      #################################################
+      # EC2
+      #################################################
       {
         Effect = "Allow"
+
+
         Action = [
           "ec2:Describe*",
           "ec2:CreateTags",
           "ec2:CreateImage",
           "ec2:RegisterImage",
+          "ec2:DeregisterImage",
           "ec2:RunInstances",
           "ec2:TerminateInstances",
           "ec2:StopInstances",
@@ -69,27 +77,67 @@ resource "aws_iam_policy" "packer_policy" {
           "ec2:CreateSnapshot",
           "ec2:ModifyImageAttribute",
           "ec2:DescribeImages",
-          "ec2:DescribeInstances"
+          "ec2:DescribeInstances",
+
+          "ec2:CreateKeyPair",
+          "ec2:DeleteKeyPair",
+          "ec2:DescribeKeyPairs",
+
+          "ec2:CreateSecurityGroup",
+          "ec2:DeleteSecurityGroup",
+          "ec2:DescribeSecurityGroups",
+          "ec2:AuthorizeSecurityGroupIngress",
+          "ec2:AuthorizeSecurityGroupEgress",
+          "ec2:RevokeSecurityGroupIngress",
+          "ec2:RevokeSecurityGroupEgress",
+
+          "ec2:DescribeVpcs",
+          "ec2:DescribeSubnets"
         ]
+
         Resource = "*"
       },
 
-      # SSM Parameter Store (write AMI ID)
+      #################################################
+      # SSM Parameter Store
+      #################################################
       {
         Effect = "Allow"
+
         Action = [
           "ssm:PutParameter",
           "ssm:GetParameter"
         ]
+
         Resource = "*"
       },
 
-      # Allow Packer to pass instance profiles if needed
+      #################################################
+      # SSM Remote Commands
+      #################################################
       {
         Effect = "Allow"
+        
+        Action = [
+          "ssm:SendCommand",
+          "ssm:GetCommandInvocation",
+          "ssm:ListCommandInvocations",
+          "ssm:ListCommands"
+        ]
+
+        Resource = "*"
+      },
+
+      #################################################
+      # IAM PassRole
+      #################################################
+      {
+        Effect = "Allow"
+
         Action = [
           "iam:PassRole"
         ]
+
         Resource = "*"
       }
     ]
@@ -102,4 +150,63 @@ resource "aws_iam_policy" "packer_policy" {
 resource "aws_iam_role_policy_attachment" "github_oidc_attach" {
   role       = aws_iam_role.github_oidc_role.name
   policy_arn = aws_iam_policy.packer_policy.arn
+}
+
+
+###############################################
+# IAM Role for GitHub Actions (Platform State Backup)
+###############################################
+resource "aws_iam_role" "github_backup_role" {
+  name = "github-backup-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.github.arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+            "token.actions.githubusercontent.com:sub" = "repo:Onwuachi/platform-foundation:ref:refs/heads/main"
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "backup_policy" {
+  name        = "platform-backup-policy"
+  description = "Least-privilege permissions for nightly state backup"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = ["s3:ListBucket", "s3:GetObject"]
+        Resource = [
+          "arn:aws:s3:::platform-api-services",
+          "arn:aws:s3:::platform-api-services/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = ["s3:ListBucket", "s3:PutObject"]
+        Resource = [
+          "arn:aws:s3:::platform-api-services-backup",
+          "arn:aws:s3:::platform-api-services-backup/*"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "github_backup_attach" {
+  role       = aws_iam_role.github_backup_role.name
+  policy_arn = aws_iam_policy.backup_policy.arn
 }

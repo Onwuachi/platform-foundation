@@ -4,7 +4,6 @@ Requires=network-online.target docker.service
 After=network-online.target docker.service
 
 Wants=platform-api.service
-Wants=hugo.service
 Wants=prometheus.service
 Wants=grafana.service
 Wants=haproxy.service

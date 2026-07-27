@@ -1,0 +1,45 @@
+name: platform-state-backup
+
+on:
+  schedule:
+    # 2 AM Central / 07:00 UTC
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+jobs:
+  backup-platform-state:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::046685909731:role/github-backup-role
+          aws-region: us-east-1
+
+      - name: Verify source bucket
+        run: |
+          aws s3 ls s3://platform-api-services
+
+      - name: Generate snapshot date
+        run: |
+          echo "SNAPSHOT_DATE=$(date +%F)" >> $GITHUB_ENV
+
+      - name: Snapshot platform state
+        run: |
+          aws s3 sync \
+            s3://platform-api-services \
+            s3://platform-api-services-backup/snapshots/${SNAPSHOT_DATE}
+
+      - name: Backup summary
+        run: |
+          echo "Backup completed:"
+          aws s3 ls \
+            s3://platform-api-services-backup/snapshots/${SNAPSHOT_DATE} \
+            --recursive

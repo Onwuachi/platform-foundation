@@ -1,12 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DOMAIN="onwuachi.com"
-LIVE="/etc/letsencrypt/live/$DOMAIN"
-DEST="/etc/haproxy/certs/$DOMAIN.pem"
+#
+# Certbot deploy hook
+#
+# Called automatically after a successful renewal.
+#
 
-if [ -f "$LIVE/fullchain.pem" ]; then
-  cat "$LIVE/fullchain.pem" "$LIVE/privkey.pem" > "$DEST"
-  chmod 600 "$DEST"
-  systemctl reload haproxy
-fi
+PRIMARY_DOMAIN="${RENEWED_DOMAINS%% *}"
+
+DEST="/etc/haproxy/certs/${PRIMARY_DOMAIN}.pem"
+
+cat \
+  "$RENEWED_LINEAGE/fullchain.pem" \
+  "$RENEWED_LINEAGE/privkey.pem" \
+  > "$DEST"
+
+chmod 600 "$DEST"
+
+echo "Updated HAProxy certificate: $DEST"
+
+systemctl reload haproxy

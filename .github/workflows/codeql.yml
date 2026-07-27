@@ -21,16 +21,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v3
         with:
-          languages: |
-            javascript
-            python
-            go
+          languages: javascript,python,go
 
       - name: Build (if needed)
         run: |
           echo "Skip build — your project uses containerized services"
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@v3

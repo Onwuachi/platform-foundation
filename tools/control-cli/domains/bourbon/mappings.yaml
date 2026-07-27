@@ -1,0 +1,13 @@
+domain: bourbon
+
+templates:
+  bottle: domains/bourbon/templates/bottle.md.tpl
+
+sources:
+  bottles: content/kb/bourbon/bottles/
+
+rules:
+  bottle_entry:
+    input: note
+    output: bottles/
+    template: bottle

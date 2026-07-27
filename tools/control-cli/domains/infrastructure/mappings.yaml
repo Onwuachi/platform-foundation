@@ -1,0 +1,13 @@
+domain: infrastructure
+
+templates:
+  doc: domains/infrastructure/templates/doc.md.tpl
+
+sources:
+  kb: content/kb/infrastructure/
+
+rules:
+  doc_generation:
+    input: note
+    output: kb/
+    template: doc

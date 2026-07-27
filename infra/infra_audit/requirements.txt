@@ -8,12 +8,12 @@ markdown-it-py==4.0.0
 mdurl==0.1.2
 packaging==26.0
 pluggy==1.6.0
-Pygments==2.19.2
-pytest==9.0.2
+Pygments==2.20.0
+pytest==9.1.1
 python-dateutil==2.9.0.post0
 rich==14.3.3
 s3transfer==0.16.0
 shellingham==1.5.4
 six==1.17.0
 typer==0.24.1
-urllib3==2.6.3
+urllib3==2.7.0

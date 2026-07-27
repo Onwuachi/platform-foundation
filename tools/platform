@@ -28,16 +28,53 @@ Usage:
   platform list
   platform describe <service>
   platform rehydrate
+  platform restore-from-backup [YYYY-MM-DD]
   platform deploy <service>
+  platform refresh <service>
   platform restart <service>
   platform logs <service>
   platform status <service>
   platform register <service> <port> <domain>
   platform deregister <service>
   platform shell
-  platform health 
+  platform health
+  Platform validate
 EOF
   exit 1
+}
+
+########################################
+# ECR LOGIN
+#
+# ECR auth tokens expire after 12 hours. Re-running this is
+# always safe and cheap — call it before any docker push/pull
+# against $REGISTRY so a stale token never blocks a deploy.
+########################################
+
+ecr_login() {
+  aws ecr get-login-password --region "$REGION" \
+    | docker login --username AWS --password-stdin "$REGISTRY" >/dev/null
+}
+
+########################################
+# WRITE SIGNAL
+#
+# Auto-logs a platform event as a Hugo signal entry. Non-fatal —
+# a signal-logging failure should never break a deploy/refresh.
+########################################
+
+write_signal() {
+  local TITLE="$1"
+  local TYPE="$2"
+  local DESC="$3"
+  local ROOT
+  ROOT=$(git rev-parse --show-toplevel)
+
+  echo
+  echo "==> Logging signal: $TITLE"
+
+  "$ROOT/tools/hugo/create-signal.sh" "$TITLE" "$TYPE" "$DESC" || \
+    echo "⚠️  Signal logging failed (non-fatal), continuing"
 }
 
 ########################################
@@ -48,19 +85,21 @@ get_instance_id() {
   aws ec2 describe-instances \
     --region "$REGION" \
     --filters "Name=tag:${TAG_KEY},Values=${TAG_VALUE}" \
-              "Name=instance-state-name,Values=running" \
-    --query "Reservations[].Instances[0].InstanceId" \
-    --output text
+              "Name=instance-state-name,Values=pending,running,stopping,stopped" \
+    --query "Reservations[].Instances[].InstanceId" \
+    --output text | tr '\t' '\n' | head -n1
 }
 
-#INSTANCE_ID=$(get_instance_id)
-INSTANCE_ID=$(get_instance_id | tr '\t' '\n' | head -n1)
+#INSTANCE_ID
+require_instance() {
+  INSTANCE_ID=$(get_instance_id)
 
+  if [ -z "${INSTANCE_ID:-}" ] || [ "$INSTANCE_ID" = "None" ]; then
+    echo "❌ No instance found with tag ${TAG_KEY}=${TAG_VALUE}"
+    exit 1
+  fi
+}
 
-if [ -z "$INSTANCE_ID" ]; then
-  echo "❌ No instance found with tag ${TAG_KEY}=${TAG_VALUE}"
-  exit 1
-fi
 
 ########################################
 # WAIT FOR INSTANCE
@@ -111,8 +150,10 @@ ssm_exec() {
 
 ssm_exec_multi() {
   local SCRIPT="$1"
+  local ENCODED
+  ENCODED=$(printf '%s' "$SCRIPT" | base64 -w0)
 
-  local WRAPPED_SCRIPT="bash -c '$SCRIPT'"
+  local WRAPPED_SCRIPT="echo $ENCODED | base64 -d | bash"
 
   aws ssm send-command \
     --region "$REGION" \
@@ -123,7 +164,6 @@ ssm_exec_multi() {
     --query "Command.CommandId" \
     --output text
 }
-
 
 
 ########################################
@@ -187,6 +227,8 @@ case "$COMMAND" in
 ########################################
 
 up)
+  require_instance
+
   echo "Starting instance..."
 
   aws ec2 start-instances \
@@ -195,26 +237,119 @@ up)
 
   wait_for_running
 
-  echo "Rehydrating..."
-  ssm_exec "sudo /usr/local/bin/platform-rehydrate.sh"
+  echo "Waiting for SSM agent..."
 
+  for i in {1..30}; do
+    ONLINE=$(aws ssm describe-instance-information \
+      --region "$REGION" \
+      --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+      --query "InstanceInformationList[0].PingStatus" \
+      --output text 2>/dev/null || true)
+
+    if [[ "$ONLINE" == "Online" ]]; then
+      echo "SSM agent online"
+      break
+    fi
+
+    sleep 5
+  done
+
+  ########################################
+  # REHYDRATE
+  ########################################
+
+  echo
+  echo "==> Running platform rehydrate"
+
+  CMD_ID=$(ssm_exec "sudo /usr/local/bin/platform-rehydrate.sh")
+
+  echo "Command ID: $CMD_ID"
+
+  wait_for_ssm "$CMD_ID"
+
+  ########################################
+  # VALIDATE HAPROXY
+  ########################################
+
+  echo
+  echo "==> Validating HAProxy"
+
+  CMD_ID=$(ssm_exec "systemctl is-active haproxy && systemctl status haproxy --no-pager -l || true")
+
+  wait_for_ssm "$CMD_ID"
+
+  ########################################
+  # VALIDATE CONTAINERS
+  ########################################
+
+  echo
+  echo "==> Validating containers"
+
+  CMD_ID=$(ssm_exec "docker ps")
+
+  wait_for_ssm "$CMD_ID"
+
+  ########################################
+  # VALIDATE ROUTING
+  ########################################
+
+  echo
+  echo "==> Validating routing"
+
+  CMD_ID=$(ssm_exec "curl -fsS -k https://onwuachi.com >/dev/null")
+
+  wait_for_ssm "$CMD_ID"
+
+  echo
   echo "✅ Platform UP"
 ;;
+
 
 ########################################
 # DOWN
 ########################################
 
 down)
-  echo "Stopping platform..."
+  require_instance
 
-  ssm_exec "sudo systemctl stop ops.target || true"
-  sleep 5
+  echo "Gracefully shutting down platform..."
+
+  CMD_ID=$(ssm_exec "sudo /usr/local/bin/platform-shutdown.sh")
+
+  echo "Command ID: $CMD_ID"
+
+  wait_for_ssm "$CMD_ID"
+
+  ########################################
+  # VERIFY SERVICES STOPPED
+  ########################################
+
+  echo
+  echo "==> Verifying Docker stopped"
+
+  CMD_ID=$(ssm_exec "systemctl is-active docker || true")
+
+  wait_for_ssm "$CMD_ID"
+
+  ########################################
+  # STOP INSTANCE
+  ########################################
+
+  echo
+  echo "==> Stopping EC2 instance"
 
   aws ec2 stop-instances \
     --region "$REGION" \
     --instance-ids "$INSTANCE_ID" >/dev/null
 
+  echo
+  echo "Waiting for EC2 shutdown..."
+
+  aws ec2 wait instance-stopped \
+    --region "$REGION" \
+    --instance-ids "$INSTANCE_ID"
+
+  echo
   echo "✅ Platform DOWN"
 ;;
 
@@ -223,16 +358,112 @@ down)
 ########################################
 
 rehydrate)
+  require_instance
   echo "Running rehydrate..."
+
   CMD_ID=$(ssm_exec "sudo /usr/local/bin/platform-rehydrate.sh")
+
   echo "Command ID: $CMD_ID"
+
+  wait_for_ssm "$CMD_ID"
+;;
+
+########################################
+# RESTORE FROM BACKUP
+#
+# For primary S3 loss, not EC2 loss. Restores a nightly snapshot
+# from the backup bucket back into primary, then re-runs rehydrate
+# so the running instance picks up the restored state. Destructive
+# (--delete sync) by design — requires typing the date back to confirm.
+########################################
+
+restore-from-backup)
+  require_instance
+
+  PRIMARY_BUCKET="platform-api-services"
+  BACKUP_BUCKET="platform-api-services-backup"
+
+  if ! aws s3api head-bucket --bucket "$PRIMARY_BUCKET" 2>/dev/null; then
+    echo "❌ Primary bucket ${PRIMARY_BUCKET} does not exist."
+    echo "   Run 'terraform apply' in infra/ to recreate the bucket resource first,"
+    echo "   then re-run: platform restore-from-backup"
+    exit 1
+  fi
+
+  SNAPSHOT_DATE="$SERVICE"
+
+  if [ -z "$SNAPSHOT_DATE" ]; then
+    echo "No date given — finding latest snapshot..."
+
+    SNAPSHOT_DATE=$(aws s3 ls "s3://${BACKUP_BUCKET}/snapshots/" \
+      | awk '{print $2}' | sed 's#/##' | sort | tail -n1)
+
+    if [ -z "$SNAPSHOT_DATE" ]; then
+      echo "❌ No snapshots found in s3://${BACKUP_BUCKET}/snapshots/"
+      exit 1
+    fi
+
+    echo "Latest snapshot: $SNAPSHOT_DATE"
+  fi
+
+  SNAPSHOT_PATH="s3://${BACKUP_BUCKET}/snapshots/${SNAPSHOT_DATE}"
+
+  SNAPSHOT_COUNT=$(aws s3 ls "${SNAPSHOT_PATH}/" --recursive | wc -l)
+
+  if [ "$SNAPSHOT_COUNT" -eq 0 ]; then
+    echo "❌ No objects found at ${SNAPSHOT_PATH}/ — check the date and try again"
+    exit 1
+  fi
+
+  echo "Found ${SNAPSHOT_COUNT} objects in snapshot ${SNAPSHOT_DATE}"
+  echo
+  echo "⚠️  This will overwrite the CURRENT contents of s3://${PRIMARY_BUCKET}"
+  echo "    with the contents of ${SNAPSHOT_PATH}"
+  read -p "Type the snapshot date (${SNAPSHOT_DATE}) to confirm: " CONFIRM
+
+  if [ "$CONFIRM" != "$SNAPSHOT_DATE" ]; then
+    echo "❌ Confirmation did not match — aborting, nothing changed"
+    exit 1
+  fi
+
+  echo
+  echo "==> Restoring ${SNAPSHOT_DATE} into ${PRIMARY_BUCKET}"
+
+  aws s3 sync "${SNAPSHOT_PATH}" "s3://${PRIMARY_BUCKET}" --delete
+
+  RESTORED_COUNT=$(aws s3 ls "s3://${PRIMARY_BUCKET}/" --recursive | wc -l)
+
+  echo "Primary bucket now has ${RESTORED_COUNT} objects (snapshot had ${SNAPSHOT_COUNT})"
+
+  if [ "$RESTORED_COUNT" -lt "$SNAPSHOT_COUNT" ]; then
+    echo "⚠️  Restored count is lower than snapshot count — verify manually before rehydrating"
+    exit 1
+  fi
+
+  echo
+  echo "==> Triggering rehydrate on running instance to pick up restored state"
+
+  CMD_ID=$(ssm_exec "sudo /usr/local/bin/platform-rehydrate.sh")
+
+  echo "Command ID: $CMD_ID"
+
+  wait_for_ssm "$CMD_ID"
+
+  write_signal "Restored from backup" "recovery" "Restored primary S3 state from snapshot ${SNAPSHOT_DATE} and re-ran rehydrate"
+
+  echo
+  echo "✅ Primary restored from ${SNAPSHOT_DATE} and rehydrate complete"
 ;;
 
 ########################################
 # DEPLOY
+#
+# Build, push, and remote-restart a service from apps/<service>/service
 ########################################
 
 deploy)
+  require_instance
+
   if [ -z "$SERVICE" ]; then
     echo "❌ Usage: platform deploy <service>"
     exit 1
@@ -249,7 +480,7 @@ deploy)
   cd "$SERVICE_DIR"
 
   ########################################
-  # BUILD METADATA (🔥 this is new)
+  # BUILD METADATA
   ########################################
   export GIT_COMMIT=$(git rev-parse --short HEAD)
   export BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -272,8 +503,9 @@ deploy)
       --repository-name "$SERVICE" \
       --region "$REGION" >/dev/null
 
-  aws ecr get-login-password --region "$REGION" | \
-    docker login --username AWS --password-stdin $REGISTRY
+  # Re-auth every time — ECR tokens expire after 12h, this avoids
+  # the "token expired" failure mid-deploy
+  ecr_login
 
   docker push $REGISTRY/${SERVICE}:latest
 
@@ -307,6 +539,123 @@ EOF
   wait_for_ssm "$CMD_ID"
 
   echo "🚀 Deploy complete"
+  
+  write_signal "Deployed ${SERVICE}" "deployment" "Deployed ${SERVICE} (commit ${GIT_COMMIT}, built ${BUILD_TIME})"
+  
+  echo "🚀 Deploy complete"
+;;
+
+########################################
+# REFRESH
+#
+# Pulls the latest image for a CORE platform service (hugo, api,
+# grafana, prometheus — anything started by its own fixed systemd
+# unit rather than the dynamic services.list/platform-rehydrate
+# mechanism) and restarts it.
+#
+# This exists because platform-rehydrate.sh only repulls images for
+# services registered in services.list. Hugo and the platform API
+# run under their own systemd units (hugo.service, platform-api.service)
+# and never get a fresh pull on rehydrate alone — you'd otherwise have
+# to SSM shell in manually and docker pull + systemctl restart by hand
+# every time you push a new image.
+#
+# Usage: platform refresh hugo
+#        platform refresh api
+#        platform refresh grafana
+#        platform refresh prometheus
+#        platform refresh <anything-in-services-list>   (falls through)
+########################################
+
+# Root cause of the previous failure: hugo.service does not exist.
+# systemd.sh comments out "systemctl enable hugo.service" entirely —
+# Hugo is NOT started by its own dedicated unit. It's started the same
+# way every services.list entry is started: platform-rehydrate.sh
+# dynamically creates a unit named platform-<service>.service for every
+# line in services.list, including hugo. So the real unit is
+# platform-hugo.service, not hugo.service.
+#
+# Only grafana and prometheus genuinely have their own dedicated,
+# non-dynamic systemd units (grafana.service, prometheus.service —
+# baked into the AMI directly, not created by rehydrate). api also
+# uses its own fixed unit, platform-api.service, which despite the
+# "platform-" prefix is NOT part of the dynamic services.list pattern —
+# it's a separate fixed unit defined in systemd/platform-api.service.
+#
+# So the actual rule is:
+#   - hugo            -> dynamic: platform-hugo.service
+#   - anything in
+#     services.list   -> dynamic: platform-<name>.service
+#   - api              -> fixed:   platform-api.service (already correct)
+#   - grafana           -> fixed:   grafana.service (already correct)
+#   - prometheus        -> fixed:   prometheus.service (already correct)
+ 
+refresh)
+  require_instance
+ 
+  if [ -z "$SERVICE" ]; then
+    echo "❌ Usage: platform refresh <service>"
+    echo "   Known services: hugo, api, grafana, prometheus, or any name in services.list"
+    exit 1
+  fi
+ 
+  echo "Refreshing $SERVICE to latest image..."
+ 
+  case "$SERVICE" in
+    api)
+      UNIT="platform-api.service"
+      CONTAINER="platform-api"
+      IMAGE="$REGISTRY/api:latest"
+      ;;
+    grafana)
+      UNIT="grafana.service"
+      CONTAINER="grafana"
+      IMAGE="grafana/grafana:10.4.2"
+      ;;
+    prometheus)
+      UNIT="prometheus.service"
+      CONTAINER="prometheus"
+      IMAGE="prom/prometheus:v2.51.2"
+      ;;
+    *)
+      # hugo and anything else registered via services.list follows
+      # this dynamic naming pattern, created by platform-rehydrate.sh
+      UNIT="platform-${SERVICE}.service"
+      CONTAINER="${SERVICE}"
+      IMAGE="$REGISTRY/${SERVICE}:latest"
+      ;;
+  esac
+ 
+  SCRIPT=$(cat <<EOF
+#!/bin/bash
+set -euo pipefail
+ 
+echo "Pulling ${IMAGE}..."
+docker pull "${IMAGE}"
+ 
+echo "Restarting ${UNIT}..."
+systemctl restart "${UNIT}"
+ 
+sleep 3
+ 
+echo "Checking status..."
+systemctl is-active "${UNIT}"
+ 
+echo "Running container:"
+docker ps | grep "${CONTAINER}" || true
+EOF
+)
+ 
+  CMD_ID=$(ssm_exec_multi "$SCRIPT")
+ 
+  echo "Command ID: $CMD_ID"
+ 
+  wait_for_ssm "$CMD_ID"
+ 
+
+  write_signal "Refreshed ${SERVICE}" "platform-change" "Pulled latest image and restarted ${UNIT}"
+
+  echo "🔄 $SERVICE refreshed"
 ;;
 
 ########################################
@@ -314,6 +663,8 @@ EOF
 ########################################
 
 register)
+  require_instance
+
   SERVICE=$2
   PORT=$3
   DOMAIN=$4
@@ -359,6 +710,8 @@ EOF
 ########################################
 
 deregister)
+  require_instance
+
   if [ -z "$SERVICE" ]; then
     echo "❌ Usage: platform deregister <service>"
     exit 1
@@ -397,6 +750,8 @@ EOF
 ########################################
 
 restart)
+  require_instance
+
   if [ -z "$SERVICE" ]; then
     echo "❌ Usage: platform restart <service>"
     exit 1
@@ -413,6 +768,13 @@ restart)
 ########################################
 
 logs)
+  require_instance
+
+  if [ -z "$SERVICE" ]; then
+    echo "❌ Usage: platform describe <service>"
+    exit 1
+  fi
+
   CMD_ID=$(ssm_exec "journalctl -u platform-${SERVICE} -n 100 --no-pager")
   wait_for_ssm "$CMD_ID"
 ;;
@@ -422,13 +784,79 @@ logs)
 ########################################
 
 status)
+  require_instance
+
+  if [ -z "$SERVICE" ]; then
+    echo "❌ Usage: platform describe <service>"
+    exit 1
+  fi
+
   CMD_ID=$(ssm_exec "systemctl status platform-${SERVICE} --no-pager")
   wait_for_ssm "$CMD_ID"
 ;;
 
 health)
-  CMD_ID=$(ssm_exec "curl -s localhost:${PORT:-80} || true")
+  require_instance
+
+  echo "======================================="
+  echo " PLATFORM HEALTH CHECK"
+  echo "======================================="
+
+  ########################################
+  # INSTANCE STATE
+  ########################################
+
+  echo
+  echo "==> EC2 State"
+
+  aws ec2 describe-instances \
+    --region "$REGION" \
+    --instance-ids "$INSTANCE_ID" \
+    --query "Reservations[].Instances[].State.Name" \
+    --output text
+
+  ########################################
+  # HAPROXY
+  ########################################
+
+  echo
+  echo "==> HAProxy"
+
+  CMD_ID=$(ssm_exec "systemctl is-active haproxy && systemctl status haproxy --no-pager -l || true")
   wait_for_ssm "$CMD_ID"
+
+  ########################################
+  # DOCKER
+  ########################################
+
+  echo
+  echo "==> Docker"
+
+  CMD_ID=$(ssm_exec "systemctl is-active docker || true")
+  wait_for_ssm "$CMD_ID"
+
+  ########################################
+  # RUNNING CONTAINERS
+  ########################################
+
+  echo
+  echo "==> Containers"
+
+  CMD_ID=$(ssm_exec "docker ps")
+  wait_for_ssm "$CMD_ID"
+
+  ########################################
+  # HTTPS CHECK
+  ########################################
+
+  echo
+  echo "==> HTTPS Validation"
+
+  CMD_ID=$(ssm_exec "curl -fsS -k https://onwuachi.com >/dev/null")
+  wait_for_ssm "$CMD_ID"
+
+  echo
+  echo "✅ Platform healthy"
 ;;
 
 ########################################
@@ -436,6 +864,8 @@ health)
 ########################################
 
 shell)
+  require_instance
+
   aws ssm start-session \
     --region "$REGION" \
     --target "$INSTANCE_ID"
@@ -443,10 +873,18 @@ shell)
 
 
 list)
+  require_instance
   aws s3 ls s3://platform-api-services/platform/services/
 ;;
 
 describe)
+  require_instance
+
+  if [ -z "$SERVICE" ]; then
+    echo "❌ Usage: platform describe <service>"
+    exit 1
+  fi
+
   SERVICE=$2
 
   aws s3 cp s3://platform-api-services/platform/services/${SERVICE}.port -
@@ -454,18 +892,49 @@ describe)
 ;;
 
 state)
+  require_instance
+
   aws s3 ls s3://platform-api-services/platform/services/
 ;;
 
 state-pull)
+  require_instance
+
   aws s3 sync s3://platform-api-services/platform/services ./services-state
 ;;
+
+
+
+
+########################################
+# Validate
+########################################
+validate)
+
+    require_instance
+
+    CHECK="${SERVICE:-platform}"
+
+    echo "Running validation: $CHECK"
+
+    SCRIPT=$(<"$HOME/cicd/platform-foundation/tools/validation/${CHECK}-validation.sh")
+
+    CMD_ID=$(ssm_exec_multi "$SCRIPT")
+
+    echo "Command ID: $CMD_ID"
+
+    wait_for_ssm "$CMD_ID"
+
+;;
+
 
 ########################################
 # DEFAULT
 ########################################
 
 *)
+  require_instance
+
   usage
 ;;
 

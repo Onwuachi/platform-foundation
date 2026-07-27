@@ -1,13 +1,22 @@
 [Unit]
-Description=Hugo Static Site Server
-After=network.target
+Description=Hugo Static Site (nginx)
+After=docker.service
+Requires=docker.service
 
 [Service]
-User=ubuntu
-WorkingDirectory=/opt/hugo/site
-ExecStart=/usr/local/bin/hugo server --bind 0.0.0.0 --port 8080 --baseURL https://onwuachi.com
 Restart=always
+
+ExecStartPre=/bin/chown -R ubuntu:ubuntu /opt/hugo
+ExecStartPre=/bin/mkdir -p /opt/hugo/site/public
+ExecStartPre=-/usr/bin/docker rm -f hugo
+ExecStartPre=/usr/bin/docker pull nginx:alpine
+
+#ExecStartPre=/usr/bin/docker pull 046685909731.dkr.ecr.us-east-1.amazonaws.com/hugo:latest
+#ExecStart=/usr/bin/docker run --name hugo -p 127.0.0.1:8080:80 046685909731.dkr.ecr.us-east-1.amazonaws.com/hugo:latest
+
+ExecStart=/usr/bin/docker run --name hugo -p 127.0.0.1:8080:80 -v /opt/hugo/site/public:/usr/share/nginx/html:ro nginx:alpine
+
+ExecStop=/usr/bin/docker stop hugo
 
 [Install]
 WantedBy=multi-user.target
-

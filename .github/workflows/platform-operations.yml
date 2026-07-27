@@ -1,0 +1,103 @@
+name: platform-operations
+
+on:
+  workflow_dispatch:
+    inputs:
+
+      command:
+        description: "Platform command"
+        required: true
+        type: choice
+        options:
+          - up
+          - down
+          - rehydrate
+          - state
+          - list
+          - health
+
+          - deploy
+          - restart
+          - logs
+          - status
+
+          - register
+          - deregister
+          - describe
+
+      service:
+        description: "Service name"
+        required: false
+        type: string
+
+      port:
+        description: "Port (register only)"
+        required: false
+        type: string
+
+      domain:
+        description: "Domain (register only)"
+        required: false
+        type: string
+
+jobs:
+  platform:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Make platform executable
+        run: chmod +x tools/platform
+
+      ########################################
+      # SIMPLE COMMANDS
+      ########################################
+
+      - name: Run simple command
+        if: |
+          github.event.inputs.command == 'up' ||
+          github.event.inputs.command == 'down' ||
+          github.event.inputs.command == 'rehydrate' ||
+          github.event.inputs.command == 'state' ||
+          github.event.inputs.command == 'list' ||
+          github.event.inputs.command == 'health'
+        run: |
+          ./tools/platform ${{ github.event.inputs.command }}
+
+      ########################################
+      # SERVICE COMMANDS
+      ########################################
+
+      - name: Run service command
+        if: |
+          github.event.inputs.command == 'deploy' ||
+          github.event.inputs.command == 'restart' ||
+          github.event.inputs.command == 'logs' ||
+          github.event.inputs.command == 'status' ||
+          github.event.inputs.command == 'describe' ||
+          github.event.inputs.command == 'deregister'
+        run: |
+          ./tools/platform \
+            ${{ github.event.inputs.command }} \
+            ${{ github.event.inputs.service }}
+
+      ########################################
+      # REGISTER
+      ########################################
+
+      - name: Register service
+        if: github.event.inputs.command == 'register'
+        run: |
+          ./tools/platform register \
+            ${{ github.event.inputs.service }} \
+            ${{ github.event.inputs.port }} \
+            ${{ github.event.inputs.domain }}
