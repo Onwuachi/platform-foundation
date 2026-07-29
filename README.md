@@ -125,6 +125,7 @@ Observability setup, scrape targets, and Grafana provisioning details: [OPERATIO
 - TLS managed by Certbot with automated renewal — deploy hook rebuilds the HAProxy PEM and reloads HAProxy automatically after every successful renewal, zero manual steps
 - Path-level HTTP Basic Auth on private content (`/kb`, `/private`, `/family`) enforced at the HAProxy edge — Hugo itself has no auth layer
 - Auth credentials stored as SSM Parameter Store SecureString, never committed to the repo or baked into the AMI — `platform-rehydrate` injects the real password hash at boot; AMIs only ever contain a bootstrap placeholder
+- Grafana admin credentials follow the same pattern — SSM Parameter Store SecureString, injected at boot by `platform-rehydrate`
 - HAProxy validates config before every reload — no unsafe reloads
 - All GitHub Actions workflows authenticate via scoped OIDC roles — no long-lived AWS credentials anywhere in CI/CD (the nightly backup job was the last one still using a static admin key; retired 2026-07-23, see [DR Hardening writeup](docs/dr-hardening-2026-07-23.md))
 - Interactive/local account access (console + CLI) uses IAM Identity Center SSO — short-lived, browser-issued temporary credentials in place of root sign-in or a static IAM user key; see [SSO setup writeup](docs/sso-setup-2026-07-27.md)
