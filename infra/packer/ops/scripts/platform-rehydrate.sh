@@ -167,7 +167,53 @@ echo "=== Restarting Grafana ==="
 
 systemctl restart grafana || echo "⚠️  Grafana restart failed (continuing)"
 
+########################################
+# REHYDRATE GRAFANA ADMIN PASSWORD
+# Source: SSM Parameter Store (SecureString)
+# Cost:   $0.00 — SSM standard tier is free
+# Rotate: aws ssm put-parameter \
+#           --name /platform/grafana/admin \
+#           --type SecureString \
+#           --value 'NewPassword' \
+#           --overwrite --region us-east-1
+#         then: platform rehydrate
+########################################
 
+echo
+echo "=== Rehydrating Grafana admin password ==="
+
+GRAFANA_SSM_PARAM="/platform/grafana/admin"
+
+GRAFANA_PASSWORD=$(aws ssm get-parameter \
+  --name "$GRAFANA_SSM_PARAM" \
+  --with-decryption \
+  --region "$REGION" \
+  --query Parameter.Value \
+  --output text 2>/dev/null) || true
+
+if [ -n "$GRAFANA_PASSWORD" ]; then
+  echo "Waiting for Grafana container..."
+  for i in {1..10}; do
+    if docker ps --format '{{.Names}}' | grep -qx grafana; then
+      break
+    fi
+    sleep 2
+  done
+
+  if docker ps --format '{{.Names}}' | grep -qx grafana; then
+    if docker exec grafana grafana-cli admin reset-admin-password "$GRAFANA_PASSWORD" >/dev/null 2>&1; then
+      echo "✅ Grafana admin password rehydrated"
+    else
+      echo "⚠️  Grafana admin password reset command failed — container may not be ready yet"
+    fi
+  else
+    echo "⚠️  Grafana container not running after wait — skipping password rehydrate"
+  fi
+else
+  echo "⚠️  SSM parameter ${GRAFANA_SSM_PARAM} not found — Grafana admin password left as-is"
+  echo "   To fix: aws ssm put-parameter --name ${GRAFANA_SSM_PARAM} --type SecureString \\"
+  echo "           --value 'YourPassword' --region ${REGION}"
+fi
 ########################################
 # LETSENCRYPT PERSISTENCE
 ########################################
