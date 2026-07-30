@@ -6,13 +6,23 @@ on:
       instance_ip:
         description: "EC2 public IP"
         required: true
+        type: string
+
       service:
         description: "Main service to install"
         required: true
-        default: "nginx"
+        type: choice
+        options:
+          - nginx
+          - docker
+          - haproxy
+          - apache2
+        default: nginx
+
       extras:
         description: "Extra packages (space-separated)"
         required: false
+        type: string
         default: "python3-certbot-nginx"
 
 jobs:
@@ -20,8 +30,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up SSH key
         run: |
@@ -29,12 +39,13 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-      - name: Run install_packages.sh
+      - name: Install service and extra packages
         run: |
           chmod +x ./scripts/install_packages.sh
+
           ./scripts/install_packages.sh \
-            "${{ github.event.inputs.instance_ip }}" \
+            "${{ inputs.instance_ip }}" \
             ~/.ssh/id_rsa \
             ubuntu \
-            "${{ github.event.inputs.service }}" \
-            ${{ github.event.inputs.extras }}
+            "${{ inputs.service }}" \
+            "${{ inputs.extras }}"
