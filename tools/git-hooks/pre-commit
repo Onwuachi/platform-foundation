@@ -1,0 +1,11 @@
+#!/bin/bash
+staged=$(git diff --cached --name-only)
+has_infra=$(echo "$staged" | grep -E '^(infra/|\.github/|scripts/|tools/)' | head -1)
+has_hugo=$(echo "$staged" | grep -E '^apps/hugo/' | head -1)
+if [ -n "$has_infra" ] && [ -n "$has_hugo" ]; then
+  echo "❌ This commit mixes infra/CI changes with Hugo content:"
+  echo "   infra:  $has_infra"
+  echo "   hugo:   $has_hugo"
+  echo "Split into separate commits, or run with --no-verify to override."
+  exit 1
+fi
