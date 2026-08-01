@@ -210,18 +210,21 @@ platform-foundation/
 ├── tools/
 │   ├── platform                Platform CLI entrypoint
 │   ├── hugo/                   KB authoring scripts (create-kb-*.sh)
+│   ├── git-hooks/               Local git hooks — copy pre-commit to
+│   │                            .git/hooks/ to enable (blocks commits
+│   │                            mixing infra/CI with Hugo content)
 │   └── control-cli/             Domain-mapping CLI (ctl) + legacy version
 ├── docs/
 │   ├── OPERATIONS.md           Full operational runbook
-│   └── dr-hardening-2026-07-23.md   IAM/backup credential audit, S3 lifecycle
-│                               fix, and node-loss recovery test writeup
-└── scripts/                    Setup/bootstrap shell scripts
-                                (accumulated duplication here — cleanup
-                                candidate, not yet done)
+│   ├── dr-hardening-2026-07-23.md   IAM/backup credential audit, S3 lifecycle
+│   │                           fix, and node-loss recovery test writeup
+│   └── ssm-migration-2026-08-01.md  SSH→SSM web management migration writeup
+└── scripts/                    Active deployment/ops scripts, with
+                                scripts/legacy/ holding retired
+                                pre-Terraform/SSM-era scripts
 ```
 
 ---
-
 ## Author
 
 **Derrick C. Onwuachi** · Cloud · DevOps · Platform Engineer
