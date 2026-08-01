@@ -210,3 +210,86 @@ resource "aws_iam_role_policy_attachment" "github_backup_attach" {
   role       = aws_iam_role.github_backup_role.name
   policy_arn = aws_iam_policy.backup_policy.arn
 }
+
+###############################################
+# IAM Role for GitHub Actions (Terraform Deploy)
+###############################################
+resource "aws_iam_role" "github_terraform_role" {
+  name = "github-terraform-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.github.arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+            "token.actions.githubusercontent.com:sub" = "repo:Onwuachi/platform-foundation:ref:refs/heads/main"
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "terraform_deploy_policy" {
+  name        = "terraform-deploy-policy"
+  description = "Permissions for GitHub Actions Terraform apply"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ec2:*", "elasticloadbalancing:Describe*"]
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["iam:GetRole", "iam:PassRole", "iam:CreateRole", "iam:DeleteRole",
+                    "iam:CreatePolicy", "iam:DeletePolicy", "iam:AttachRolePolicy",
+                    "iam:DetachRolePolicy", "iam:GetPolicy", "iam:ListPolicyVersions",
+                    "iam:CreateInstanceProfile", "iam:DeleteInstanceProfile",
+                    "iam:AddRoleToInstanceProfile", "iam:RemoveRoleFromInstanceProfile",
+                    "iam:GetInstanceProfile", "iam:PutRolePolicy", "iam:GetRolePolicy",
+                    "iam:DeleteRolePolicy"]
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["route53:GetHostedZone", "route53:ListHostedZones",
+                    "route53:ChangeResourceRecordSets", "route53:ListResourceRecordSets"]
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter", "ssm:PutParameter", "ssm:DeleteParameter"]
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["secretsmanager:CreateSecret", "secretsmanager:DeleteSecret",
+                    "secretsmanager:DescribeSecret", "secretsmanager:PutSecretValue",
+                    "secretsmanager:TagResource"]
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["s3:CreateBucket", "s3:PutBucketVersioning", "s3:PutLifecycleConfiguration",
+                    "s3:PutBucketPublicAccessBlock", "s3:GetBucket*", "s3:ListBucket",
+                    "s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "github_terraform_attach" {
+  role       = aws_iam_role.github_terraform_role.name
+  policy_arn = aws_iam_policy.terraform_deploy_policy.arn
+}
