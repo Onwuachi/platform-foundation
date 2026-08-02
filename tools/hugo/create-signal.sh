@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage: ./create-kb-signal.sh "Title of the signal" <signal_type> ["optional description"]
 # signal_type: deployment | incident | recovery | infra-metric | platform-change
 
-SIGNALS_DIR="content/signals"
+SIGNALS_DIR="$(git rev-parse --show-toplevel)/apps/hugo/service/content/signals"
 VALID_TYPES=("deployment" "incident" "recovery" "infra-metric" "platform-change")
 
 if [[ $# -lt 2 ]]; then
