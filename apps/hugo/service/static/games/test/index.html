@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Platform Foundation — Game Test</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1a1a2e; display: flex; align-items: center; justify-content: center; font-family: monospace; }
+  canvas { background: #16213e; border: 2px solid #0f3460; display: block; }
+  #hint { position: fixed; top: 12px; left: 12px; color: #e94560; font-size: 14px; }
+</style>
+</head>
+<body>
+<div id="hint">Arrow keys to move, Space to jump</div>
+<canvas id="game" width="640" height="360"></canvas>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+const gravity = 0.6;
+const ground = 320;
+
+const player = {
+  x: 300, y: ground - 30, w: 24, h: 30,
+  vx: 0, vy: 0,
+  speed: 4, jumpPower: 12,
+  onGround: true,
+  color: '#e94560'
+};
+
+const platforms = [
+  { x: 0, y: ground, w: 640, h: 40 },
+  { x: 150, y: 240, w: 100, h: 12 },
+  { x: 400, y: 180, w: 100, h: 12 }
+];
+
+const keys = {};
+document.addEventListener('keydown', e => keys[e.code] = true);
+document.addEventListener('keyup', e => keys[e.code] = false);
+
+function update() {
+  if (keys['ArrowLeft']) player.vx = -player.speed;
+  else if (keys['ArrowRight']) player.vx = player.speed;
+  else player.vx = 0;
+
+  if (keys['Space'] && player.onGround) {
+    player.vy = -player.jumpPower;
+    player.onGround = false;
+  }
+
+  player.vy += gravity;
+  player.x += player.vx;
+  player.y += player.vy;
+
+  player.onGround = false;
+  for (const p of platforms) {
+    const withinX = player.x + player.w > p.x && player.x < p.x + p.w;
+    const landing = player.y + player.h > p.y && player.y + player.h < p.y + p.h + player.vy + 1;
+    if (withinX && landing && player.vy >= 0) {
+      player.y = p.y - player.h;
+      player.vy = 0;
+      player.onGround = true;
+    }
+  }
+
+  player.x = Math.max(0, Math.min(canvas.width - player.w, player.x));
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = '#0f3460';
+  for (const p of platforms) ctx.fillRect(p.x, p.y, p.w, p.h);
+
+  ctx.fillStyle = player.color;
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
