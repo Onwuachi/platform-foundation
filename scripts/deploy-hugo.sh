@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+ROOT=$(git rev-parse --show-toplevel)
+cd "$ROOT"
+
 ./scripts/ensure-sso.sh
 
 cd apps/hugo/service
