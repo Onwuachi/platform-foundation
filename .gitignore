@@ -37,3 +37,5 @@ node_modules
 dist/.hugo_build.lock
 .terraform.lock.hcl
 *.zip
+apps/hugo/tmp/
+apps/hugo/tmp/
