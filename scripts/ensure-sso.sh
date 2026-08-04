@@ -11,12 +11,19 @@ else
   python3 -c "
 import json, glob
 from datetime import datetime, timezone
-for f in glob.glob('$HOME/.aws/sso/cache/*.json'):
+
+files = glob.glob('$HOME/.aws/sso/cache/*.json')
+tokens = []
+for f in files:
     d = json.load(open(f))
     if 'expiresAt' in d and 'accessToken' in d:
         exp = datetime.fromisoformat(d['expiresAt'].replace('Z', '+00:00'))
-        mins_left = (exp - datetime.now(timezone.utc)).total_seconds() / 60
-        if mins_left < 15:
-            print(f'⚠️  Token expires in {int(mins_left)} min — re-login soon if this run is long')
+        tokens.append((exp, d['expiresAt']))
+
+if tokens:
+    exp, raw = max(tokens, key=lambda t: t[0])
+    mins = int((exp - datetime.now(timezone.utc)).total_seconds() / 60)
+    if 0 <= mins < 15:
+        print(f'⚠️  Token expires in {mins} min — re-login soon if this run is long')
 "
 fi
