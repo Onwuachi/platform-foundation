@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
 
   schedule:
-    # 11:15 PM Central Time (CDT = UTC-5)
-    - cron: '15 4 * * *'
+    # 10:15 PM Central Time (CDT = UTC-5)
+    - cron: '15 3 * * *'
 
 permissions:
   id-token: write
@@ -47,8 +47,8 @@ jobs:
 
           echo ""
           echo "Expected Schedule:"
-          echo "11:15 PM Central"
-          echo "04:15 UTC"
+          echo "10:15 PM Central"
+          echo "03:15 UTC"
 
       - name: Platform DOWN
         run: |
