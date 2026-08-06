@@ -123,6 +123,7 @@ frontend http_in
 ########################################
 userlist private_users
   user derrick password $6$BOOTSTRAP$PLACEHOLDERPLACEHOLDERPLACEHOLDERxx
+  user guest   password $6$BOOTSTRAP$PLACEHOLDERPLACEHOLDERPLACEHOLDERxx
 
 ########################################
 # HTTPS (443)

@@ -108,6 +108,28 @@ else
   echo "✅ Auth credentials injected for user: derrick"
 fi
 
+GUEST_SSM_PARAM="/platform/haproxy/auth/guest"
+
+GUEST_HASH=$(aws ssm get-parameter \
+  --name "$GUEST_SSM_PARAM" \
+  --with-decryption \
+  --region "$REGION" \
+  --query Parameter.Value \
+  --output text 2>/dev/null) || true
+
+if [ -z "$GUEST_HASH" ]; then
+  echo "⚠️  SSM parameter ${GUEST_SSM_PARAM} not found — guest auth will use bootstrap placeholder"
+  echo "   To fix: aws ssm put-parameter --name ${GUEST_SSM_PARAM} --type SecureString \\"
+  echo "           --value '\$6\$salt\$hash' --region ${REGION}"
+  echo "   Generate hash: openssl passwd -6 -salt \$(openssl rand -hex 8) YourGuestPassword"
+else
+  sed -i "s|user guest   password .*|user guest   password ${GUEST_HASH}|" \
+    /etc/haproxy/haproxy.cfg
+  echo "guest:${GUEST_HASH}" >> /etc/haproxy/auth/users.lst
+  chmod 600 /etc/haproxy/auth/users.lst
+  echo "✅ Auth credentials injected for user: guest"
+fi
+
 
 ########################################
 # REHYDRATE GRAFANA SMTP CREDENTIALS
