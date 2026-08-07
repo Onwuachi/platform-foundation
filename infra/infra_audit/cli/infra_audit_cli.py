@@ -14,6 +14,8 @@ Usage:
     python infra_audit_cli.py snapshots --stale 30  # snapshots older than 30 days
     python infra_audit_cli.py images                # your owned AMIs
     python infra_audit_cli.py images --unused        # AMIs not referenced by any running instance
+    python infra_audit_cli.py vpc-audit --vpc-name devopslab-vpc  # VPC audit 
+    python infra_audit_cli.py vpc-audit --vpc-name devopslab-vpc --full  # VPC audit full 
 
 Requires: boto3, typer, rich (already in requirements.txt)
 Auth: uses your normal AWS credential chain (env vars, ~/.aws/credentials,
@@ -27,6 +29,7 @@ import boto3
 import typer
 from rich.console import Console
 from rich.table import Table
+from vpc_audit import find_vpc_id, audit_subnets, audit_security_groups, audit_nat_gateways, audit_igw
 
 app = typer.Typer(help="Quick AWS account checks: cost, snapshots, AMIs.")
 console = Console()
@@ -201,6 +204,91 @@ def images(
     console.print(table)
     console.print(f"[bold]{shown} AMI(s) shown[/bold]")
 
+@app.command(name="vpc-audit")
+def vpc_audit_cmd(
+    vpc_name: str = typer.Option(None, help="VPC Name tag value, e.g. devopslab-vpc. Use this or --vpc-id."),
+    vpc_id: str = typer.Option(None, help="VPC ID, e.g. vpc-041057f0cc0747a4e. Use this or --vpc-name."),
+    full: bool = typer.Option(False, help="Also audit security groups and NAT gateways."),
+    profile: str = typer.Option(None, help="Named AWS profile to use."),
+    region: str = typer.Option("us-east-1", help="Region to check."),
+):
+    """Audit a VPC's subnets, route tables, security groups, and NAT/IGW setup.
+
+    Classifies each subnet as public/private based on its actual route table
+    (0.0.0.0/0 to an IGW vs NAT vs nothing), not just MapPublicIpOnLaunch, and
+    flags any mismatch between the two. With --full, also lists security
+    groups with rules open to 0.0.0.0/0 and any NAT gateways.
+
+    Examples:
+        infra_audit_cli.py vpc-audit --vpc-name devopslab-vpc
+        infra_audit_cli.py vpc-audit --vpc-name devopslab-vpc --full
+    """
+    if not vpc_name and not vpc_id:
+        console.print("[red]Provide either --vpc-name or --vpc-id[/red]")
+        raise typer.Exit(code=1)
+    if vpc_name and vpc_id:
+        console.print("[red]Provide only one of --vpc-name or --vpc-id[/red]")
+        raise typer.Exit(code=1)
+
+    session = get_session(profile, region)
+    ec2 = session.client("ec2")
+
+    resolved_vpc_id = find_vpc_id(ec2, vpc_id, vpc_name)
+    subnet_rows = audit_subnets(ec2, resolved_vpc_id)
+    igw_id, igw_state = audit_igw(ec2, resolved_vpc_id)
+
+    console.print(f"\n[bold]VPC:[/bold] {resolved_vpc_id}")
+    console.print(f"[bold]Internet Gateway:[/bold] {igw_id or '-'} ({igw_state})")
+
+    subnet_table = Table(title="Subnets")
+    for col in ["Subnet ID", "AZ", "CIDR", "MapPublicIp", "Route Table", "Classification", "Gateway"]:
+        subnet_table.add_column(col)
+    for r in subnet_rows:
+        subnet_table.add_row(
+            r["SubnetId"], r["AZ"], r["CIDR"], str(r["MapPublicIp"]),
+            r["RouteTableId"], r["Classification"], r["Gateway"],
+        )
+    console.print(subnet_table)
+
+    mismatches = [
+        r for r in subnet_rows
+        if (r["MapPublicIp"] and r["Classification"] != "public (IGW)")
+        or (not r["MapPublicIp"] and r["Classification"] == "public (IGW)")
+    ]
+    if mismatches:
+        console.print("\n[red bold]MapPublicIp flag disagrees with actual routing for:[/red bold]")
+        for r in mismatches:
+            console.print(f"  {r['SubnetId']}: MapPublicIp={r['MapPublicIp']} but routing says {r['Classification']}")
+
+    if full:
+        sg_rows = audit_security_groups(ec2, resolved_vpc_id)
+        sg_table = Table(title="Security Groups")
+        for col in ["Group ID", "Group Name", "Open To World"]:
+            sg_table.add_column(col)
+        for r in sg_rows:
+            sg_table.add_row(r["GroupId"], r["GroupName"], r["OpenToWorld"])
+        console.print(sg_table)
+
+        open_sgs = [r for r in sg_rows if r["OpenToWorld"] != "-"]
+        if open_sgs:
+            console.print("\n[yellow bold]Security groups with rules open to 0.0.0.0/0:[/yellow bold]")
+            for r in open_sgs:
+                console.print(f"  {r['GroupId']} ({r['GroupName']}): {r['OpenToWorld']}")
+
+        nat_rows = audit_nat_gateways(ec2, resolved_vpc_id)
+        nat_table = Table(title="NAT Gateways")
+        for col in ["NAT Gateway ID", "State", "Subnet ID", "Public IPs"]:
+            nat_table.add_column(col)
+        for r in nat_rows:
+            nat_table.add_row(r["NatGatewayId"], r["State"], r["SubnetId"], r["PublicIps"])
+        console.print(nat_table)
+        if not nat_rows:
+            console.print("[dim]No NAT gateways found.[/dim]")
+
+
 
 if __name__ == "__main__":
     app()
+
+
+
