@@ -2,6 +2,7 @@
 title: "Linux Root Filesystem Cleanup & Disk Usage Investigation"
 date: 2026-08-07
 draft: false
+
 tags:
   - linux
   - docker
@@ -12,6 +13,9 @@ tags:
 categories:
   - Linux
   - Troubleshooting
+
+type: "kb-article"
+
 ---
 
 # Linux Root Filesystem Cleanup & Disk Usage Investigation
