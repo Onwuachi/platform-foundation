@@ -1,29 +1,50 @@
 #!/usr/bin/env bash
 # tools/hugo/create-kb-bottle.sh
-# Usage: ./create-kb-bottle.sh <spirit> <bottle-name>
-# Example: ./create-kb-bottle.sh bourbon rare-breed
-#          ./create-kb-bottle.sh rum appleton-estate-12-year
-#          ./create-kb-bottle.sh beer goose-island-bourbon-county-brand-stout
-#          ./create-kb-bottle.sh whiskey redbreast-12
+# Usage: ./create-kb-bottle.sh <spirit> <bottle-name> [--base kb|private]
+# Example: ./create-kb-bottle.sh bourbon rare-breed --base private
+#          ./create-kb-bottle.sh rum appleton-estate-12-year --base private
+#          ./create-kb-bottle.sh beer goose-island-bourbon-county-brand-stout --base private
+#          ./create-kb-bottle.sh whiskey redbreast-12 --base kb
 
 set -euo pipefail
 
 SPIRIT="${1:-}"
 BOTTLE="${2:-}"
+shift 2 || true
+
+BASE_NAME="kb"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --base)
+      BASE_NAME="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      exit 1
+      ;;
+  esac
+done
 
 if [[ -z "$SPIRIT" || -z "$BOTTLE" ]]; then
-  echo "Usage: ./create-kb-bottle.sh <spirit> <bottle-name>"
+  echo "Usage: ./create-kb-bottle.sh <spirit> <bottle-name> [--base kb|private]"
   echo ""
   echo "Examples:"
-  echo "  ./create-kb-bottle.sh bourbon rare-breed"
-  echo "  ./create-kb-bottle.sh rum appleton-estate-12-year"
-  echo "  ./create-kb-bottle.sh beer goose-island-bourbon-county-brand-stout"
+  echo "  ./create-kb-bottle.sh bourbon rare-breed --base private"
+  echo "  ./create-kb-bottle.sh rum appleton-estate-12-year --base private"
+  echo "  ./create-kb-bottle.sh beer goose-island-bourbon-county-brand-stout --base private"
   exit 1
+fi
+
+if [[ "$BASE_NAME" != "kb" && "$BASE_NAME" != "private" ]]; then
+    echo "❌ Invalid --base value: $BASE_NAME (must be 'kb' or 'private')"
+    exit 1
 fi
 
 HUGO_ROOT="$(git rev-parse --show-toplevel)/apps/hugo/service"
 ARCHETYPE="${SPIRIT}-bottle"
-CONTENT_PATH="kb/${SPIRIT}/bottles/${BOTTLE}.md"
+CONTENT_PATH="${BASE_NAME}/${SPIRIT}/bottles/${BOTTLE}.md"
 FULL_PATH="${HUGO_ROOT}/content/${CONTENT_PATH}"
 
 # Validate archetype exists
@@ -40,11 +61,11 @@ if [[ ! -f "${HUGO_ROOT}/archetypes/${ARCHETYPE}.md" ]]; then
 fi
 
 # Validate domain exists
-if [[ ! -d "${HUGO_ROOT}/content/kb/${SPIRIT}" ]]; then
-  echo "❌ KB domain not found: content/kb/${SPIRIT}/"
+if [[ ! -d "${HUGO_ROOT}/content/${BASE_NAME}/${SPIRIT}" ]]; then
+  echo "❌ Domain not found: content/${BASE_NAME}/${SPIRIT}/"
   echo ""
   echo "Create it first:"
-  echo "  $(git rev-parse --show-toplevel)/tools/hugo/create-kb-domain.sh ${SPIRIT}"
+  echo "  $(git rev-parse --show-toplevel)/tools/hugo/create-kb-domain.sh ${SPIRIT} --base ${BASE_NAME}"
   exit 1
 fi
 

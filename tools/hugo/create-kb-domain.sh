@@ -1,16 +1,41 @@
 #!/usr/bin/env bash
-# new-kb-domain.sh
+# tools/hugo/create-kb-domain.sh
+# Usage: ./create-kb-domain.sh <section> [--base kb|private]
+# Example: ./create-kb-domain.sh mezcal
+#          ./create-kb-domain.sh gin --base private
+#          ./create-kb-domain.sh whiskey --base kb
 
 set -e
 
 SECTION="$1"
+shift || true
+
+BASE_NAME="kb"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --base)
+      BASE_NAME="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      exit 1
+      ;;
+  esac
+done
 
 if [[ -z "$SECTION" ]]; then
-    echo "Usage: ./new-kb-domain.sh <section>"
+    echo "Usage: ./create-kb-domain.sh <section> [--base kb|private]"
     exit 1
 fi
 
-BASE="$(git rev-parse --show-toplevel)/apps/hugo/service/content/kb"
+if [[ "$BASE_NAME" != "kb" && "$BASE_NAME" != "private" ]]; then
+    echo "❌ Invalid --base value: $BASE_NAME (must be 'kb' or 'private')"
+    exit 1
+fi
+
+BASE="$(git rev-parse --show-toplevel)/apps/hugo/service/content/${BASE_NAME}"
 
 FOLDERS=(
   bottles
@@ -28,15 +53,13 @@ FOLDERS=(
   references
 )
 
-echo "Creating KB domain: $SECTION"
+echo "Creating domain: $SECTION (base: content/${BASE_NAME}/)"
 
 mkdir -p "$BASE/$SECTION"
 
 for folder in "${FOLDERS[@]}"; do
     mkdir -p "$BASE/$SECTION/$folder"
 done
-
-cp "$BASE/_index.md" "$BASE/$SECTION/_index.md"
 
 cat > "$BASE/$SECTION/_index.md" <<EOF
 ---
@@ -61,4 +84,3 @@ done
 echo
 echo "✅ Created:"
 tree "$BASE/$SECTION"
-
