@@ -39,3 +39,4 @@ dist/.hugo_build.lock
 *.zip
 apps/hugo/tmp/
 apps/hugo/tmp/
+infra/infra_audit/cli/
