@@ -4,13 +4,14 @@
 # Example: ./create-kb-recipe.sh proteins skillet-fried-chicken
 #          ./create-kb-recipe.sh techniques dry-brining
 #          ./create-kb-recipe.sh smoke-sessions 2026-labor-day
+#          ./create-kb-recipe.sh baking pancakes
 
 set -euo pipefail
 
 SUBSECTION="${1:-}"
 RECIPE="${2:-}"
 
-VALID_SUBSECTIONS=(proteins techniques smoke-sessions journey reference)
+VALID_SUBSECTIONS=(proteins techniques smoke-sessions journey reference baking)
 
 if [[ -z "$SUBSECTION" || -z "$RECIPE" ]]; then
   echo "Usage: ./create-kb-recipe.sh <subsection> <recipe-name>"
@@ -21,6 +22,7 @@ if [[ -z "$SUBSECTION" || -z "$RECIPE" ]]; then
   echo "  ./create-kb-recipe.sh proteins skillet-fried-chicken"
   echo "  ./create-kb-recipe.sh techniques dry-brining"
   echo "  ./create-kb-recipe.sh smoke-sessions 2026-labor-day"
+  echo "  ./create-kb-recipe.sh baking pancakes"
   exit 1
 fi
 
@@ -43,7 +45,7 @@ HUGO_ROOT="$(git rev-parse --show-toplevel)/apps/hugo/service"
 CONTENT_PATH="recipes/${SUBSECTION}/${RECIPE}.md"
 FULL_PATH="${HUGO_ROOT}/content/${CONTENT_PATH}"
 
-# Validate subsection exists (it should already, per current recipes/ structure)
+# Validate subsection exists
 if [[ ! -d "${HUGO_ROOT}/content/recipes/${SUBSECTION}" ]]; then
   echo "❌ Subsection not found: content/recipes/${SUBSECTION}/"
   echo ""
@@ -54,6 +56,21 @@ fi
 
 # Check if file already exists
 if [[ -f "$FULL_PATH" ]]; then
+
+  # Detect an incomplete Hugo archetype render
+  if grep -q '{{ \.Date }}' "$FULL_PATH"; then
+    echo "❌ Existing file contains an unprocessed Hugo archetype:"
+    echo "   ${FULL_PATH}"
+    echo ""
+    echo "This file appears to have been created during a failed scaffold."
+    echo ""
+    echo "Remove it and run the command again:"
+    echo ""
+    echo "  rm \"$FULL_PATH\""
+    echo "  ./create-kb-recipe.sh ${SUBSECTION} ${RECIPE}"
+    exit 1
+  fi
+
   echo "⚠️  File already exists: ${FULL_PATH}"
   echo "Opening for editing..."
   ${EDITOR:-vi} "$FULL_PATH"
@@ -63,6 +80,16 @@ fi
 # Create the recipe
 cd "$HUGO_ROOT"
 hugo new --kind recipe "${CONTENT_PATH}"
+
+# Validate that Hugo processed the archetype correctly
+if grep -q '{{ \.Date }}' "$FULL_PATH"; then
+  echo "❌ Hugo created an unprocessed archetype template:"
+  echo "   ${FULL_PATH}"
+  echo ""
+  echo "The generated file still contains {{ .Date }}."
+  echo "Remove the incomplete file and run the command again."
+  exit 1
+fi
 
 echo ""
 echo "✅ Created: content/${CONTENT_PATH}"
