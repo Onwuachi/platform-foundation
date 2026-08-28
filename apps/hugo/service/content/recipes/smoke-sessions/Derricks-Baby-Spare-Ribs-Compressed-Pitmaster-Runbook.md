@@ -2,6 +2,7 @@
 title: "Derrick's Baby Spare Ribs Runbook"
 date: 2026-06-11T14:22:00Z
 draft: false
+image: "/images/recipes/Derricks-Baby-Spare-Ribs-Compressed-Pitmaster-Runbook.png"
 ---
 
 ## Derricks-Baby-Spare-Ribs-Compressed-Pitmaster-Runbook
@@ -14,7 +15,7 @@ draft: false
 * Aggressive Post-Wrap: Run 275°F–290°F to crush the stall and finish the meat decisively.
 * Texture Over Numbers: Rely primarily on the surface bend test rather than just raw digital probe data.
 
-![Derricks-Baby-Spare-Ribs-Compressed-Pitmaster-Runbook](/images/Derricks-Baby-Spare-Ribs-Compressed-Pitmaster-Runbook.png)
+![Derricks-Baby-Spare-Ribs-Compressed-Pitmaster-Runbook](/images/recipes/Derricks-Baby-Spare-Ribs-Compressed-Pitmaster-Runbook.png)
 
 ------------------------------
 ## 📅 The Profile & Prep

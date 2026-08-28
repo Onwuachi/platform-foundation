@@ -3,6 +3,8 @@ title: "2026 Independence Day Smoke Session"
 date: 2026-07-03
 draft: false
 
+image: "/images/recipes/2026-independence-day-smoke-session.png"
+
 description: "Production log for the July 3, 2026 smoke session featuring brisket, two St. Louis rib experiments, and beef tallow rendering."
 
 summary: "Operational record documenting cook timeline, observations, experiments, and lessons learned."

@@ -2,9 +2,10 @@
 title: "Pitmaster Smoked Beef Tallow"
 date: 2026-06-08T17:35:00Z
 draft: false
+image: "/images/recipes/making-beef-tallow-pitmasters-guide.png"
 ---
 
-![Making Beef Tallow](/images/making-beef-tallow-pitmasters-guide.png)
+![Making Beef Tallow](/images/recipes/making-beef-tallow-pitmasters-guide.png)
 
 # 🔥 Derrick’s Pitmaster Tallow KB Cheat Sheet
 

@@ -2,9 +2,8 @@
 title: "Overnight Traeger Brisket Runbook"
 date: 2026-06-11T03:00:00Z
 draft: false
+image: "/images/recipes/Overnight-Traeger-brisket-guide.png"
 ---
-
-![Overnight Traeger Brisket](/images/Overnight-Traeger-brisket-guide.png)
 
 # 🥩 Overnight Traeger Brisket Runbook v1.1
 

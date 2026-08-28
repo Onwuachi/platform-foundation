@@ -2,6 +2,7 @@
 title: "Derrick's Standard Salmon Runbook"
 date: 2026-06-11T14:31:00Z
 draft: false
+image: "/images/recipes/Derricks-Smoked-Salmon-in-a-Foil-Boat.png"
 ---
 
 
@@ -9,7 +10,7 @@ draft: false
 
 ## Derrick's Hybrid Super Smoke Method
 
-![Derricks-Smoked-Salmon-in-a-Foil-Boat](/images/Derricks-Smoked-Salmon-in-a-Foil-Boat.png)
+![Derricks-Smoked-Salmon-in-a-Foil-Boat](/images/recipes/Derricks-Smoked-Salmon-in-a-Foil-Boat.png)
 
 ### Objective
 

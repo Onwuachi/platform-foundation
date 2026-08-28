@@ -2,6 +2,7 @@
 title: "Derrick Onwuachi's High Heat Mixed Smoke Runbook"
 date: 2026-06-20
 draft: false
+image: "/images/recipes/derrick-onwuachi-high-heat-mixed-smoke-runbook-v1.png"
 description: "Production-approved mixed smoke method for beef plate ribs, pork spare ribs, chuck roast, and salmon using the Onwuachi High Heat BBQ philosophy."
 tags:
   - BBQ
@@ -18,7 +19,7 @@ categories:
   - Recipes
 ---
 
-![Derrick Onwuachi's High Heat Mixed Smoke Runbook](/images/derrick-onwuachi-high-heat-mixed-smoke-runbook-v1.png)
+![Derrick Onwuachi's High Heat Mixed Smoke Runbook](/images/recipes/derrick-onwuachi-high-heat-mixed-smoke-runbook-v1.png)
 
 # Derrick Onwuachi's High Heat Mixed Smoke Runbook
 
