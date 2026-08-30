@@ -120,6 +120,36 @@ Docker image/build-cache accumulation was the proximate cause of the root-disk c
 - Docker disk-check/prune now runs daily via systemd timer, baked into the Packer AMI, in addition to being available as a manual command
 - Prometheus confirmed healthy on the new volume — TSDB started clean, no data-loss concern given the volume's explicitly ephemeral, 15-day-retention design
 
+## Usage — Docker Disk Check/Prune
+
+### Manual, on-demand
+
+From an SSM session:
+
+```bash
+platform shell
+sudo bash
+check-docker-disk.sh              # report only, no action
+check-docker-disk.sh --prune      # report, and prune if usage >= threshold
+THRESHOLD=50 check-docker-disk.sh --prune   # override the default 80% threshold
+```
+
+On `PATH` at `/usr/local/bin/check-docker-disk.sh` — works from any directory as root.
+
+### Automated (systemd timer)
+
+Runs itself daily (~00:01 UTC + up to 10min random delay), no interaction needed. The service unit hardcodes `--prune`, so it always reclaims space on each run regardless of current usage — prevention, not just alerting.
+
+Check on it:
+
+```bash
+systemctl status docker-disk-check.timer      # confirm scheduled, see next trigger time
+systemctl status docker-disk-check.service    # status of most recent run (oneshot — shows inactive/dead between runs, that's normal)
+journalctl -u docker-disk-check.service --since today   # output from the day's run(s)
+```
+
+`journalctl` will show `-- No entries --` until the timer has fired at least once since last boot — expected right after a rehydrate/AMI roll, not a bug.
+
 ## Notes / Open Items
 
 - The `delete_on_termination = true` + `mkfs.xfs`-on-boot design means Prometheus history is wiped on every instance replacement by design — this was already true before this change, just newly confirmed/documented here
