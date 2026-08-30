@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily docker disk usage check and prune
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

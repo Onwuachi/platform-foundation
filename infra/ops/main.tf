@@ -166,12 +166,13 @@ resource "aws_instance" "ops" {
     encrypted             = true
   }
 
+
   ################################
   # Prometheus Volume (Ephemeral)
   ################################
   ebs_block_device {
     device_name           = "/dev/sdf"
-    volume_size           = 15
+    volume_size           = 4        # was 15
     volume_type           = "gp3"
     delete_on_termination = true
     encrypted             = true

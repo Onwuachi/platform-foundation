@@ -218,6 +218,36 @@ build {
   }
 
   ################################
+  # Platform docker disk check 
+  ################################
+  provisioner "file" {
+    source      = "scripts/check-docker-disk.sh"
+    destination = "/tmp/check-docker-disk.sh"
+  }
+
+  provisioner "file" {
+    source      = "systemd/docker-disk-check.service"
+    destination = "/tmp/docker-disk-check.service"
+  }
+
+  provisioner "file" {
+    source      = "systemd/docker-disk-check.timer"
+    destination = "/tmp/docker-disk-check.timer"
+  }
+
+  provisioner "shell" {
+    inline = [
+      "sudo mv /tmp/check-docker-disk.sh /usr/local/bin/check-docker-disk.sh",
+      "sudo chmod +x /usr/local/bin/check-docker-disk.sh",
+      "sudo mv /tmp/docker-disk-check.service /etc/systemd/system/",
+      "sudo mv /tmp/docker-disk-check.timer /etc/systemd/system/",
+      "sudo systemctl daemon-reload",
+      "sudo systemctl enable --now docker-disk-check.timer"
+    ]
+  }
+
+
+  ################################
   # Enable services
   ################################
   provisioner "shell" {
