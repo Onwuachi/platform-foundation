@@ -2,12 +2,18 @@
 title: "Resume"
 ---
 
+## Summary
+
+DevOps Engineer with 6+ years operating production AWS infrastructure, plus 9+ years total in IT operations and systems administration. I build infrastructure that survives failure by design — immutable image pipelines, deterministic disaster recovery, and self-healing runtime state — rather than infrastructure that requires manual repair.
+
+---
+
 ## Experience
 
 ### DevOps Engineer — Platform & Infrastructure
-**LinkLive.ai / Invictus Capital Partners** · 2020 – Present
+**LinkLive.ai** · 2020 – Present
 
-- Scaled AWS SaaS infrastructure from 9 to 31 production instance stacks while maintaining operational consistency, security controls, and audit requirements
+- Scaled production AWS SaaS infrastructure from 9 to 31 instance stacks while maintaining security controls, audit readiness, and operational consistency — as sole or primary owner of infrastructure lifecycle across multiple platforms through several rounds of team departures
 - Operate AWS-based production infrastructure using Terraform and AWS Organizations across Dev / UAT / Prod environments
 - Maintain containerized application platforms on hardened EC2 instances using Docker and automated deployment pipelines
 - Lead incident response and production troubleshooting across infrastructure and application layers
@@ -36,7 +42,7 @@ title: "Resume"
 
 **Cloud:** AWS (EC2, VPC, IAM, S3, CloudWatch, SSM, AWS Organizations)  
 **IaC:** Terraform, Packer  
-**Containers:** Docker, ECR  
+**Containers:** Docker, ECR (Kubernetes/EKS — in progress, see Projects)  
 **CI/CD:** GitHub Actions (OIDC), Jenkins  
 **Observability:** Prometheus, Grafana, CloudWatch  
 **OS / Systems:** Linux (Ubuntu), Windows Server, systemd  
@@ -47,7 +53,7 @@ title: "Resume"
 
 ## Certifications
 
-- AWS Certified SysOps Administrator – Associate (DevOps Professional in progress)
+- AWS Certified SysOps Administrator – Associate (AWS DevOps Engineer Professional in progress)
 - CompTIA CySA+ · Security+ · Network+ · A+
 
 ---
