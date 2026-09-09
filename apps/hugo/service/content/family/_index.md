@@ -1,4 +1,4 @@
 ---
 title: "Family"
-description: "Private Family Wiki Space."
+description: "Family outings, adventures, memories, and experiences."
 ---
