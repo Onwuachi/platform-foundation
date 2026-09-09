@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Platform Foundation — Minesweeper</title>
+<style>
+  html, body {
+    margin: 0; height: 100%; background: #05050f;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: monospace; overflow: hidden;
+  }
+  #game-area {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    width: 100%; height: 100%;
+  }
+  canvas {
+    background: #16213e; border: 2px solid #0f3460; display: block;
+    touch-action: none;
+    width: min(96vw, 90vh, 560px);
+    height: auto;
+  }
+  #hint { position: fixed; top: 12px; left: 12px; color: #e94560; font-size: 13px; }
+  #hud {
+    position: fixed; top: 12px; right: 12px; color: #f1c40f; font-size: 14px;
+    text-align: right; line-height: 1.4; z-index: 6;
+  }
+  #flag-toggle-btn {
+    position: fixed; top: 12px; left: 12px; z-index: 6;
+    background: rgba(15, 52, 96, 0.85); border: 1px solid #0f3460;
+    color: #fff; font-size: 13px; cursor: pointer;
+    padding: 6px 12px; border-radius: 8px; display: none;
+    align-items: center; justify-content: center; gap: 4px;
+  }
+  #flag-toggle-btn.active { background: #e94560; border-color: #e94560; }
+  #pause-btn {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+    color: #fff; font-size: 20px; cursor: pointer; z-index: 6;
+    background: rgba(15, 52, 96, 0.85); border: 1px solid #0f3460;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center;
+  }
+  #fullscreen-btn {
+    position: fixed; top: 12px; left: calc(50% + 44px); transform: translateX(-50%);
+    color: #fff; font-size: 16px; cursor: pointer; z-index: 6;
+    background: rgba(15, 52, 96, 0.85); border: 1px solid #0f3460;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center;
+  }
+  #pause-menu {
+    position: fixed; inset: 0; z-index: 25; background: rgba(15, 15, 30, 0.9);
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; font-family: monospace; gap: 16px;
+  }
+  #pause-menu .pause-title { font-size: 24px; }
+  #pause-menu button, #pause-menu a {
+    padding: 10px 24px; font-size: 15px; font-family: monospace;
+    border: none; border-radius: 8px; cursor: pointer; color: #fff;
+    text-decoration: none; display: inline-block; box-sizing: border-box; text-align: center;
+  }
+  #resume-btn { background: #2ec4b6; }
+  #restart-btn { background: #f4a259; }
+  #quit-btn { background: #e94560; }
+  #arcade-link { background: #16213e; border: 1px solid #0f3460; }
+  #title-screen {
+    position: fixed; inset: 0; z-index: 20; background: #05050f;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; font-family: monospace; gap: 16px;
+  }
+  #title-screen h1 { font-size: 22px; margin: 0 0 4px 0; }
+  #difficulty-row { display: flex; gap: 8px; }
+  #difficulty-row button {
+    padding: 8px 16px; background: #16213e; border: 1px solid #0f3460; border-radius: 8px;
+    cursor: pointer; font-size: 14px; color: #fff; font-family: monospace;
+  }
+  #difficulty-row button.selected { background: #e94560; border-color: #e94560; }
+  #title-screen .best-line { font-size: 12px; color: #ccc; min-height: 16px; }
+  #title-screen button.start, #title-screen a {
+    padding: 10px 28px; background: #2ec4b6; border: none; border-radius: 8px;
+    cursor: pointer; font-size: 16px; color: #fff; font-family: monospace;
+    text-decoration: none; display: inline-block; box-sizing: border-box;
+  }
+  #title-arcade-link { background: #16213e !important; border: 1px solid #0f3460; }
+  #banner {
+    position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
+    color: #fff; font-size: 26px; text-align: center; display: none;
+    text-shadow: 0 0 8px #000; z-index: 5; cursor: pointer;
+  }
+  #banner span { display: block; font-size: 14px; color: #ccc; margin-top: 8px; }
+
+  #touch-controls {
+    display: none;
+    flex-direction: row; align-items: center; gap: 10px;
+    z-index: 10; flex-shrink: 0; padding: 10px 0;
+    user-select: none; -webkit-user-select: none;
+  }
+  #touch-controls .hint-text { color: #ccc; font-size: 12px; }
+  @media (pointer: coarse) {
+    #touch-controls { display: flex; }
+    #flag-toggle-btn { display: flex; }
+    #hint { display: none; }
+  }
+  @media (pointer: coarse) and (max-height: 500px) {
+    #pause-btn, #fullscreen-btn { top: 6px; width: 28px; height: 28px; font-size: 14px; }
+    #fullscreen-btn { left: calc(50% + 36px); }
+    #flag-toggle-btn { top: 6px; font-size: 11px; padding: 4px 8px; }
+    #hud { top: 6px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+<div id="hint">Left-click reveal, right-click flag, Esc to pause</div>
+<div id="hud">Mines: 0<br>Time: 0</div>
+<div id="flag-toggle-btn">🚩 Flag Mode</div>
+<div id="pause-btn">⏸</div>
+<div id="fullscreen-btn">⛶</div>
+<div id="banner"></div>
+<div id="pause-menu">
+  <div class="pause-title">Paused</div>
+  <button id="resume-btn">Resume</button>
+  <button id="restart-btn">Restart</button>
+  <button id="quit-btn">Quit</button>
+  <a id="arcade-link" href="/culture/games/" target="_top">Back to Arcade</a>
+</div>
+<div id="title-screen">
+  <h1>Minesweeper</h1>
+  <div id="difficulty-row">
+    <button data-diff="beginner" class="selected">Beginner</button>
+    <button data-diff="intermediate">Intermediate</button>
+    <button data-diff="expert">Expert</button>
+  </div>
+  <div class="best-line" id="best-line"></div>
+  <button class="start" id="title-start-btn">Start</button>
+  <a id="title-arcade-link" href="/culture/games/" target="_top">Back to Arcade</a>
+</div>
+<div id="game-area">
+  <canvas id="game" width="420" height="420"></canvas>
+  <div id="touch-controls">
+    <div class="hint-text">Tap = reveal (or flag in Flag Mode) · Long-press = flag</div>
+  </div>
+</div>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const banner = document.getElementById('banner');
+const pauseBtn = document.getElementById('pause-btn');
+const pauseMenu = document.getElementById('pause-menu');
+const resumeBtn = document.getElementById('resume-btn');
+const restartBtn = document.getElementById('restart-btn');
+const quitBtn = document.getElementById('quit-btn');
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+const titleScreen = document.getElementById('title-screen');
+const titleStartBtn = document.getElementById('title-start-btn');
+const difficultyRow = document.getElementById('difficulty-row');
+const bestLine = document.getElementById('best-line');
+const flagToggleBtn = document.getElementById('flag-toggle-btn');
+
+function getFullscreenElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+}
+function requestFs(el) {
+  const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  return fn ? fn.call(el) : Promise.reject(new Error('unsupported'));
+}
+function exitFs() {
+  const fn = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+  return fn ? fn.call(document) : Promise.reject(new Error('unsupported'));
+}
+function toggleFullscreen() {
+  if (!getFullscreenElement()) requestFs(document.documentElement).catch(() => {});
+  else exitFs();
+}
+fullscreenBtn.addEventListener('click', toggleFullscreen);
+const fullscreenSupported = !!(
+  document.documentElement.requestFullscreen ||
+  document.documentElement.webkitRequestFullscreen ||
+  document.documentElement.msRequestFullscreen
+);
+if (!fullscreenSupported) fullscreenBtn.style.display = 'none';
+
+// ---- Difficulty presets ----
+const DIFFICULTIES = {
+  beginner:     { cols: 9,  rows: 9,  mines: 10 },
+  intermediate: { cols: 16, rows: 16, mines: 40 },
+  expert:       { cols: 30, rows: 16, mines: 99 }
+};
+let currentDifficulty = 'beginner';
+
+function loadBest(diff) {
+  const stored = Number(localStorage.getItem('minesweeper-best-' + diff));
+  return Number.isFinite(stored) && stored > 0 ? stored : null;
+}
+function saveBest(diff, seconds) {
+  try { localStorage.setItem('minesweeper-best-' + diff, String(seconds)); } catch (e) {}
+}
+function updateBestLine() {
+  const best = loadBest(currentDifficulty);
+  bestLine.textContent = best ? `Best: ${best}s` : 'Best: —';
+}
+updateBestLine();
+
+difficultyRow.querySelectorAll('button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    difficultyRow.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    currentDifficulty = btn.dataset.diff;
+    updateBestLine();
+  });
+});
+
+// ---- Game state ----
+let COLS, ROWS, MINE_COUNT, CELL;
+let grid;        // 2D array of cell objects: { mine, revealed, flagged, adjacent }
+let firstClickDone;
+let minesRemaining;
+let elapsedSeconds;
+let timerAccum;
+let gameOver;
+let won;
+let paused;
+let flagModeOn = false;
+
+flagToggleBtn.addEventListener('click', () => {
+  flagModeOn = !flagModeOn;
+  flagToggleBtn.classList.toggle('active', flagModeOn);
+});
+
+function makeGrid(cols, rows) {
+  const g = [];
+  for (let y = 0; y < rows; y++) {
+    const row = [];
+    for (let x = 0; x < cols; x++) {
+      row.push({ mine: false, revealed: false, flagged: false, adjacent: 0 });
+    }
+    g.push(row);
+  }
+  return g;
+}
+
+function neighbors(x, y) {
+  const result = [];
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS) result.push({ x: nx, y: ny });
+    }
+  }
+  return result;
+}
+
+// Mines are placed only after the first reveal click, excluding that cell and its
+// neighbors, so the first click is always safe and never immediately trivial-empty
+// right against a mine wall.
+function placeMinesAvoiding(safeX, safeY) {
+  const forbidden = new Set([`${safeX},${safeY}`]);
+  neighbors(safeX, safeY).forEach(n => forbidden.add(`${n.x},${n.y}`));
+
+  let placed = 0;
+  while (placed < MINE_COUNT) {
+    const x = Math.floor(Math.random() * COLS);
+    const y = Math.floor(Math.random() * ROWS);
+    const key = `${x},${y}`;
+    if (forbidden.has(key) || grid[y][x].mine) continue;
+    grid[y][x].mine = true;
+    placed++;
+  }
+
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      if (grid[y][x].mine) continue;
+      grid[y][x].adjacent = neighbors(x, y).filter(n => grid[n.y][n.x].mine).length;
+    }
+  }
+}
+
+function startNewGame() {
+  const preset = DIFFICULTIES[currentDifficulty];
+  COLS = preset.cols; ROWS = preset.rows; MINE_COUNT = preset.mines;
+  CELL = Math.floor(canvas.width / COLS);
+  canvas.width = CELL * COLS;
+  canvas.height = CELL * ROWS;
+
+  grid = makeGrid(COLS, ROWS);
+  firstClickDone = false;
+  minesRemaining = MINE_COUNT;
+  elapsedSeconds = 0;
+  timerAccum = 0;
+  gameOver = false;
+  won = false;
+  paused = false;
+  pauseMenu.style.display = 'none';
+  banner.style.display = 'none';
+  updateHud();
+  draw();
+}
+
+function updateHud() {
+  hud.innerHTML = `Mines: ${minesRemaining}<br>Time: ${elapsedSeconds}`;
+}
+
+function revealCell(x, y) {
+  const cell = grid[y][x];
+  if (cell.revealed || cell.flagged) return;
+  cell.revealed = true;
+
+  if (cell.mine) {
+    endGame(false);
+    return;
+  }
+
+  if (cell.adjacent === 0) {
+    // flood-fill reveal for connected empty regions
+    neighbors(x, y).forEach(n => {
+      if (!grid[n.y][n.x].revealed && !grid[n.y][n.x].flagged) revealCell(n.x, n.y);
+    });
+  }
+}
+
+function checkWin() {
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const cell = grid[y][x];
+      if (!cell.mine && !cell.revealed) return false;
+    }
+  }
+  return true;
+}
+
+function handleReveal(x, y) {
+  if (gameOver || paused) return;
+  if (!firstClickDone) {
+    placeMinesAvoiding(x, y);
+    firstClickDone = true;
+  }
+  if (grid[y][x].flagged) return;
+  revealCell(x, y);
+  if (!gameOver && checkWin()) endGame(true);
+  updateHud();
+  draw();
+}
+
+function handleFlag(x, y) {
+  if (gameOver || paused || !firstClickDone) {
+    // allow flagging even before first click has been made, since flags don't
+    // reveal anything and mines aren't placed yet
+  }
+  if (gameOver || paused) return;
+  const cell = grid[y][x];
+  if (cell.revealed) return;
+  cell.flagged = !cell.flagged;
+  minesRemaining += cell.flagged ? -1 : 1;
+  updateHud();
+  draw();
+}
+
+function endGame(playerWon) {
+  gameOver = true;
+  won = playerWon;
+  if (playerWon) {
+    // reveal all flags as correct visually; also flag remaining mines for clarity
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        if (grid[y][x].mine) grid[y][x].flagged = true;
+      }
+    }
+    minesRemaining = 0;
+    const best = loadBest(currentDifficulty);
+    if (!best || elapsedSeconds < best) saveBest(currentDifficulty, elapsedSeconds);
+  } else {
+    // reveal all mines on loss
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        if (grid[y][x].mine) grid[y][x].revealed = true;
+      }
+    }
+  }
+  updateHud();
+  draw();
+  banner.style.display = 'block';
+  banner.innerHTML = playerWon
+    ? `You win! <span>Time ${elapsedSeconds}s — Press R or tap to play again</span>`
+    : `Boom! <span>Press R or tap to retry</span>`;
+}
+
+// ---- Input ----
+function canvasToCell(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const x = Math.floor((clientX - rect.left) * scaleX / CELL);
+  const y = Math.floor((clientY - rect.top) * scaleY / CELL);
+  if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return null;
+  return { x, y };
+}
+
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+canvas.addEventListener('mousedown', e => {
+  if (gameOver) { startNewGame(); return; }
+  const cell = canvasToCell(e.clientX, e.clientY);
+  if (!cell) return;
+  if (e.button === 2) {
+    handleFlag(cell.x, cell.y);
+  } else if (e.button === 0) {
+    if (flagModeOn) handleFlag(cell.x, cell.y);
+    else handleReveal(cell.x, cell.y);
+  }
+});
+
+// Touch: short tap = reveal (or flag if flagModeOn), long-press = flag regardless of mode
+let touchTimer = null;
+let touchMoved = false;
+let touchStartCell = null;
+const LONG_PRESS_MS = 450;
+
+canvas.addEventListener('touchstart', e => {
+  if (gameOver) { startNewGame(); return; }
+  const touch = e.touches[0];
+  const cell = canvasToCell(touch.clientX, touch.clientY);
+  if (!cell) return;
+  touchMoved = false;
+  touchStartCell = cell;
+  touchTimer = setTimeout(() => {
+    if (!touchMoved && touchStartCell) {
+      handleFlag(touchStartCell.x, touchStartCell.y);
+      touchStartCell = null; // consumed by long-press, don't also reveal on touchend
+    }
+  }, LONG_PRESS_MS);
+}, { passive: true });
+
+canvas.addEventListener('touchmove', () => { touchMoved = true; }, { passive: true });
+
+canvas.addEventListener('touchend', e => {
+  clearTimeout(touchTimer);
+  if (touchMoved || !touchStartCell) { touchStartCell = null; return; }
+  if (flagModeOn) handleFlag(touchStartCell.x, touchStartCell.y);
+  else handleReveal(touchStartCell.x, touchStartCell.y);
+  touchStartCell = null;
+});
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Escape') togglePause();
+  else if (e.code === 'KeyR' && gameOver) startNewGame();
+});
+
+function togglePause(forceState) {
+  if (gameOver) return;
+  paused = typeof forceState === 'boolean' ? forceState : !paused;
+  pauseMenu.style.display = paused ? 'flex' : 'none';
+}
+pauseBtn.addEventListener('click', () => togglePause());
+resumeBtn.addEventListener('click', () => togglePause(false));
+restartBtn.addEventListener('click', () => { togglePause(false); startNewGame(); });
+quitBtn.addEventListener('click', () => {
+  togglePause(false);
+  gameOver = true;
+  pauseMenu.style.display = 'none';
+  banner.style.display = 'none';
+  titleScreen.style.display = 'flex';
+  updateBestLine();
+});
+titleStartBtn.addEventListener('click', () => {
+  titleScreen.style.display = 'none';
+  startNewGame();
+});
+
+// ---- Drawing ----
+const NUMBER_COLORS = ['', '#4a90e2', '#2ec4b6', '#e94560', '#9b5de5', '#f4a259', '#00b8a9', '#fff', '#ccc'];
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const cell = grid[y][x];
+      const px = x * CELL, py = y * CELL;
+
+      if (cell.revealed) {
+        ctx.fillStyle = cell.mine ? '#e94560' : '#0a0a1a';
+        ctx.fillRect(px, py, CELL, CELL);
+        ctx.strokeStyle = '#05050f';
+        ctx.strokeRect(px, py, CELL, CELL);
+        if (cell.mine) {
+          ctx.fillStyle = '#05050f';
+          ctx.beginPath();
+          ctx.arc(px + CELL / 2, py + CELL / 2, CELL * 0.28, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (cell.adjacent > 0) {
+          ctx.fillStyle = NUMBER_COLORS[cell.adjacent] || '#fff';
+          ctx.font = `bold ${Math.floor(CELL * 0.55)}px monospace`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(cell.adjacent, px + CELL / 2, py + CELL / 2 + 1);
+        }
+      } else {
+        ctx.fillStyle = '#16213e';
+        ctx.fillRect(px, py, CELL, CELL);
+        ctx.strokeStyle = '#0f3460';
+        ctx.strokeRect(px, py, CELL, CELL);
+        if (cell.flagged) {
+          ctx.fillStyle = '#f1c40f';
+          ctx.font = `${Math.floor(CELL * 0.5)}px monospace`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('🚩', px + CELL / 2, py + CELL / 2 + 1);
+        }
+      }
+    }
+  }
+}
+
+let lastFrameTime = performance.now();
+function loop(now) {
+  const dt = (now - lastFrameTime) / 1000;
+  lastFrameTime = now;
+  if (!gameOver && !paused && firstClickDone) {
+    timerAccum += dt;
+    if (timerAccum >= 1) {
+      timerAccum -= 1;
+      elapsedSeconds++;
+      updateHud();
+    }
+  }
+  requestAnimationFrame(loop);
+}
+
+pauseBtn.style.display = 'flex';
+if (fullscreenSupported) fullscreenBtn.style.display = 'flex';
+gameOver = true;
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

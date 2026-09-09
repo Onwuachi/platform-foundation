@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Platform Foundation — Maze Chase</title>
+<style>
+  html, body {
+    margin: 0; height: 100%; background: #05050f;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: monospace; overflow: hidden;
+  }
+  #game-area {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    width: 100%; height: 100%;
+  }
+  canvas {
+    background: #0a0a1a; border: 2px solid #0f3460; display: block;
+    touch-action: none;
+    width: min(96vw, 96vh, 560px);
+    height: min(96vw, 96vh, 560px);
+  }
+  #hint { position: fixed; top: 12px; left: 12px; color: #e94560; font-size: 13px; }
+  #hud { position: fixed; top: 12px; right: 12px; color: #f1c40f; font-size: 14px; text-align: right; line-height: 1.4; }
+  #pause-btn {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+    color: #fff; font-size: 20px; cursor: pointer; z-index: 6;
+    background: rgba(15, 52, 96, 0.85); border: 1px solid #0f3460;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center;
+  }
+  #fullscreen-btn {
+    position: fixed; top: 12px; left: calc(50% + 44px); transform: translateX(-50%);
+    color: #fff; font-size: 16px; cursor: pointer; z-index: 6;
+    background: rgba(15, 52, 96, 0.85); border: 1px solid #0f3460;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center;
+  }
+  #pause-menu {
+    position: fixed; inset: 0; z-index: 25; background: rgba(15, 15, 30, 0.9);
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; font-family: monospace; gap: 16px;
+  }
+  #pause-menu .pause-title { font-size: 24px; }
+  #pause-menu button, #pause-menu a {
+    padding: 10px 24px; font-size: 15px; font-family: monospace;
+    border: none; border-radius: 8px; cursor: pointer; color: #fff;
+    text-decoration: none; display: inline-block; box-sizing: border-box; text-align: center;
+  }
+  #resume-btn { background: #2ec4b6; }
+  #restart-btn { background: #f4a259; }
+  #quit-btn { background: #e94560; }
+  #arcade-link { background: #16213e; border: 1px solid #0f3460; }
+  #title-screen {
+    position: fixed; inset: 0; z-index: 20; background: #05050f;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; font-family: monospace; gap: 18px;
+  }
+  #title-screen h1 { font-size: 22px; margin: 0; }
+  #title-screen button, #title-screen a {
+    padding: 10px 28px; background: #e94560; border: none; border-radius: 8px;
+    cursor: pointer; font-size: 16px; color: #fff; font-family: monospace;
+    text-decoration: none; display: inline-block; box-sizing: border-box;
+  }
+  #title-arcade-link { background: #16213e; border: 1px solid #0f3460; }
+  #banner {
+    position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
+    color: #fff; font-size: 26px; text-align: center; display: none;
+    text-shadow: 0 0 8px #000; z-index: 5; cursor: pointer;
+  }
+  #banner span { display: block; font-size: 14px; color: #ccc; margin-top: 8px; }
+
+  #touch-controls {
+    display: none;
+    flex-direction: column; align-items: center; gap: 6px;
+    z-index: 10; flex-shrink: 0; padding: 10px 0;
+    user-select: none; -webkit-user-select: none;
+  }
+  #touch-controls .dpad-row { display: flex; gap: 6px; }
+  #touch-controls .btn {
+    width: 54px; height: 54px; border-radius: 10px;
+    background: rgba(15, 52, 96, 0.85); border: 2px solid #e94560;
+    color: #fff; font-size: 20px; display: flex; align-items: center; justify-content: center;
+    touch-action: none;
+  }
+  #touch-controls .btn.spacer { visibility: hidden; }
+  @media (pointer: coarse) {
+    #touch-controls { display: flex; }
+    #hint { display: none; }
+  }
+  @media (pointer: coarse) and (max-height: 500px) {
+    #game-area { flex-direction: row; gap: 12px; }
+    canvas { width: min(70vh, 70vw); height: min(70vh, 70vw); }
+    #touch-controls .btn { width: 40px; height: 40px; font-size: 15px; }
+    #pause-btn, #fullscreen-btn { top: 6px; width: 28px; height: 28px; font-size: 14px; }
+    #fullscreen-btn { left: calc(50% + 36px); }
+  }
+</style>
+</head>
+<body>
+<div id="hint">Arrow keys to move, Esc to pause</div>
+<div id="hud">Lives: 3<br>Score: 0<br>Level: 1</div>
+<div id="pause-btn">⏸</div>
+<div id="fullscreen-btn">⛶</div>
+<div id="banner"></div>
+<div id="pause-menu">
+  <div class="pause-title">Paused</div>
+  <button id="resume-btn">Resume</button>
+  <button id="restart-btn">Restart</button>
+  <button id="quit-btn">Quit</button>
+  <a id="arcade-link" href="/culture/games/" target="_top">Back to Arcade</a>
+</div>
+<div id="title-screen">
+  <h1>Maze Chase</h1>
+  <button id="title-start-btn">Start</button>
+  <a id="title-arcade-link" href="/culture/games/" target="_top">Back to Arcade</a>
+</div>
+<div id="game-area">
+  <canvas id="game" width="420" height="460"></canvas>
+  <div id="touch-controls">
+    <div class="dpad-row">
+      <div class="btn spacer"></div>
+      <div class="btn" id="btn-up">▲</div>
+      <div class="btn spacer"></div>
+    </div>
+    <div class="dpad-row">
+      <div class="btn" id="btn-left">◀</div>
+      <div class="btn" id="btn-down">▼</div>
+      <div class="btn" id="btn-right">▶</div>
+    </div>
+  </div>
+</div>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const banner = document.getElementById('banner');
+const pauseBtn = document.getElementById('pause-btn');
+const pauseMenu = document.getElementById('pause-menu');
+const resumeBtn = document.getElementById('resume-btn');
+const restartBtn = document.getElementById('restart-btn');
+const quitBtn = document.getElementById('quit-btn');
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+const titleScreen = document.getElementById('title-screen');
+const titleStartBtn = document.getElementById('title-start-btn');
+
+function getFullscreenElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+}
+function requestFs(el) {
+  const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  return fn ? fn.call(el) : Promise.reject(new Error('unsupported'));
+}
+function exitFs() {
+  const fn = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+  return fn ? fn.call(document) : Promise.reject(new Error('unsupported'));
+}
+function toggleFullscreen() {
+  if (!getFullscreenElement()) requestFs(document.documentElement).catch(() => {});
+  else exitFs();
+}
+fullscreenBtn.addEventListener('click', toggleFullscreen);
+const fullscreenSupported = !!(
+  document.documentElement.requestFullscreen ||
+  document.documentElement.webkitRequestFullscreen ||
+  document.documentElement.msRequestFullscreen
+);
+if (!fullscreenSupported) fullscreenBtn.style.display = 'none';
+
+// ---- Maze layouts ----
+// 0 = wall, 1 = pellet, 2 = power pellet, 3 = empty (already-eaten or spawn area)
+// Each row must be the same length; COLS/ROWS derived from the first maze.
+const MAZES = [
+  [
+    "0000000000000000000",
+    "0111111110111111110",
+    "0100001010101000010",
+    "0201001010101001020",
+    "0100001000001000010",
+    "0111111111111111110",
+    "0100010111110100010",
+    "0111010100010111110",
+    "0001010111010100000",
+    "0001010333010100000",
+    "0001013303310100000",
+    "0001010333010100000",
+    "0001010111010100000",
+    "0111010100010111110",
+    "0100010111110100010",
+    "0111111111111111110",
+    "0100001010101000010",
+    "0201001010101001020",
+    "0100001000001000010",
+    "0111111111111111110",
+    "0000000000000000000"
+  ],
+  [
+    "0000000000000000000",
+    "0111111111111111110",
+    "0100010000000010010",
+    "0201010111110100020",
+    "0100010100010100010",
+    "0111010100010101110",
+    "0000010100010100000",
+    "0001110111110111000",
+    "0001000030000010000",
+    "0001033333333001000",
+    "0001000030000010000",
+    "0001110111110111000",
+    "0000010100010100000",
+    "0111010100010101110",
+    "0100010100010100010",
+    "0201010111110100020",
+    "0100010000000010010",
+    "0111111111111111110",
+    "0100000000000000010",
+    "0111111111111111110",
+    "0000000000000000000"
+  ]
+];
+
+const ROWS = MAZES[0].length;
+const COLS = MAZES[0][0].length;
+const CELL = canvas.width / COLS;
+
+let grid, pelletsRemaining;
+let player, ghosts;
+let lives, score, level, gameOver, paused;
+let frightenedTimer = 0;
+const FRIGHTENED_DURATION = 360; // frames (~6 sec at 60fps)
+
+function loadMaze(levelIndex) {
+  const template = MAZES[levelIndex % MAZES.length];
+  grid = template.map(row => row.split('').map(Number));
+  pelletsRemaining = 0;
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      if (grid[y][x] === 1 || grid[y][x] === 2) pelletsRemaining++;
+    }
+  }
+}
+
+function findSpawn(value) {
+  // find the first empty (3) cell near the center for ghosts, or a known pellet-free
+  // spot for the player — for simplicity, player always starts bottom-center-ish
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      if (grid[y][x] === value) return { x, y };
+    }
+  }
+  return { x: Math.floor(COLS / 2), y: Math.floor(ROWS / 2) };
+}
+
+const GHOST_COLORS = ['#e94560', '#2ec4b6', '#f4a259', '#9b5de5'];
+const GHOST_NAMES = ['Blinker', 'Chaser', 'Ambler', 'Whimsy'];
+
+function makeGhost(index, spawn) {
+  return {
+    name: GHOST_NAMES[index],
+    color: GHOST_COLORS[index],
+    x: spawn.x, y: spawn.y,
+    pixelX: spawn.x * CELL, pixelY: spawn.y * CELL,
+    dir: { x: 0, y: -1 },
+    // behavior: chase = heads toward player, ambush = heads toward a spot ahead of
+    // the player, patrol = wanders semi-randomly, timid = flees when player is close
+    behavior: ['chase', 'ambush', 'patrol', 'timid'][index],
+    speed: 1.28 + index * 0.13, // pixels per dt-unit frame — ~15% slower than initial tuning
+    frightened: false,
+    eaten: false
+  };
+}
+
+function resetPositions() {
+  const playerSpawn = findSpawn(3) || { x: Math.floor(COLS / 2), y: ROWS - 3 };
+  player = {
+    x: 1, y: 1,
+    pixelX: 1 * CELL, pixelY: 1 * CELL,
+    dir: { x: 0, y: 0 },
+    nextDir: { x: 0, y: 0 },
+    speed: 1.44 // pixels per dt-unit frame — ~15% slower than initial tuning
+  };
+  // place player at a reliable open corridor near top-left rather than relying on
+  // a specific maze marker, since maze layouts vary
+  for (let y = 1; y < ROWS - 1; y++) {
+    for (let x = 1; x < COLS - 1; x++) {
+      if (grid[y][x] !== 0) { player.x = x; player.y = y; player.pixelX = x * CELL; player.pixelY = y * CELL; break; }
+    }
+    if (grid[player.y][player.x] !== 0) break;
+  }
+
+  const centerSpawn = { x: Math.floor(COLS / 2), y: Math.floor(ROWS / 2) };
+  ghosts = [0, 1, 2, 3].map(i => makeGhost(i, {
+    x: centerSpawn.x + (i % 2 === 0 ? -1 : 1),
+    y: centerSpawn.y + (i < 2 ? -1 : 1)
+  }));
+  frightenedTimer = 0;
+}
+
+function loadBest() {
+  const stored = Number(localStorage.getItem('mazechase-best'));
+  return Number.isFinite(stored) ? stored : 0;
+}
+function saveBest(value) {
+  try { localStorage.setItem('mazechase-best', String(value)); } catch (e) {}
+}
+let best = loadBest();
+
+function startNewGame() {
+  level = 0;
+  score = 0;
+  lives = 3;
+  gameOver = false;
+  paused = false;
+  pauseMenu.style.display = 'none';
+  banner.style.display = 'none';
+  loadMaze(level);
+  resetPositions();
+  updateHud();
+}
+
+function updateHud() {
+  hud.innerHTML = `Lives: ${lives}<br>Score: ${score}<br>Level: ${level + 1}<br>Best: ${best}`;
+}
+
+function isWalkable(x, y) {
+  if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return false;
+  return grid[y][x] !== 0;
+}
+
+const keys = {};
+document.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'ArrowUp') player.nextDir = { x: 0, y: -1 };
+  else if (e.code === 'ArrowDown') player.nextDir = { x: 0, y: 1 };
+  else if (e.code === 'ArrowLeft') player.nextDir = { x: -1, y: 0 };
+  else if (e.code === 'ArrowRight') player.nextDir = { x: 1, y: 0 };
+  else if (e.code === 'Escape') togglePause();
+  else if (e.code === 'KeyR' && gameOver) startNewGame();
+});
+document.addEventListener('keyup', e => keys[e.code] = false);
+
+function bindDpadBtn(id, dx, dy) {
+  const el = document.getElementById(id);
+  const handler = e => { e.preventDefault(); player.nextDir = { x: dx, y: dy }; };
+  el.addEventListener('touchstart', handler, { passive: false });
+  el.addEventListener('mousedown', handler);
+}
+bindDpadBtn('btn-up', 0, -1);
+bindDpadBtn('btn-down', 0, 1);
+bindDpadBtn('btn-left', -1, 0);
+bindDpadBtn('btn-right', 1, 0);
+
+canvas.addEventListener('touchstart', () => { if (gameOver) startNewGame(); }, { passive: true });
+canvas.addEventListener('click', () => { if (gameOver) startNewGame(); });
+banner.addEventListener('click', () => { if (gameOver) startNewGame(); });
+
+function togglePause(forceState) {
+  if (gameOver) return;
+  paused = typeof forceState === 'boolean' ? forceState : !paused;
+  pauseMenu.style.display = paused ? 'flex' : 'none';
+}
+pauseBtn.addEventListener('click', () => togglePause());
+resumeBtn.addEventListener('click', () => togglePause(false));
+restartBtn.addEventListener('click', () => { togglePause(false); startNewGame(); });
+quitBtn.addEventListener('click', () => {
+  togglePause(false);
+  gameOver = true;
+  pauseMenu.style.display = 'none';
+  titleScreen.style.display = 'flex';
+});
+titleStartBtn.addEventListener('click', () => {
+  titleScreen.style.display = 'none';
+  startNewGame();
+});
+
+function endGame(won) {
+  gameOver = true;
+  if (score > best) { best = score; saveBest(best); }
+  updateHud();
+  banner.style.display = 'block';
+  banner.innerHTML = won
+    ? `You win! <span>Score ${score} — Press R or tap to play again</span>`
+    : `Game over <span>Score ${score} — Press R or tap to retry</span>`;
+}
+
+function loseLife() {
+  lives--;
+  updateHud();
+  if (lives <= 0) {
+    endGame(false);
+  } else {
+    resetPositions();
+  }
+}
+
+// ---- Ghost AI ----
+// Each ghost picks a target tile based on its behavior, then at each intersection
+// chooses the walkable neighbor that gets it closest to that target (never reversing
+// direction unless it's the only option) — a simplified version of the real Pac-Man
+// ghost targeting model, not the exact original per-ghost logic.
+function pickGhostTarget(ghost) {
+  if (ghost.frightened) {
+    // frightened ghosts target a random walkable tile, recalculated occasionally via drift
+    return { x: Math.random() * COLS, y: Math.random() * ROWS };
+  }
+  switch (ghost.behavior) {
+    case 'chase':
+      return { x: player.x, y: player.y };
+    case 'ambush': {
+      // target a few tiles ahead of the player's current direction
+      const lead = 4;
+      return { x: player.x + player.dir.x * lead, y: player.y + player.dir.y * lead };
+    }
+    case 'patrol': {
+      // patrols toward its own corner, ignoring the player entirely until close
+      const dist = Math.hypot(ghost.x - player.x, ghost.y - player.y);
+      if (dist < 6) return { x: player.x, y: player.y };
+      return { x: ghost.homeCornerX ?? 1, y: ghost.homeCornerY ?? 1 };
+    }
+    case 'timid': {
+      // flees directly away from the player when close, otherwise wanders toward center
+      const dist = Math.hypot(ghost.x - player.x, ghost.y - player.y);
+      if (dist < 5) {
+        return { x: ghost.x + (ghost.x - player.x), y: ghost.y + (ghost.y - player.y) };
+      }
+      return { x: COLS / 2, y: ROWS / 2 };
+    }
+  }
+}
+
+function moveGhost(ghost, dt) {
+  // move smoothly toward the current grid cell target, then decide next direction once aligned
+  const targetPixelX = ghost.x * CELL;
+  const targetPixelY = ghost.y * CELL;
+  const dx = targetPixelX - ghost.pixelX;
+  const dy = targetPixelY - ghost.pixelY;
+  const dist = Math.hypot(dx, dy);
+  const speed = (ghost.frightened ? ghost.speed * 0.6 : ghost.speed) * dt;
+
+  if (dist < speed || dist === 0) {
+    ghost.pixelX = targetPixelX;
+    ghost.pixelY = targetPixelY;
+
+    // choose next cell: evaluate all 4 directions, pick the walkable one closest to target
+    const target = pickGhostTarget(ghost);
+    const options = [
+      { x: 0, y: -1 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 1, y: 0 }
+    ].filter(d => {
+      // don't allow reversing direction unless it's the only walkable option
+      const isReverse = d.x === -ghost.dir.x && d.y === -ghost.dir.y;
+      return isWalkable(ghost.x + d.x, ghost.y + d.y) && !isReverse;
+    });
+    const candidates = options.length > 0 ? options : [{ x: 0, y: -1 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 1, y: 0 }].filter(d => isWalkable(ghost.x + d.x, ghost.y + d.y));
+
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => {
+        const da = Math.hypot((ghost.x + a.x) - target.x, (ghost.y + a.y) - target.y);
+        const db = Math.hypot((ghost.x + b.x) - target.x, (ghost.y + b.y) - target.y);
+        return da - db;
+      });
+      ghost.dir = candidates[0];
+      ghost.x += ghost.dir.x;
+      ghost.y += ghost.dir.y;
+    }
+  } else {
+    ghost.pixelX += (dx / dist) * speed;
+    ghost.pixelY += (dy / dist) * speed;
+  }
+}
+
+function update(dt) {
+  if (gameOver || paused) return;
+
+  // player movement: try the queued direction first (lets you "pre-turn" at a corner),
+  // fall back to continuing the current direction
+  const targetPixelX = player.x * CELL;
+  const targetPixelY = player.y * CELL;
+  const pdx = targetPixelX - player.pixelX;
+  const pdy = targetPixelY - player.pixelY;
+  const pdist = Math.hypot(pdx, pdy);
+  const pspeed = player.speed * dt;
+
+  if (pdist < pspeed || pdist === 0) {
+    player.pixelX = targetPixelX;
+    player.pixelY = targetPixelY;
+    if (isWalkable(player.x + player.nextDir.x, player.y + player.nextDir.y)) {
+      player.dir = player.nextDir;
+    }
+    if (isWalkable(player.x + player.dir.x, player.y + player.dir.y)) {
+      player.x += player.dir.x;
+      player.y += player.dir.y;
+    } else {
+      player.dir = { x: 0, y: 0 };
+    }
+  } else {
+    player.pixelX += (pdx / pdist) * pspeed;
+    player.pixelY += (pdy / pdist) * pspeed;
+  }
+
+  // pellet pickup
+  const cell = grid[player.y][player.x];
+  if (cell === 1) {
+    grid[player.y][player.x] = 3;
+    score += 10;
+    pelletsRemaining--;
+    updateHud();
+  } else if (cell === 2) {
+    grid[player.y][player.x] = 3;
+    score += 50;
+    pelletsRemaining--;
+    frightenedTimer = FRIGHTENED_DURATION;
+    ghosts.forEach(g => { if (!g.eaten) g.frightened = true; });
+    updateHud();
+  }
+
+  if (frightenedTimer > 0) {
+    frightenedTimer -= dt;
+    if (frightenedTimer <= 0) {
+      frightenedTimer = 0;
+      ghosts.forEach(g => g.frightened = false);
+    }
+  }
+
+  ghosts.forEach(g => moveGhost(g, dt));
+
+  // ghost-player collision
+  for (const g of ghosts) {
+    const dist = Math.hypot(g.pixelX - player.pixelX, g.pixelY - player.pixelY);
+    if (dist < CELL * 0.6) {
+      if (g.frightened && !g.eaten) {
+        g.eaten = true;
+        g.frightened = false;
+        score += 200;
+        updateHud();
+        // send the eaten ghost back toward center to "respawn"
+        const centerSpawn = { x: Math.floor(COLS / 2), y: Math.floor(ROWS / 2) };
+        g.x = centerSpawn.x; g.y = centerSpawn.y;
+        g.pixelX = g.x * CELL; g.pixelY = g.y * CELL;
+        setTimeout(() => { g.eaten = false; }, 3000);
+      } else if (!g.eaten) {
+        loseLife();
+        return;
+      }
+    }
+  }
+
+  if (pelletsRemaining === 0) {
+    level++;
+    if (level >= MAZES.length * 2) { // a couple of full cycles through both mazes = a win condition
+      endGame(true);
+      return;
+    }
+    loadMaze(level);
+    resetPositions();
+    updateHud();
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const cell = grid[y][x];
+      if (cell === 0) {
+        ctx.fillStyle = '#16213e';
+        ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+      } else if (cell === 1) {
+        ctx.fillStyle = '#f1c40f';
+        ctx.beginPath();
+        ctx.arc(x * CELL + CELL / 2, y * CELL + CELL / 2, CELL * 0.08, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (cell === 2) {
+        ctx.fillStyle = '#f1c40f';
+        ctx.beginPath();
+        ctx.arc(x * CELL + CELL / 2, y * CELL + CELL / 2, CELL * 0.22, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // player
+  ctx.fillStyle = '#2ec4b6';
+  ctx.beginPath();
+  ctx.arc(player.pixelX + CELL / 2, player.pixelY + CELL / 2, CELL * 0.4, 0.25 * Math.PI, 1.75 * Math.PI);
+  ctx.lineTo(player.pixelX + CELL / 2, player.pixelY + CELL / 2);
+  ctx.closePath();
+  ctx.fill();
+
+  // ghosts
+  ghosts.forEach(g => {
+    if (g.eaten) return; // "eyes only" simplification: just hide while respawning
+    ctx.fillStyle = g.frightened ? '#3a3a5c' : g.color;
+    ctx.beginPath();
+    ctx.arc(g.pixelX + CELL / 2, g.pixelY + CELL / 2, CELL * 0.4, Math.PI, 0);
+    ctx.lineTo(g.pixelX + CELL * 0.9, g.pixelY + CELL * 0.9);
+    ctx.lineTo(g.pixelX + CELL * 0.1, g.pixelY + CELL * 0.9);
+    ctx.closePath();
+    ctx.fill();
+  });
+}
+
+let lastFrameTime = performance.now();
+function loop(now) {
+  const dt = Math.min((now - lastFrameTime) / 16.6667, 3); // normalize to ~60fps units, clamp spikes
+  lastFrameTime = now;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+pauseBtn.style.display = 'flex';
+if (fullscreenSupported) fullscreenBtn.style.display = 'flex';
+loadMaze(0);
+resetPositions();
+gameOver = true;
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

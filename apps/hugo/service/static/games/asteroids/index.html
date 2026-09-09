@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Platform Foundation — Asteroids</title>
+<style>
+  html, body {
+    margin: 0; height: 100%; background: #05050f;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: monospace; overflow: hidden;
+  }
+  #game-area {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    width: 100%; height: 100%;
+  }
+  canvas {
+    background: #0a0a1a; border: 2px solid #0f3460; display: block;
+    touch-action: none;
+    width: min(96vw, 170.6vh, 800px);
+    height: min(54vw, 96vh, 450px);
+  }
+  #hint { position: fixed; top: 12px; left: 12px; color: #e94560; font-size: 14px; }
+  #hud { position: fixed; top: 12px; right: 12px; color: #f1c40f; font-size: 14px; text-align: right; line-height: 1.4; }
+  #pause-btn {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+    color: #fff; font-size: 20px; cursor: pointer; z-index: 6;
+    background: rgba(15, 52, 96, 0.85); border: 1px solid #0f3460;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center;
+  }
+  #fullscreen-btn {
+    position: fixed; top: 12px; left: calc(50% + 44px); transform: translateX(-50%);
+    color: #fff; font-size: 16px; cursor: pointer; z-index: 6;
+    background: rgba(15, 52, 96, 0.85); border: 1px solid #0f3460;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center;
+  }
+  #pause-menu {
+    position: fixed; inset: 0; z-index: 25; background: rgba(15, 15, 30, 0.9);
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; font-family: monospace; gap: 16px;
+  }
+  #pause-menu .pause-title { font-size: 24px; }
+  #pause-menu button, #pause-menu a {
+    padding: 10px 24px; font-size: 15px; font-family: monospace;
+    border: none; border-radius: 8px; cursor: pointer; color: #fff;
+    text-decoration: none; display: inline-block; box-sizing: border-box; text-align: center;
+  }
+  #resume-btn { background: #2ec4b6; }
+  #restart-btn { background: #f4a259; }
+  #quit-btn { background: #e94560; }
+  #arcade-link { background: #16213e; border: 1px solid #0f3460; }
+  #title-screen {
+    position: fixed; inset: 0; z-index: 20; background: #05050f;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; font-family: monospace; gap: 18px;
+  }
+  #title-screen h1 { font-size: 22px; margin: 0; }
+  #title-screen button, #title-screen a {
+    padding: 10px 28px; background: #e94560; border: none; border-radius: 8px;
+    cursor: pointer; font-size: 16px; color: #fff; font-family: monospace;
+    text-decoration: none; display: inline-block; box-sizing: border-box;
+  }
+  #title-arcade-link { background: #16213e; border: 1px solid #0f3460; }
+  #banner {
+    position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
+    color: #fff; font-size: 26px; text-align: center; display: none;
+    text-shadow: 0 0 8px #000; z-index: 5; cursor: pointer;
+  }
+  #banner span { display: block; font-size: 14px; color: #ccc; margin-top: 8px; }
+
+  #touch-controls {
+    display: none;
+    justify-content: space-between; align-items: center;
+    width: min(96vw, 170.6vh, 800px);
+    padding: 10px 20px;
+    user-select: none; -webkit-user-select: none;
+    z-index: 10; flex-shrink: 0;
+  }
+  #left-controls { display: flex; gap: 10px; }
+  #touch-controls .btn {
+    width: 58px; height: 58px; border-radius: 50%;
+    background: rgba(15, 52, 96, 0.85); border: 2px solid #e94560;
+    color: #fff; font-size: 20px; display: flex; align-items: center; justify-content: center;
+    touch-action: none;
+  }
+  #fire-btn { width: 68px; height: 68px; font-size: 22px; background: rgba(233, 69, 96, 0.3); }
+  @media (pointer: coarse) {
+    #touch-controls { display: flex; }
+    #hint { display: none; }
+  }
+  @media (pointer: coarse) and (max-height: 500px) {
+    #game-area { flex-direction: row; gap: 12px; }
+    canvas { width: min(70vw, 150vh); height: min(40vw, 82vh); }
+    #touch-controls .btn { width: 40px; height: 40px; font-size: 14px; }
+    #fire-btn { width: 48px; height: 48px; font-size: 16px; }
+    #pause-btn, #fullscreen-btn { top: 6px; width: 28px; height: 28px; font-size: 14px; }
+    #fullscreen-btn { left: calc(50% + 36px); }
+  }
+</style>
+</head>
+<body>
+<div id="hint">Left/Right rotate, Up thrusts, Space fires, Esc pauses</div>
+<div id="hud">Lives: 3<br>Score: 0<br>Best: 0</div>
+<div id="pause-btn">⏸</div>
+<div id="fullscreen-btn">⛶</div>
+<div id="banner"></div>
+<div id="pause-menu">
+  <div class="pause-title">Paused</div>
+  <button id="resume-btn">Resume</button>
+  <button id="restart-btn">Restart</button>
+  <button id="quit-btn">Quit</button>
+  <a id="arcade-link" href="/culture/games/" target="_top">Back to Arcade</a>
+</div>
+<div id="title-screen">
+  <h1>Asteroids</h1>
+  <button id="title-start-btn">Start</button>
+  <a id="title-arcade-link" href="/culture/games/" target="_top">Back to Arcade</a>
+</div>
+<div id="game-area">
+  <canvas id="game" width="640" height="360"></canvas>
+  <div id="touch-controls">
+    <div id="left-controls">
+      <div class="btn" id="btn-left">◀</div>
+      <div class="btn" id="btn-thrust">▲</div>
+      <div class="btn" id="btn-right">▶</div>
+    </div>
+    <div class="btn" id="fire-btn">●</div>
+  </div>
+</div>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const banner = document.getElementById('banner');
+const pauseBtn = document.getElementById('pause-btn');
+const pauseMenu = document.getElementById('pause-menu');
+const resumeBtn = document.getElementById('resume-btn');
+const restartBtn = document.getElementById('restart-btn');
+const quitBtn = document.getElementById('quit-btn');
+const titleScreen = document.getElementById('title-screen');
+const titleStartBtn = document.getElementById('title-start-btn');
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+
+// ---- Fullscreen (vendor-prefixed; may still be blocked on some mobile/iframe combos) ----
+function getFullscreenElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+}
+function requestFs(el) {
+  const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  return fn ? fn.call(el) : Promise.reject(new Error('unsupported'));
+}
+function exitFs() {
+  const fn = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+  return fn ? fn.call(document) : Promise.reject(new Error('unsupported'));
+}
+function toggleFullscreen() {
+  if (!getFullscreenElement()) requestFs(document.documentElement).catch(() => {});
+  else exitFs();
+}
+fullscreenBtn.addEventListener('click', toggleFullscreen);
+const fullscreenSupported = !!(
+  document.documentElement.requestFullscreen ||
+  document.documentElement.webkitRequestFullscreen ||
+  document.documentElement.msRequestFullscreen
+);
+if (!fullscreenSupported) fullscreenBtn.style.display = 'none';
+
+const W = canvas.width, H = canvas.height;
+
+function wrap(pos, max) {
+  if (pos < 0) return pos + max;
+  if (pos > max) return pos - max;
+  return pos;
+}
+
+const ship = {
+  x: W / 2, y: H / 2,
+  angle: -Math.PI / 2, // pointing up
+  vx: 0, vy: 0,
+  r: 10,
+  thrusting: false,
+  invincibleTimer: 0 // brief grace period after respawn
+};
+
+const THRUST_POWER = 0.12;
+const FRICTION = 0.988; // slight drag so it doesn't feel like true frictionless space, more arcade-playable
+const TURN_SPEED = 0.06;
+const MAX_SPEED = 5;
+
+let bullets = [];
+let asteroids = [];
+let lives = 3;
+let score = 0;
+let gameOver = false;
+let paused = false;
+let fireCooldown = 0;
+const FIRE_RATE = 10;
+
+function loadBest() {
+  const stored = Number(localStorage.getItem('asteroids-best'));
+  return Number.isFinite(stored) ? stored : 0;
+}
+function saveBest(value) {
+  try { localStorage.setItem('asteroids-best', String(value)); } catch (e) {}
+}
+let best = loadBest();
+
+const ASTEROID_SIZES = { large: 32, medium: 18, small: 10 };
+const ASTEROID_SPEED = { large: 0.6, medium: 1.0, small: 1.6 };
+const ASTEROID_SCORE = { large: 20, medium: 50, small: 100 };
+
+function makeAsteroid(size, x, y) {
+  // if no position given, spawn at a random edge, away from the ship
+  if (x === undefined) {
+    const side = Math.floor(Math.random() * 4);
+    if (side === 0) { x = 0; y = Math.random() * H; }
+    else if (side === 1) { x = W; y = Math.random() * H; }
+    else if (side === 2) { x = Math.random() * W; y = 0; }
+    else { x = Math.random() * W; y = H; }
+  }
+  const angle = Math.random() * Math.PI * 2;
+  const speed = ASTEROID_SPEED[size] * (0.7 + Math.random() * 0.6);
+  // irregular polygon shape, generated once and reused for the asteroid's lifetime
+  const vertexCount = 8 + Math.floor(Math.random() * 4);
+  const vertices = [];
+  for (let i = 0; i < vertexCount; i++) {
+    const a = (i / vertexCount) * Math.PI * 2;
+    const radiusVariance = 0.75 + Math.random() * 0.5;
+    vertices.push({ angle: a, radiusMult: radiusVariance });
+  }
+  return {
+    x, y, size,
+    r: ASTEROID_SIZES[size],
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    rotation: 0,
+    rotationSpeed: (Math.random() - 0.5) * 0.02,
+    vertices
+  };
+}
+
+function spawnWave(count) {
+  asteroids = [];
+  for (let i = 0; i < count; i++) asteroids.push(makeAsteroid('large'));
+}
+
+function resetShip() {
+  ship.x = W / 2; ship.y = H / 2;
+  ship.vx = 0; ship.vy = 0;
+  ship.angle = -Math.PI / 2;
+  ship.invincibleTimer = 120; // ~2 sec grace period at 60fps
+}
+
+function startNewGame() {
+  lives = 3;
+  score = 0;
+  gameOver = false;
+  paused = false;
+  bullets = [];
+  pauseMenu.style.display = 'none';
+  banner.style.display = 'none';
+  resetShip();
+  spawnWave(4);
+  updateHud();
+}
+
+function updateHud() {
+  hud.innerHTML = `Lives: ${lives}<br>Score: ${score}<br>Best: ${best}`;
+}
+
+const keys = {};
+document.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'Escape') togglePause();
+  if (e.code === 'KeyR' && gameOver) startNewGame();
+});
+document.addEventListener('keyup', e => keys[e.code] = false);
+
+function bindHoldBtn(id, code) {
+  const el = document.getElementById(id);
+  const press = e => { e.preventDefault(); keys[code] = true; };
+  const release = e => { e.preventDefault(); keys[code] = false; };
+  el.addEventListener('touchstart', press, { passive: false });
+  el.addEventListener('touchend', release, { passive: false });
+  el.addEventListener('touchcancel', release, { passive: false });
+  el.addEventListener('mousedown', press);
+  el.addEventListener('mouseup', release);
+  el.addEventListener('mouseleave', release);
+}
+bindHoldBtn('btn-left', 'ArrowLeft');
+bindHoldBtn('btn-right', 'ArrowRight');
+bindHoldBtn('btn-thrust', 'ArrowUp');
+bindHoldBtn('fire-btn', 'Space');
+
+canvas.addEventListener('touchstart', () => { if (gameOver) startNewGame(); }, { passive: true });
+canvas.addEventListener('click', () => { if (gameOver) startNewGame(); });
+banner.addEventListener('click', () => { if (gameOver) startNewGame(); });
+
+function togglePause(forceState) {
+  if (gameOver) return;
+  paused = typeof forceState === 'boolean' ? forceState : !paused;
+  pauseMenu.style.display = paused ? 'flex' : 'none';
+}
+pauseBtn.addEventListener('click', () => togglePause());
+resumeBtn.addEventListener('click', () => togglePause(false));
+restartBtn.addEventListener('click', () => { togglePause(false); startNewGame(); });
+quitBtn.addEventListener('click', () => {
+  togglePause(false);
+  gameOver = true; // freezes the update loop, same mechanism as a real game-over
+  pauseMenu.style.display = 'none';
+  titleScreen.style.display = 'flex';
+});
+titleStartBtn.addEventListener('click', () => {
+  titleScreen.style.display = 'none';
+  startNewGame();
+});
+
+function endGame() {
+  gameOver = true;
+  if (score > best) { best = score; saveBest(best); }
+  updateHud();
+  banner.style.display = 'block';
+  banner.innerHTML = `Game over <span>Score ${score} — Press R or tap to retry</span>`;
+}
+
+function splitAsteroid(asteroid) {
+  const nextSize = asteroid.size === 'large' ? 'medium' : (asteroid.size === 'medium' ? 'small' : null);
+  score += ASTEROID_SCORE[asteroid.size];
+  if (nextSize) {
+    // spawn 2 smaller asteroids at the same position, roughly opposite directions
+    for (let i = 0; i < 2; i++) {
+      const child = makeAsteroid(nextSize, asteroid.x, asteroid.y);
+      asteroids.push(child);
+    }
+  }
+}
+
+function update() {
+  if (gameOver || paused) return;
+
+  if (keys['ArrowLeft']) ship.angle -= TURN_SPEED;
+  if (keys['ArrowRight']) ship.angle += TURN_SPEED;
+
+  ship.thrusting = !!keys['ArrowUp'];
+  if (ship.thrusting) {
+    ship.vx += Math.cos(ship.angle) * THRUST_POWER;
+    ship.vy += Math.sin(ship.angle) * THRUST_POWER;
+    const speed = Math.hypot(ship.vx, ship.vy);
+    if (speed > MAX_SPEED) {
+      ship.vx = (ship.vx / speed) * MAX_SPEED;
+      ship.vy = (ship.vy / speed) * MAX_SPEED;
+    }
+  }
+  ship.vx *= FRICTION;
+  ship.vy *= FRICTION;
+  ship.x = wrap(ship.x + ship.vx, W);
+  ship.y = wrap(ship.y + ship.vy, H);
+
+  if (ship.invincibleTimer > 0) ship.invincibleTimer--;
+
+  if (fireCooldown > 0) fireCooldown--;
+  if (keys['Space'] && fireCooldown === 0) {
+    bullets.push({
+      x: ship.x, y: ship.y,
+      vx: Math.cos(ship.angle) * 7 + ship.vx * 0.5,
+      vy: Math.sin(ship.angle) * 7 + ship.vy * 0.5,
+      life: 60 // frames before the bullet expires, prevents infinite-range sniping
+    });
+    fireCooldown = FIRE_RATE;
+  }
+
+  bullets.forEach(b => {
+    b.x = wrap(b.x + b.vx, W);
+    b.y = wrap(b.y + b.vy, H);
+    b.life--;
+  });
+  bullets = bullets.filter(b => b.life > 0);
+
+  asteroids.forEach(a => {
+    a.x = wrap(a.x + a.vx, W);
+    a.y = wrap(a.y + a.vy, H);
+    a.rotation += a.rotationSpeed;
+  });
+
+  // bullet-asteroid collisions
+  for (const a of asteroids) {
+    for (const b of bullets) {
+      if (Math.hypot(a.x - b.x, a.y - b.y) < a.r) {
+        a.hit = true;
+        b.hit = true;
+      }
+    }
+  }
+  const hitAsteroids = asteroids.filter(a => a.hit);
+  hitAsteroids.forEach(splitAsteroid);
+  asteroids = asteroids.filter(a => !a.hit);
+  bullets = bullets.filter(b => !b.hit);
+  if (hitAsteroids.length > 0) updateHud();
+
+  // ship-asteroid collision (skip during invincibility grace period)
+  if (ship.invincibleTimer === 0) {
+    for (const a of asteroids) {
+      if (Math.hypot(a.x - ship.x, a.y - ship.y) < a.r + ship.r) {
+        lives--;
+        updateHud();
+        if (lives <= 0) { endGame(); return; }
+        resetShip();
+        break;
+      }
+    }
+  }
+
+  if (asteroids.length === 0) {
+    spawnWave(4 + Math.floor(score / 500)); // slightly bigger waves as score climbs
+  }
+}
+
+function drawAsteroid(a) {
+  ctx.save();
+  ctx.translate(a.x, a.y);
+  ctx.rotate(a.rotation);
+  ctx.strokeStyle = '#9a9ab0';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  a.vertices.forEach((v, i) => {
+    const r = a.r * v.radiusMult;
+    const px = Math.cos(v.angle) * r;
+    const py = Math.sin(v.angle) * r;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  });
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  for (let i = 0; i < 50; i++) {
+    const sx = (i * 83) % W;
+    const sy = (i * 61) % H;
+    ctx.fillRect(sx, sy, 1, 1);
+  }
+
+  ctx.fillStyle = '#f1c40f';
+  bullets.forEach(b => {
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, 2, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  asteroids.forEach(drawAsteroid);
+
+  // ship — blink during invincibility so the grace period is visible, not just invisible logic
+  const shouldDraw = ship.invincibleTimer === 0 || Math.floor(ship.invincibleTimer / 6) % 2 === 0;
+  if (shouldDraw) {
+    ctx.save();
+    ctx.translate(ship.x, ship.y);
+    ctx.rotate(ship.angle + Math.PI / 2);
+    ctx.strokeStyle = '#2ec4b6';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, -ship.r);
+    ctx.lineTo(ship.r * 0.7, ship.r * 0.8);
+    ctx.lineTo(0, ship.r * 0.4);
+    ctx.lineTo(-ship.r * 0.7, ship.r * 0.8);
+    ctx.closePath();
+    ctx.stroke();
+    if (ship.thrusting) {
+      ctx.strokeStyle = '#e94560';
+      ctx.beginPath();
+      ctx.moveTo(-ship.r * 0.3, ship.r * 0.7);
+      ctx.lineTo(0, ship.r * 1.4);
+      ctx.lineTo(ship.r * 0.3, ship.r * 0.7);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+pauseBtn.style.display = 'flex';
+if (fullscreenSupported) fullscreenBtn.style.display = 'flex';
+gameOver = true; // start frozen on the title screen, not mid-game
+titleScreen.style.display = 'flex';
+loop();
+</script>
+</body>
+</html>

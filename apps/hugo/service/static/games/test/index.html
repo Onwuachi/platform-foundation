@@ -2,56 +2,588 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Platform Foundation — Game Test</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #1a1a2e; display: flex; align-items: center; justify-content: center; font-family: monospace; }
-  canvas { background: #16213e; border: 2px solid #0f3460; display: block; }
+  html, body {
+    margin: 0; height: 100%; background: #1a1a2e;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: monospace; overflow: hidden;
+  }
+  #game-area {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    width: 100%; height: 100%;
+  }
+  canvas {
+    background: #16213e; border: 2px solid #0f3460; display: block;
+    touch-action: none;
+    /* keep 640:360 aspect ratio, but never exceed available viewport width or height,
+       and never render larger than the game's native resolution */
+    width: min(96vw, 170.6vh, 800px);
+    height: min(54vw, 96vh, 450px);
+  }
   #hint { position: fixed; top: 12px; left: 12px; color: #e94560; font-size: 14px; }
+  #hud { position: fixed; top: 12px; right: 12px; color: #f1c40f; font-size: 14px; text-align: right; line-height: 1.4; }
+  #pause-btn {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+    color: #fff; font-size: 20px; cursor: pointer; z-index: 6;
+    background: rgba(15, 52, 96, 0.85); border: 1px solid #0f3460;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center;
+  }
+  #fullscreen-btn {
+    position: fixed; top: 12px; left: calc(50% + 44px); transform: translateX(-50%);
+    color: #fff; font-size: 16px; cursor: pointer; z-index: 6;
+    background: rgba(15, 52, 96, 0.85); border: 1px solid #0f3460;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center;
+  }
+  #pause-menu {
+    position: fixed; inset: 0; z-index: 25; background: rgba(15, 15, 30, 0.9);
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; font-family: monospace; gap: 16px;
+  }
+  #pause-menu .pause-title { font-size: 24px; }
+  #pause-menu button {
+    padding: 10px 24px; font-size: 15px; font-family: monospace;
+    border: none; border-radius: 8px; cursor: pointer; color: #fff;
+  }
+  #resume-btn { background: #2ec4b6; }
+  #quit-btn { background: #e94560; }
+  #banner {
+    position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
+    color: #fff; font-size: 28px; text-align: center; display: none;
+    text-shadow: 0 0 8px #000; z-index: 5; cursor: pointer;
+  }
+  #banner span { display: block; font-size: 14px; color: #ccc; margin-top: 8px; }
+
+  #char-select {
+    position: fixed; inset: 0; z-index: 20;
+    background: #1a1a2e;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; font-family: monospace; gap: 18px;
+  }
+  #char-title { font-size: 22px; }
+  #char-swatches { display: flex; gap: 16px; }
+  .swatch {
+    width: 56px; height: 56px; border-radius: 10px;
+    border: 3px solid transparent; cursor: pointer;
+  }
+  .swatch.selected { border-color: #fff; }
+  #char-hint { font-size: 13px; color: #aaa; }
+  #char-start {
+    padding: 10px 28px; background: #e94560; border-radius: 8px;
+    cursor: pointer; font-size: 16px;
+  }
+
+  #touch-controls {
+    display: none;
+    justify-content: space-between; align-items: center;
+    width: min(96vw, 170.6vh, 800px);
+    padding: 10px 20px;
+    user-select: none; -webkit-user-select: none;
+    z-index: 10;
+    flex-shrink: 0;
+  }
+  #touch-controls .btn {
+    width: 68px; height: 68px; border-radius: 50%;
+    background: rgba(15, 52, 96, 0.85); border: 2px solid #e94560;
+    color: #fff; font-size: 24px; display: flex; align-items: center; justify-content: center;
+    touch-action: none;
+  }
+  #move-btns { display: flex; gap: 14px; }
+  @media (pointer: coarse) {
+    #touch-controls { display: flex; }
+    #hint { display: none; }
+  }
+  @media (pointer: coarse) and (orientation: landscape) {
+    /* landscape: little vertical room, so shrink the canvas and buttons
+       and lay them out side-by-side in the game-area flex column with no
+       fixed/overlay positioning, so the browser genuinely reserves space
+       for both instead of the button bar floating on top of the canvas */
+    #game-area { flex-direction: row; gap: 12px; }
+    canvas {
+      width: min(78vw, 160vh);
+      height: min(44vw, 88vh);
+    }
+    #touch-controls {
+      flex-direction: column; justify-content: space-between;
+      width: auto; height: min(44vw, 88vh);
+      padding: 10px 0;
+    }
+    #touch-controls .btn { width: 52px; height: 52px; font-size: 18px; }
+    #move-btns { flex-direction: column; }
+  }
 </style>
 </head>
 <body>
-<div id="hint">Arrow keys to move, Space to jump</div>
-<canvas id="game" width="640" height="360"></canvas>
+<div id="hint">Arrow keys to move, Space to jump, Esc to pause</div>
+<div id="hud">Level 1 / 3<br>Coins: 0 / 0</div>
+<div id="pause-btn">⏸</div>
+<div id="fullscreen-btn">⛶</div>
+<div id="banner"></div>
+<div id="char-select">
+  <div id="char-title">Choose your character</div>
+  <div id="char-swatches"></div>
+  <div id="char-hint">Tap a color, then press Space or tap Start</div>
+  <div id="char-start">Start</div>
+</div>
+<div id="pause-menu">
+  <div class="pause-title">Paused</div>
+  <button id="resume-btn">Resume</button>
+  <button id="quit-btn">Quit to character select</button>
+</div>
+<div id="game-area">
+  <canvas id="game" width="640" height="360"></canvas>
+  <div id="touch-controls">
+    <div id="move-btns">
+      <div class="btn" id="btn-left">◀</div>
+      <div class="btn" id="btn-right">▶</div>
+    </div>
+    <div class="btn" id="btn-jump">▲</div>
+  </div>
+</div>
 <script>
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const banner = document.getElementById('banner');
+const charSelect = document.getElementById('char-select');
+const charSwatches = document.getElementById('char-swatches');
+const charStart = document.getElementById('char-start');
+const pauseBtn = document.getElementById('pause-btn');
+const pauseMenu = document.getElementById('pause-menu');
+const resumeBtn = document.getElementById('resume-btn');
+const quitBtn = document.getElementById('quit-btn');
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+
+// Fullscreen lets the game escape the site's iframe/nav entirely when embedded.
+// Falls back silently if the browser or embed context blocks it (some iframes
+// need an explicit allow="fullscreen" attribute from the parent page).
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {
+      // fullscreen blocked (e.g. iframe missing the allow="fullscreen" attribute) — ignore
+    });
+  } else {
+    document.exitFullscreen();
+  }
+}
+fullscreenBtn.addEventListener('click', toggleFullscreen);
+// only show the button when the Fullscreen API is actually available
+if (!document.documentElement.requestFullscreen) {
+  fullscreenBtn.style.display = 'none';
+}
 
 const gravity = 0.6;
 const ground = 320;
 
-const player = {
-  x: 300, y: ground - 30, w: 24, h: 30,
-  vx: 0, vy: 0,
-  speed: 4, jumpPower: 12,
-  onGround: true,
-  color: '#e94560'
-};
-
-const platforms = [
-  { x: 0, y: ground, w: 640, h: 40 },
-  { x: 150, y: 240, w: 100, h: 12 },
-  { x: 400, y: 180, w: 100, h: 12 }
+// ---- Level definitions ----
+// Each level is fully self-contained: its own platforms, coins, spikes, flag, spawn point.
+// Adding a new level = adding a new entry here. Nothing else needs to change.
+const LEVELS = [
+  {
+    name: 'Getting Started',
+    spawn: { x: 20, y: ground - 30 },
+    platforms: [
+      { x: 0, y: ground, w: 640, h: 40 },
+      { x: 150, y: 240, w: 100, h: 12 },
+      { x: 400, y: 180, w: 100, h: 12 }
+    ],
+    coins: [
+      { x: 190, y: 210 },
+      { x: 440, y: 150 },
+      { x: 40, y: ground - 20 }
+    ],
+    spikes: [
+      { x: 300, y: ground - 12, w: 20, h: 12 }
+    ],
+    flag: { x: 590, y: ground - 60, w: 8, h: 60 }
+  },
+  {
+    name: 'Gaps',
+    spawn: { x: 20, y: ground - 30 },
+    platforms: [
+      { x: 0, y: ground, w: 140, h: 40 },
+      { x: 220, y: ground, w: 120, h: 40 },
+      { x: 420, y: ground, w: 220, h: 40 },
+      { x: 60, y: 230, w: 90, h: 12 },
+      { x: 260, y: 190, w: 90, h: 12 },
+      { x: 470, y: 150, w: 90, h: 12 }
+    ],
+    coins: [
+      { x: 100, y: 200 },
+      { x: 300, y: 160 },
+      { x: 510, y: 120 },
+      { x: 500, y: ground - 20 }
+    ],
+    spikes: [
+      { x: 140, y: ground - 12, w: 80, h: 12 },
+      { x: 340, y: ground - 12, w: 80, h: 12 }
+    ],
+    flag: { x: 590, y: ground - 60, w: 8, h: 60 }
+  },
+  {
+    name: 'Climb',
+    spawn: { x: 20, y: ground - 30 },
+    platforms: [
+      { x: 0, y: ground, w: 640, h: 40 },
+      { x: 40, y: 270, w: 80, h: 12 },
+      { x: 170, y: 230, w: 80, h: 12 },
+      { x: 300, y: 190, w: 80, h: 12 },
+      { x: 430, y: 150, w: 80, h: 12 },
+      { x: 540, y: 110, w: 90, h: 12 }
+    ],
+    coins: [
+      { x: 70, y: 240 },
+      { x: 200, y: 200 },
+      { x: 330, y: 160 },
+      { x: 460, y: 120 }
+    ],
+    spikes: [
+      { x: 150, y: ground - 12, w: 20, h: 12 },
+      { x: 280, y: ground - 12, w: 20, h: 12 },
+      { x: 410, y: ground - 12, w: 20, h: 12 }
+    ],
+    flag: { x: 570, y: 50, w: 8, h: 60 }
+  },
+  {
+    name: 'Precision',
+    spawn: { x: 20, y: ground - 30 },
+    platforms: [
+      { x: 0, y: ground, w: 100, h: 40 },
+      { x: 160, y: ground, w: 60, h: 40 },
+      { x: 280, y: ground, w: 60, h: 40 },
+      { x: 400, y: ground, w: 60, h: 40 },
+      { x: 520, y: ground, w: 120, h: 40 },
+      { x: 200, y: 220, w: 50, h: 12 },
+      { x: 340, y: 190, w: 50, h: 12 },
+      { x: 460, y: 150, w: 50, h: 12 }
+    ],
+    coins: [
+      { x: 225, y: 190 },
+      { x: 365, y: 160 },
+      { x: 485, y: 120 },
+      { x: 550, y: ground - 20 }
+    ],
+    spikes: [
+      { x: 100, y: ground - 12, w: 60, h: 12 },
+      { x: 220, y: ground - 12, w: 60, h: 12 },
+      { x: 340, y: ground - 12, w: 60, h: 12 },
+      { x: 460, y: ground - 12, w: 60, h: 12 }
+    ],
+    flag: { x: 610, y: ground - 60, w: 8, h: 60 }
+  },
+  {
+    name: 'Gauntlet',
+    spawn: { x: 20, y: ground - 30 },
+    platforms: [
+      { x: 0, y: ground, w: 640, h: 40 },
+      { x: 90, y: 260, w: 60, h: 12 },
+      { x: 200, y: 220, w: 60, h: 12 },
+      { x: 310, y: 180, w: 60, h: 12 },
+      { x: 420, y: 140, w: 60, h: 12 },
+      { x: 530, y: 100, w: 90, h: 12 },
+      { x: 250, y: 90, w: 70, h: 12 }
+    ],
+    coins: [
+      { x: 120, y: 230 },
+      { x: 230, y: 190 },
+      { x: 340, y: 150 },
+      { x: 450, y: 110 },
+      { x: 285, y: 60 }
+    ],
+    spikes: [
+      { x: 60, y: ground - 12, w: 20, h: 12 },
+      { x: 170, y: ground - 12, w: 20, h: 12 },
+      { x: 280, y: ground - 12, w: 20, h: 12 },
+      { x: 390, y: ground - 12, w: 20, h: 12 },
+      { x: 500, y: ground - 12, w: 20, h: 12 }
+    ],
+    flag: { x: 565, y: 40, w: 8, h: 60 }
+  },
+  {
+    name: 'Zigzag',
+    spawn: { x: 20, y: ground - 30 },
+    platforms: [
+      { x: 0, y: ground, w: 640, h: 40 },
+      { x: 60, y: 260, w: 80, h: 12 },
+      { x: 210, y: 190, w: 80, h: 12 },
+      { x: 360, y: 260, w: 80, h: 12 },
+      { x: 510, y: 190, w: 80, h: 12 }
+    ],
+    coins: [
+      { x: 95, y: 230 },
+      { x: 245, y: 160 },
+      { x: 395, y: 230 },
+      { x: 545, y: 160 }
+    ],
+    spikes: [
+      { x: 150, y: ground - 12, w: 50, h: 12 },
+      { x: 300, y: ground - 12, w: 50, h: 12 },
+      { x: 450, y: ground - 12, w: 50, h: 12 }
+    ],
+    flag: { x: 600, y: 130, w: 8, h: 60 }
+  },
+  {
+    name: 'Tight Rope',
+    spawn: { x: 20, y: ground - 30 },
+    platforms: [
+      { x: 0, y: ground, w: 80, h: 40 },
+      { x: 120, y: 250, w: 40, h: 10 },
+      { x: 210, y: 250, w: 40, h: 10 },
+      { x: 300, y: 250, w: 40, h: 10 },
+      { x: 390, y: 250, w: 40, h: 10 },
+      { x: 480, y: 250, w: 40, h: 10 },
+      { x: 570, y: ground, w: 70, h: 40 }
+    ],
+    coins: [
+      { x: 140, y: 220 },
+      { x: 320, y: 220 },
+      { x: 500, y: 220 }
+    ],
+    spikes: [
+      { x: 80, y: ground - 12, w: 490, h: 12 }
+    ],
+    flag: { x: 600, y: ground - 60, w: 8, h: 60 }
+  },
+  {
+    name: 'Sky High',
+    spawn: { x: 20, y: ground - 30 },
+    platforms: [
+      { x: 0, y: ground, w: 100, h: 40 },
+      { x: 40, y: 260, w: 60, h: 10 },
+      { x: 130, y: 210, w: 60, h: 10 },
+      { x: 40, y: 160, w: 60, h: 10 },
+      { x: 130, y: 110, w: 60, h: 10 },
+      { x: 40, y: 60, w: 60, h: 10 },
+      { x: 200, y: 60, w: 100, h: 10 },
+      { x: 400, y: 60, w: 240, h: 10 }
+    ],
+    coins: [
+      { x: 160, y: 180 },
+      { x: 70, y: 130 },
+      { x: 160, y: 80 },
+      { x: 250, y: 30 }
+    ],
+    spikes: [
+      { x: 100, y: ground - 12, w: 440, h: 12 }
+    ],
+    flag: { x: 580, y: 0, w: 8, h: 60 }
+  }
 ];
 
+// ---- Character skins ----
+const SKINS = [
+  { name: 'Crimson', body: '#e94560' },
+  { name: 'Teal',    body: '#2ec4b6' },
+  { name: 'Violet',  body: '#9b5de5' },
+  { name: 'Amber',   body: '#f4a259' }
+];
+let selectedSkinIndex = 0;
+let characterSelected = false;
+
+let currentLevelIndex = 0;
+let platforms = [];
+let coins = [];
+let spikes = [];
+let flag = null;
+
+// tracks which way the player is facing, for the sprite draw below
+let facing = 1; // 1 = right, -1 = left
+
+const player = {
+  x: 20, y: ground - 30, w: 24, h: 30,
+  vx: 0, vy: 0,
+  maxSpeed: 4.5, accel: 0.9, friction: 0.8,
+  jumpPower: 12,
+  onGround: true,
+  color: '#e94560',
+  jumpsUsed: 0,
+  maxJumps: 2,           // double jump
+  coyoteTimer: 0,
+  coyoteFrames: 6,       // ~100ms of forgiveness after leaving a ledge
+  jumpBufferTimer: 0,
+  jumpBufferFrames: 6    // press jump slightly before landing and it still fires
+};
+
+let coinsCollected = 0;
+let gameOver = false;   // true on win OR lose for the current level
+let won = false;
+let allLevelsComplete = false;
+let paused = false;
+
+function togglePause(forceState) {
+  if (!characterSelected || gameOver) return; // no pausing on the select screen or a finished/failed level
+  paused = typeof forceState === 'boolean' ? forceState : !paused;
+  pauseMenu.style.display = paused ? 'flex' : 'none';
+}
+
+pauseBtn.addEventListener('click', () => togglePause());
+resumeBtn.addEventListener('click', () => togglePause(false));
+quitBtn.addEventListener('click', () => {
+  togglePause(false);
+  characterSelected = false;
+  charSelect.style.display = 'flex';
+  canvas.style.visibility = 'hidden';
+  pauseBtn.style.display = 'none';
+  fullscreenBtn.style.display = 'none';
+});
+document.addEventListener('keydown', e => {
+  if (e.code === 'Escape' && characterSelected) togglePause();
+});
+
+function loadLevel(index) {
+  const lvl = LEVELS[index];
+  platforms = lvl.platforms;
+  coins = lvl.coins.map(c => ({ x: c.x, y: c.y, r: 6, collected: false }));
+  spikes = lvl.spikes;
+  flag = lvl.flag;
+
+  player.x = lvl.spawn.x;
+  player.y = lvl.spawn.y;
+  player.vx = 0; player.vy = 0; player.onGround = true;
+  player.jumpsUsed = 0;
+  player.coyoteTimer = 0;
+  player.jumpBufferTimer = 0;
+
+  coinsCollected = 0;
+  gameOver = false;
+  won = false;
+  allLevelsComplete = false;
+  banner.style.display = 'none';
+  updateHud();
+}
+
+function updateHud() {
+  hud.innerHTML = `Level ${currentLevelIndex + 1} / ${LEVELS.length} — ${LEVELS[currentLevelIndex].name}<br>Coins: ${coinsCollected} / ${coins.length}`;
+}
+
 const keys = {};
-document.addEventListener('keydown', e => keys[e.code] = true);
+let jumpPressedThisFrame = false;
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !keys['Space']) jumpPressedThisFrame = true;
+  keys[e.code] = true;
+});
 document.addEventListener('keyup', e => keys[e.code] = false);
 
-function update() {
-  if (keys['ArrowLeft']) player.vx = -player.speed;
-  else if (keys['ArrowRight']) player.vx = player.speed;
-  else player.vx = 0;
+function bindTouchBtn(id, code) {
+  const el = document.getElementById(id);
+  const press = e => {
+    e.preventDefault();
+    if (code === 'Space' && !keys['Space']) jumpPressedThisFrame = true;
+    keys[code] = true;
+  };
+  const release = e => { e.preventDefault(); keys[code] = false; };
+  el.addEventListener('touchstart', press, { passive: false });
+  el.addEventListener('touchend', release, { passive: false });
+  el.addEventListener('touchcancel', release, { passive: false });
+  el.addEventListener('mousedown', press);
+  el.addEventListener('mouseup', release);
+  el.addEventListener('mouseleave', release);
+}
+bindTouchBtn('btn-left', 'ArrowLeft');
+bindTouchBtn('btn-right', 'ArrowRight');
+bindTouchBtn('btn-jump', 'Space');
 
-  if (keys['Space'] && player.onGround) {
+function rectsOverlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function advanceOrFinish() {
+  if (currentLevelIndex < LEVELS.length - 1) {
+    currentLevelIndex++;
+    loadLevel(currentLevelIndex);
+  } else {
+    allLevelsComplete = true;
+    gameOver = true;
+    banner.style.display = 'block';
+    banner.innerHTML = `All levels complete! <span>Press R to play again from Level 1</span>`;
+  }
+}
+
+function endLevel(didWin) {
+  gameOver = true;
+  won = didWin;
+  if (didWin) {
+    banner.style.display = 'block';
+    const isLast = currentLevelIndex === LEVELS.length - 1;
+    banner.innerHTML = isLast
+      ? `Level complete! <span>Press R or tap for the finish</span>`
+      : `Level complete! <span>Press R or tap to continue</span>`;
+  } else {
+    banner.style.display = 'block';
+    banner.innerHTML = `You lose <span>Press R to retry this level</span>`;
+  }
+}
+
+function handleAdvanceInput() {
+  if (!gameOver) return;
+  if (allLevelsComplete) {
+    currentLevelIndex = 0;
+    loadLevel(0);
+  } else if (won) {
+    advanceOrFinish();
+  } else {
+    loadLevel(currentLevelIndex);
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'KeyR') handleAdvanceInput();
+});
+canvas.addEventListener('touchstart', handleAdvanceInput, { passive: true });
+canvas.addEventListener('click', handleAdvanceInput);
+banner.addEventListener('click', handleAdvanceInput);
+
+function update() {
+  if (gameOver || paused) { jumpPressedThisFrame = false; return; }
+
+  // horizontal movement with acceleration/friction instead of instant velocity
+  if (keys['ArrowLeft']) {
+    player.vx = Math.max(player.vx - player.accel, -player.maxSpeed);
+    facing = -1;
+  } else if (keys['ArrowRight']) {
+    player.vx = Math.min(player.vx + player.accel, player.maxSpeed);
+    facing = 1;
+  } else {
+    if (player.vx > 0) player.vx = Math.max(0, player.vx - player.friction);
+    else if (player.vx < 0) player.vx = Math.min(0, player.vx + player.friction);
+  }
+
+  // coyote time: still allow a jump for a few frames after walking off a ledge
+  if (player.onGround) {
+    player.coyoteTimer = player.coyoteFrames;
+    player.jumpsUsed = 0;
+  } else if (player.coyoteTimer > 0) {
+    player.coyoteTimer--;
+  }
+
+  // jump buffering: a press just before landing still triggers on landing
+  if (jumpPressedThisFrame) {
+    player.jumpBufferTimer = player.jumpBufferFrames;
+  } else if (player.jumpBufferTimer > 0) {
+    player.jumpBufferTimer--;
+  }
+
+  const canGroundJump = player.coyoteTimer > 0 && player.jumpsUsed === 0;
+  const canAirJump = !player.onGround && player.jumpsUsed < player.maxJumps && player.jumpsUsed >= 1;
+
+  if (player.jumpBufferTimer > 0 && (canGroundJump || canAirJump)) {
     player.vy = -player.jumpPower;
+    player.jumpsUsed++;
+    player.coyoteTimer = 0;
+    player.jumpBufferTimer = 0;
     player.onGround = false;
   }
+
+  jumpPressedThisFrame = false;
 
   player.vy += gravity;
   player.x += player.vx;
   player.y += player.vy;
-
   player.onGround = false;
+
   for (const p of platforms) {
     const withinX = player.x + player.w > p.x && player.x < p.x + p.w;
     const landing = player.y + player.h > p.y && player.y + player.h < p.y + p.h + player.vy + 1;
@@ -63,6 +595,34 @@ function update() {
   }
 
   player.x = Math.max(0, Math.min(canvas.width - player.w, player.x));
+
+  if (player.y > canvas.height) {
+    endLevel(false);
+    return;
+  }
+
+  for (const c of coins) {
+    if (c.collected) continue;
+    const dx = (player.x + player.w / 2) - c.x;
+    const dy = (player.y + player.h / 2) - c.y;
+    if (Math.sqrt(dx * dx + dy * dy) < c.r + 16) {
+      c.collected = true;
+      coinsCollected++;
+      updateHud();
+    }
+  }
+
+  for (const s of spikes) {
+    if (rectsOverlap(player, s)) {
+      endLevel(false);
+      return;
+    }
+  }
+
+  if (coinsCollected === coins.length && rectsOverlap(player, flag)) {
+    endLevel(true);
+    return;
+  }
 }
 
 function draw() {
@@ -71,16 +631,110 @@ function draw() {
   ctx.fillStyle = '#0f3460';
   for (const p of platforms) ctx.fillRect(p.x, p.y, p.w, p.h);
 
+  ctx.fillStyle = '#e94560';
+  for (const s of spikes) {
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y + s.h);
+    ctx.lineTo(s.x + s.w / 2, s.y);
+    ctx.lineTo(s.x + s.w, s.y + s.h);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.fillStyle = '#f1c40f';
+  for (const c of coins) {
+    if (c.collected) continue;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = coinsCollected === coins.length ? '#2ecc71' : '#555';
+  if (flag) {
+    ctx.fillRect(flag.x, flag.y, flag.w, flag.h);
+    ctx.beginPath();
+    ctx.moveTo(flag.x + flag.w, flag.y);
+    ctx.lineTo(flag.x + flag.w + 20, flag.y + 8);
+    ctx.lineTo(flag.x + flag.w, flag.y + 16);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // player — rounded body with a simple face, flips to face movement direction
+  const px = player.x, py = player.y, pw = player.w, ph = player.h;
+  const cx = px + pw / 2, cy = py + ph / 2;
+
   ctx.fillStyle = player.color;
-  ctx.fillRect(player.x, player.y, player.w, player.h);
+  ctx.beginPath();
+  const radius = 6;
+  ctx.moveTo(px + radius, py);
+  ctx.lineTo(px + pw - radius, py);
+  ctx.quadraticCurveTo(px + pw, py, px + pw, py + radius);
+  ctx.lineTo(px + pw, py + ph - radius);
+  ctx.quadraticCurveTo(px + pw, py + ph, px + pw - radius, py + ph);
+  ctx.lineTo(px + radius, py + ph);
+  ctx.quadraticCurveTo(px, py + ph, px, py + ph - radius);
+  ctx.lineTo(px, py + radius);
+  ctx.quadraticCurveTo(px, py, px + radius, py);
+  ctx.closePath();
+  ctx.fill();
+
+  // eyes — offset toward facing direction
+  ctx.fillStyle = '#fff';
+  const eyeOffsetX = facing * 4;
+  ctx.beginPath();
+  ctx.arc(cx + eyeOffsetX - 3, cy - 4, 3, 0, Math.PI * 2);
+  ctx.arc(cx + eyeOffsetX + 3, cy - 4, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#1a1a2e';
+  ctx.beginPath();
+  ctx.arc(cx + eyeOffsetX - 3 + facing, cy - 4, 1.4, 0, Math.PI * 2);
+  ctx.arc(cx + eyeOffsetX + 3 + facing, cy - 4, 1.4, 0, Math.PI * 2);
+  ctx.fill();
 }
 
+let loopRunning = false;
 function loop() {
   update();
   draw();
   requestAnimationFrame(loop);
 }
-loop();
+
+function startGame() {
+  characterSelected = true;
+  charSelect.style.display = 'none';
+  canvas.style.visibility = 'visible';
+  pauseBtn.style.display = 'flex';
+  if (document.documentElement.requestFullscreen) fullscreenBtn.style.display = 'flex';
+  paused = false;
+  pauseMenu.style.display = 'none';
+  player.color = SKINS[selectedSkinIndex].body;
+  loadLevel(0);
+  if (!loopRunning) {
+    loopRunning = true;
+    loop();
+  }
+}
+
+function buildCharSelect() {
+  SKINS.forEach((skin, i) => {
+    const el = document.createElement('div');
+    el.className = 'swatch' + (i === selectedSkinIndex ? ' selected' : '');
+    el.style.background = skin.body;
+    el.addEventListener('click', () => {
+      selectedSkinIndex = i;
+      [...charSwatches.children].forEach((c, ci) => c.classList.toggle('selected', ci === i));
+    });
+    charSwatches.appendChild(el);
+  });
+  charStart.addEventListener('click', startGame);
+  document.addEventListener('keydown', e => {
+    if (!characterSelected && e.code === 'Space') startGame();
+  });
+}
+
+buildCharSelect();
 </script>
 </body>
 </html>

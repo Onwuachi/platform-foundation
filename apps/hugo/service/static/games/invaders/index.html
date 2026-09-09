@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Platform Foundation — Invaders</title>
+<style>
+  html, body {
+    margin: 0; height: 100%; background: #05050f;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: monospace; overflow: hidden;
+  }
+  #game-area {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    width: 100%; height: 100%;
+  }
+  canvas {
+    background: #0a0a1a; border: 2px solid #0f3460; display: block;
+    touch-action: none;
+    width: min(96vw, 170.6vh, 800px);
+    height: min(54vw, 96vh, 450px);
+  }
+  #hint { position: fixed; top: 12px; left: 12px; color: #e94560; font-size: 14px; }
+  #hud { position: fixed; top: 12px; right: 12px; color: #f1c40f; font-size: 14px; text-align: right; line-height: 1.4; }
+  #pause-btn {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+    color: #fff; font-size: 20px; cursor: pointer; z-index: 6;
+    background: rgba(15, 52, 96, 0.85); border: 1px solid #0f3460;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center;
+  }
+  #fullscreen-btn {
+    position: fixed; top: 12px; left: calc(50% + 44px); transform: translateX(-50%);
+    color: #fff; font-size: 16px; cursor: pointer; z-index: 6;
+    background: rgba(15, 52, 96, 0.85); border: 1px solid #0f3460;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center;
+  }
+  #pause-menu {
+    position: fixed; inset: 0; z-index: 25; background: rgba(15, 15, 30, 0.9);
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; font-family: monospace; gap: 16px;
+  }
+  #pause-menu .pause-title { font-size: 24px; }
+  #pause-menu button {
+    padding: 10px 24px; font-size: 15px; font-family: monospace;
+    border: none; border-radius: 8px; cursor: pointer; color: #fff;
+  }
+  #resume-btn { background: #2ec4b6; }
+  #restart-btn { background: #f4a259; }
+  #quit-btn { background: #e94560; }
+  #pause-menu button, #pause-menu a {
+    text-decoration: none; display: inline-block; box-sizing: border-box; text-align: center;
+  }
+  #arcade-link { background: #16213e; border: 1px solid #0f3460; }
+  #title-screen {
+    position: fixed; inset: 0; z-index: 20; background: #05050f;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; font-family: monospace; gap: 18px;
+  }
+  #title-screen h1 { font-size: 22px; margin: 0; }
+  #title-screen button, #title-screen a {
+    padding: 10px 28px; background: #e94560; border: none; border-radius: 8px;
+    cursor: pointer; font-size: 16px; color: #fff; font-family: monospace;
+    text-decoration: none; display: inline-block; box-sizing: border-box;
+  }
+  #title-arcade-link { background: #16213e; border: 1px solid #0f3460; }
+  #banner {
+    position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
+    color: #fff; font-size: 28px; text-align: center; display: none;
+    text-shadow: 0 0 8px #000; z-index: 5; cursor: pointer;
+  }
+  #banner span { display: block; font-size: 14px; color: #ccc; margin-top: 8px; }
+
+  #touch-controls {
+    display: none;
+    justify-content: space-between; align-items: center;
+    width: min(96vw, 170.6vh, 800px);
+    padding: 10px 20px;
+    user-select: none; -webkit-user-select: none;
+    z-index: 10; flex-shrink: 0;
+  }
+  #touch-controls .btn {
+    width: 68px; height: 68px; border-radius: 50%;
+    background: rgba(15, 52, 96, 0.85); border: 2px solid #e94560;
+    color: #fff; font-size: 24px; display: flex; align-items: center; justify-content: center;
+    touch-action: none;
+  }
+  #move-btns { display: flex; gap: 14px; }
+  #fire-btn { background: rgba(233, 69, 96, 0.3); }
+  @media (pointer: coarse) {
+    #touch-controls { display: flex; }
+    #hint { display: none; }
+  }
+  @media (pointer: coarse) and (max-height: 500px) {
+    #game-area { flex-direction: row; gap: 12px; }
+    canvas { width: min(70vw, 150vh); height: min(40vw, 82vh); }
+    #touch-controls .btn { width: 44px; height: 44px; font-size: 16px; }
+    #pause-btn, #fullscreen-btn { top: 6px; width: 28px; height: 28px; font-size: 14px; }
+    #fullscreen-btn { left: calc(50% + 36px); }
+  }
+</style>
+</head>
+<body>
+<div id="hint">Arrow keys to move, Space to fire, Esc to pause</div>
+<div id="hud">Wave: 1<br>Score: 0<br>Lives: 3</div>
+<div id="pause-btn">⏸</div>
+<div id="fullscreen-btn">⛶</div>
+<div id="banner"></div>
+<div id="pause-menu">
+  <div class="pause-title">Paused</div>
+  <button id="resume-btn">Resume</button>
+  <button id="restart-btn">Restart</button>
+  <button id="quit-btn">Quit</button>
+  <a id="arcade-link" href="/culture/games/" target="_top">Back to Arcade</a>
+</div>
+<div id="title-screen">
+  <h1>Invaders</h1>
+  <button id="title-start-btn">Start</button>
+  <a id="title-arcade-link" href="/culture/games/" target="_top">Back to Arcade</a>
+</div>
+<div id="game-area">
+  <canvas id="game" width="640" height="360"></canvas>
+  <div id="touch-controls">
+    <div id="move-btns">
+      <div class="btn" id="btn-left">◀</div>
+      <div class="btn" id="btn-right">▶</div>
+    </div>
+    <div class="btn" id="fire-btn">●</div>
+  </div>
+</div>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const banner = document.getElementById('banner');
+const pauseBtn = document.getElementById('pause-btn');
+const pauseMenu = document.getElementById('pause-menu');
+const resumeBtn = document.getElementById('resume-btn');
+const restartBtn = document.getElementById('restart-btn');
+const quitBtn = document.getElementById('quit-btn');
+const titleScreen = document.getElementById('title-screen');
+const titleStartBtn = document.getElementById('title-start-btn');
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+
+function getFullscreenElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+}
+function requestFs(el) {
+  const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  return fn ? fn.call(el) : Promise.reject(new Error('unsupported'));
+}
+function exitFs() {
+  const fn = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+  return fn ? fn.call(document) : Promise.reject(new Error('unsupported'));
+}
+function toggleFullscreen() {
+  if (!getFullscreenElement()) requestFs(document.documentElement).catch(() => {});
+  else exitFs();
+}
+fullscreenBtn.addEventListener('click', toggleFullscreen);
+const fullscreenSupported = !!(
+  document.documentElement.requestFullscreen ||
+  document.documentElement.webkitRequestFullscreen ||
+  document.documentElement.msRequestFullscreen
+);
+if (!fullscreenSupported) fullscreenBtn.style.display = 'none';
+
+const W = canvas.width, H = canvas.height;
+
+const player = {
+  w: 30, h: 14,
+  x: (W - 30) / 2, y: H - 30,
+  speed: 4.5,
+  fireCooldown: 0,
+  fireRate: 18
+};
+
+let bullets = [];        // player shots, travel up
+let enemyBullets = [];   // enemy shots, travel down
+let enemies = [];
+let enemyDir = 1;        // 1 = moving right, -1 = moving left
+let enemyStepTimer = 0;
+let wave = 1;
+let score = 0;
+let lives = 3;
+let gameOver = false;
+let paused = false;
+let waveTransitionTimer = 0;
+
+function loadBest() {
+  const stored = Number(localStorage.getItem('invaders-best'));
+  return Number.isFinite(stored) ? stored : 0;
+}
+function saveBest(value) {
+  try { localStorage.setItem('invaders-best', String(value)); } catch (e) {}
+}
+let best = loadBest();
+
+const ROWS = 4;
+const COLS = 8;
+const ENEMY_W = 28, ENEMY_H = 18;
+const ENEMY_GAP_X = 14, ENEMY_GAP_Y = 14;
+const GRID_LEFT = (W - (COLS * (ENEMY_W + ENEMY_GAP_X) - ENEMY_GAP_X)) / 2;
+const GRID_TOP = 40;
+const ROW_COLORS = ['#e94560', '#f4a259', '#2ec4b6', '#9b5de5'];
+
+function spawnWave(n) {
+  enemies = [];
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      enemies.push({
+        x: GRID_LEFT + col * (ENEMY_W + ENEMY_GAP_X),
+        y: GRID_TOP + row * (ENEMY_H + ENEMY_GAP_Y),
+        w: ENEMY_W, h: ENEMY_H,
+        color: ROW_COLORS[row % ROW_COLORS.length],
+        alive: true
+      });
+    }
+  }
+  enemyDir = 1;
+  // faster + more aggressive firing each wave
+  enemyStepInterval = Math.max(8, 34 - n * 3);
+  enemyFireChance = Math.min(0.02 + n * 0.004, 0.08);
+}
+let enemyStepInterval = 30;
+let enemyFireChance = 0.02;
+
+function resetPlayerPosition() {
+  player.x = (W - player.w) / 2;
+}
+
+function startNewGame() {
+  wave = 1;
+  score = 0;
+  lives = 3;
+  gameOver = false;
+  paused = false;
+  bullets = [];
+  enemyBullets = [];
+  waveTransitionTimer = 0;
+  pauseMenu.style.display = 'none';
+  banner.style.display = 'none';
+  resetPlayerPosition();
+  spawnWave(wave);
+  updateHud();
+}
+
+function updateHud() {
+  hud.innerHTML = `Wave: ${wave}<br>Score: ${score}<br>Lives: ${lives}<br>Best: ${best}`;
+}
+
+const keys = {};
+document.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'Escape') togglePause();
+  if (e.code === 'KeyR' && gameOver) startNewGame();
+});
+document.addEventListener('keyup', e => keys[e.code] = false);
+
+function bindHoldBtn(id, code) {
+  const el = document.getElementById(id);
+  const press = e => { e.preventDefault(); keys[code] = true; };
+  const release = e => { e.preventDefault(); keys[code] = false; };
+  el.addEventListener('touchstart', press, { passive: false });
+  el.addEventListener('touchend', release, { passive: false });
+  el.addEventListener('touchcancel', release, { passive: false });
+  el.addEventListener('mousedown', press);
+  el.addEventListener('mouseup', release);
+  el.addEventListener('mouseleave', release);
+}
+bindHoldBtn('btn-left', 'ArrowLeft');
+bindHoldBtn('btn-right', 'ArrowRight');
+bindHoldBtn('fire-btn', 'Space');
+
+canvas.addEventListener('touchstart', () => { if (gameOver) startNewGame(); }, { passive: true });
+canvas.addEventListener('click', () => { if (gameOver) startNewGame(); });
+banner.addEventListener('click', () => { if (gameOver) startNewGame(); });
+
+function togglePause(forceState) {
+  if (gameOver) return;
+  paused = typeof forceState === 'boolean' ? forceState : !paused;
+  pauseMenu.style.display = paused ? 'flex' : 'none';
+}
+pauseBtn.addEventListener('click', () => togglePause());
+resumeBtn.addEventListener('click', () => togglePause(false));
+restartBtn.addEventListener('click', () => { togglePause(false); startNewGame(); });
+quitBtn.addEventListener('click', () => {
+  togglePause(false);
+  gameOver = true;
+  pauseMenu.style.display = 'none';
+  titleScreen.style.display = 'flex';
+});
+titleStartBtn.addEventListener('click', () => {
+  titleScreen.style.display = 'none';
+  startNewGame();
+});
+
+function endGame() {
+  gameOver = true;
+  if (score > best) { best = score; saveBest(best); }
+  updateHud();
+  banner.style.display = 'block';
+  banner.innerHTML = `Game over <span>Wave ${wave} — Score ${score} — Press R or tap to retry</span>`;
+}
+
+function update() {
+  if (gameOver || paused) return;
+
+  if (waveTransitionTimer > 0) {
+    waveTransitionTimer--;
+    if (waveTransitionTimer === 0) {
+      wave++;
+      spawnWave(wave);
+      updateHud();
+    }
+    return;
+  }
+
+  if (keys['ArrowLeft']) player.x -= player.speed;
+  else if (keys['ArrowRight']) player.x += player.speed;
+  player.x = Math.max(0, Math.min(W - player.w, player.x));
+
+  if (player.fireCooldown > 0) player.fireCooldown--;
+  if (keys['Space'] && player.fireCooldown === 0) {
+    bullets.push({ x: player.x + player.w / 2, y: player.y });
+    player.fireCooldown = player.fireRate;
+  }
+
+  bullets.forEach(b => b.y -= 6);
+  bullets = bullets.filter(b => b.y > -10);
+
+  enemyBullets.forEach(b => b.y += 3.5);
+  enemyBullets = enemyBullets.filter(b => b.y < H + 10);
+
+  // classic marching grid: step all enemies together, drop a row and reverse at the wall
+  enemyStepTimer++;
+  if (enemyStepTimer >= enemyStepInterval) {
+    enemyStepTimer = 0;
+    const aliveEnemies = enemies.filter(e => e.alive);
+    let hitWall = false;
+    for (const en of aliveEnemies) {
+      if ((enemyDir === 1 && en.x + en.w + 8 > W) || (enemyDir === -1 && en.x - 8 < 0)) {
+        hitWall = true;
+        break;
+      }
+    }
+    if (hitWall) {
+      enemyDir *= -1;
+      aliveEnemies.forEach(en => { en.y += 14; });
+    } else {
+      aliveEnemies.forEach(en => { en.x += enemyDir * 10; });
+    }
+
+    // random chance for an alive enemy to fire
+    if (aliveEnemies.length > 0 && Math.random() < enemyFireChance * aliveEnemies.length) {
+      const shooter = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
+      enemyBullets.push({ x: shooter.x + shooter.w / 2, y: shooter.y + shooter.h });
+    }
+
+    // enemies reaching the player's row = game over (they've invaded)
+    if (aliveEnemies.some(en => en.y + en.h >= player.y)) {
+      endGame();
+      return;
+    }
+  }
+
+  // player bullet vs enemy
+  for (const en of enemies) {
+    if (!en.alive) continue;
+    for (const b of bullets) {
+      if (b.x > en.x && b.x < en.x + en.w && b.y > en.y && b.y < en.y + en.h) {
+        en.alive = false;
+        b.hit = true;
+        score += 10;
+      }
+    }
+  }
+  bullets = bullets.filter(b => !b.hit);
+  updateHud();
+
+  // enemy bullet vs player
+  for (const b of enemyBullets) {
+    if (b.x > player.x && b.x < player.x + player.w && b.y > player.y && b.y < player.y + player.h) {
+      b.hit = true;
+      lives--;
+      updateHud();
+      if (lives <= 0) { endGame(); return; }
+    }
+  }
+  enemyBullets = enemyBullets.filter(b => !b.hit);
+
+  if (enemies.every(en => !en.alive) && waveTransitionTimer === 0) {
+    waveTransitionTimer = 90;
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  for (let i = 0; i < 40; i++) {
+    const sx = (i * 97) % W;
+    const sy = (i * 53) % H;
+    ctx.fillRect(sx, sy, 1, 1);
+  }
+
+  ctx.fillStyle = '#f1c40f';
+  bullets.forEach(b => ctx.fillRect(b.x - 1.5, b.y - 6, 3, 8));
+
+  ctx.fillStyle = '#e94560';
+  enemyBullets.forEach(b => ctx.fillRect(b.x - 1.5, b.y - 4, 3, 8));
+
+  enemies.forEach(en => {
+    if (!en.alive) return;
+    ctx.fillStyle = en.color;
+    ctx.fillRect(en.x, en.y, en.w, en.h);
+  });
+
+  ctx.fillStyle = '#2ec4b6';
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+  // little cannon nub for visual clarity
+  ctx.fillRect(player.x + player.w / 2 - 2, player.y - 6, 4, 6);
+
+  if (waveTransitionTimer > 0) {
+    ctx.fillStyle = '#fff';
+    ctx.font = '20px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Wave ${wave} cleared`, W / 2, H / 2);
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+pauseBtn.style.display = 'flex';
+if (fullscreenSupported) fullscreenBtn.style.display = 'flex';
+gameOver = true;
+titleScreen.style.display = 'flex';
+loop();
+</script>
+</body>
+</html>

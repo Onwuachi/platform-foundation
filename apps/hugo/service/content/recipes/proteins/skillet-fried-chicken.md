@@ -1,7 +1,7 @@
 ---
 title: "Skillet Fried Chicken"
 date: 2026-08-11
-draft: true
+draft: false
 
 type: "recipe"
 
