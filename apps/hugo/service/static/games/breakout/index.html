@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Platform Foundation — Breakout</title>
+<style>
+  html, body {
+    margin: 0; height: 100%; background: #1a1a2e;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: monospace; overflow: hidden;
+  }
+  #game-area {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    width: 100%; height: 100%;
+  }
+  canvas {
+    background: #16213e; border: 2px solid #0f3460; display: block;
+    touch-action: none;
+    width: min(96vw, 170.6vh, 800px);
+    height: min(54vw, 96vh, 450px);
+  }
+  #hint { position: fixed; top: 12px; left: 12px; color: #e94560; font-size: 14px; }
+  #hud { position: fixed; top: 12px; right: 12px; color: #f1c40f; font-size: 14px; text-align: right; line-height: 1.4; }
+  #pause-btn {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+    color: #fff; font-size: 20px; cursor: pointer; z-index: 6;
+    background: rgba(15, 52, 96, 0.85); border: 1px solid #0f3460;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center;
+  }
+  #fullscreen-btn {
+    position: fixed; top: 12px; left: calc(50% + 44px); transform: translateX(-50%);
+    color: #fff; font-size: 16px; cursor: pointer; z-index: 6;
+    background: rgba(15, 52, 96, 0.85); border: 1px solid #0f3460;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center;
+  }
+  #pause-menu {
+    position: fixed; inset: 0; z-index: 25; background: rgba(15, 15, 30, 0.9);
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; font-family: monospace; gap: 16px;
+  }
+  #pause-menu .pause-title { font-size: 24px; }
+  #pause-menu button {
+    padding: 10px 24px; font-size: 15px; font-family: monospace;
+    border: none; border-radius: 8px; cursor: pointer; color: #fff;
+  }
+  #resume-btn { background: #2ec4b6; }
+  #restart-btn { background: #f4a259; }
+  #quit-btn { background: #e94560; }
+  #pause-menu button, #pause-menu a {
+    text-decoration: none; display: inline-block; box-sizing: border-box; text-align: center;
+  }
+  #arcade-link { background: #16213e; border: 1px solid #0f3460; }
+  #title-screen {
+    position: fixed; inset: 0; z-index: 20; background: #05050f;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; font-family: monospace; gap: 18px;
+  }
+  #title-screen h1 { font-size: 22px; margin: 0; }
+  #title-screen button, #title-screen a {
+    padding: 10px 28px; background: #e94560; border: none; border-radius: 8px;
+    cursor: pointer; font-size: 16px; color: #fff; font-family: monospace;
+    text-decoration: none; display: inline-block; box-sizing: border-box;
+  }
+  #title-arcade-link { background: #16213e; border: 1px solid #0f3460; }
+  #banner {
+    position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
+    color: #fff; font-size: 28px; text-align: center; display: none;
+    text-shadow: 0 0 8px #000; z-index: 5; cursor: pointer;
+  }
+  #banner span { display: block; font-size: 14px; color: #ccc; margin-top: 8px; }
+
+  #touch-controls {
+    display: none;
+    justify-content: space-between; align-items: center;
+    width: min(96vw, 170.6vh, 800px);
+    padding: 10px 20px;
+    user-select: none; -webkit-user-select: none;
+    z-index: 10;
+    flex-shrink: 0;
+  }
+  #touch-controls .btn {
+    width: 68px; height: 68px; border-radius: 50%;
+    background: rgba(15, 52, 96, 0.85); border: 2px solid #e94560;
+    color: #fff; font-size: 24px; display: flex; align-items: center; justify-content: center;
+    touch-action: none;
+  }
+  #move-btns { display: flex; gap: 14px; margin: 0 auto; }
+  @media (pointer: coarse) {
+    #touch-controls { display: flex; }
+    #hint { display: none; }
+  }
+  /* landscape mobile: match on actual short viewport height rather than relying
+     solely on (orientation: landscape), which can behave inconsistently when
+     the page is embedded in an iframe on some mobile browsers */
+  @media (pointer: coarse) and (max-height: 500px) {
+    #game-area { flex-direction: row; gap: 12px; }
+    canvas {
+      width: min(70vw, 150vh);
+      height: min(40vw, 82vh);
+    }
+    #touch-controls {
+      flex-direction: column; justify-content: center;
+      width: auto; height: min(40vw, 82vh);
+      padding: 6px 0;
+    }
+    #touch-controls .btn { width: 44px; height: 44px; font-size: 16px; }
+    #move-btns { flex-direction: column; gap: 10px; }
+    #pause-btn, #fullscreen-btn { top: 6px; width: 28px; height: 28px; font-size: 14px; }
+    #fullscreen-btn { left: calc(50% + 36px); }
+  }
+</style>
+</head>
+<body>
+<div id="hint">Arrow keys to move paddle, Esc to pause</div>
+<div id="hud">Lives: 3<br>Bricks: 0 / 0</div>
+<div id="pause-btn">⏸</div>
+<div id="fullscreen-btn">⛶</div>
+<div id="banner"></div>
+<div id="pause-menu">
+  <div class="pause-title">Paused</div>
+  <button id="resume-btn">Resume</button>
+  <button id="restart-btn">Restart</button>
+  <button id="quit-btn">Quit</button>
+  <a id="arcade-link" href="/culture/games/" target="_top">Back to Arcade</a>
+</div>
+<div id="title-screen">
+  <h1>Breakout</h1>
+  <button id="title-start-btn">Start</button>
+  <a id="title-arcade-link" href="/culture/games/" target="_top">Back to Arcade</a>
+</div>
+<div id="game-area">
+  <canvas id="game" width="640" height="360"></canvas>
+  <div id="touch-controls">
+    <div id="move-btns">
+      <div class="btn" id="btn-left">◀</div>
+      <div class="btn" id="btn-right">▶</div>
+    </div>
+  </div>
+</div>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const banner = document.getElementById('banner');
+const pauseBtn = document.getElementById('pause-btn');
+const pauseMenu = document.getElementById('pause-menu');
+const resumeBtn = document.getElementById('resume-btn');
+const restartBtn = document.getElementById('restart-btn');
+const quitBtn = document.getElementById('quit-btn');
+const titleScreen = document.getElementById('title-screen');
+const titleStartBtn = document.getElementById('title-start-btn');
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+
+// check standard + vendor-prefixed Fullscreen API support before deciding
+// whether to show the button at all — iOS Safari in particular often lacks
+// requestFullscreen entirely on non-video elements, especially inside an iframe
+function getFullscreenElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+}
+function requestFs(el) {
+  const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  return fn ? fn.call(el) : Promise.reject(new Error('Fullscreen not supported'));
+}
+function exitFs() {
+  const fn = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+  return fn ? fn.call(document) : Promise.reject(new Error('Fullscreen not supported'));
+}
+
+function toggleFullscreen() {
+  if (!getFullscreenElement()) {
+    requestFs(document.documentElement).catch(() => {
+      // fullscreen genuinely unsupported here (common on iOS Safari, especially
+      // inside an iframe) — nothing to do, the button just won't work this session
+    });
+  } else {
+    exitFs();
+  }
+}
+fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+const fullscreenSupported = !!(
+  document.documentElement.requestFullscreen ||
+  document.documentElement.webkitRequestFullscreen ||
+  document.documentElement.msRequestFullscreen
+);
+if (!fullscreenSupported) {
+  fullscreenBtn.style.display = 'none';
+}
+
+
+const W = canvas.width, H = canvas.height;
+
+const paddle = {
+  w: 90, h: 12,
+  x: (W - 90) / 2, y: H - 30,
+  speed: 6.5
+};
+
+const ball = {
+  x: W / 2, y: H - 45,
+  r: 6,
+  vx: 3.2, vy: -3.6,
+  launched: false
+};
+
+const BRICK_ROWS = 5;
+const BRICK_COLS = 10;
+const BRICK_W = 56;
+const BRICK_H = 16;
+const BRICK_GAP = 6;
+const BRICK_TOP = 40;
+const BRICK_LEFT = (W - (BRICK_COLS * (BRICK_W + BRICK_GAP) - BRICK_GAP)) / 2;
+const BRICK_COLORS = ['#e94560', '#f4a259', '#f1c40f', '#2ec4b6', '#9b5de5'];
+
+let bricks = [];
+let bricksRemaining = 0;
+let lives = 3;
+let gameOver = false;
+let won = false;
+let paused = false;
+
+function buildBricks() {
+  bricks = [];
+  for (let row = 0; row < BRICK_ROWS; row++) {
+    for (let col = 0; col < BRICK_COLS; col++) {
+      bricks.push({
+        x: BRICK_LEFT + col * (BRICK_W + BRICK_GAP),
+        y: BRICK_TOP + row * (BRICK_H + BRICK_GAP),
+        w: BRICK_W, h: BRICK_H,
+        color: BRICK_COLORS[row % BRICK_COLORS.length],
+        alive: true
+      });
+    }
+  }
+  bricksRemaining = bricks.length;
+}
+
+function resetBallAndPaddle() {
+  paddle.x = (W - paddle.w) / 2;
+  ball.x = W / 2;
+  ball.y = H - 45;
+  ball.vx = 3.2 * (Math.random() < 0.5 ? -1 : 1);
+  ball.vy = -3.6;
+  ball.launched = false;
+}
+
+function updateHud() {
+  hud.innerHTML = `Lives: ${lives}<br>Bricks: ${bricksRemaining} / ${bricks.length}`;
+}
+
+function startNewGame() {
+  buildBricks();
+  lives = 3;
+  gameOver = false;
+  won = false;
+  paused = false;
+  pauseMenu.style.display = 'none';
+  banner.style.display = 'none';
+  resetBallAndPaddle();
+  updateHud();
+}
+
+const keys = {};
+document.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'Space' && !ball.launched && !gameOver) ball.launched = true;
+});
+document.addEventListener('keyup', e => keys[e.code] = false);
+
+function bindTouchBtn(id, code) {
+  const el = document.getElementById(id);
+  const press = e => { e.preventDefault(); keys[code] = true; if (!ball.launched && !gameOver) ball.launched = true; };
+  const release = e => { e.preventDefault(); keys[code] = false; };
+  el.addEventListener('touchstart', press, { passive: false });
+  el.addEventListener('touchend', release, { passive: false });
+  el.addEventListener('touchcancel', release, { passive: false });
+  el.addEventListener('mousedown', press);
+  el.addEventListener('mouseup', release);
+  el.addEventListener('mouseleave', release);
+}
+bindTouchBtn('btn-left', 'ArrowLeft');
+bindTouchBtn('btn-right', 'ArrowRight');
+
+// tapping the canvas also launches the ball, since there's no dedicated jump/action button
+canvas.addEventListener('touchstart', () => {
+  if (!ball.launched && !gameOver) ball.launched = true;
+  else if (gameOver) startNewGame();
+}, { passive: true });
+canvas.addEventListener('click', () => {
+  if (!ball.launched && !gameOver) ball.launched = true;
+  else if (gameOver) startNewGame();
+});
+
+function togglePause(forceState) {
+  if (gameOver) return;
+  paused = typeof forceState === 'boolean' ? forceState : !paused;
+  pauseMenu.style.display = paused ? 'flex' : 'none';
+}
+pauseBtn.addEventListener('click', () => togglePause());
+resumeBtn.addEventListener('click', () => togglePause(false));
+restartBtn.addEventListener('click', () => { togglePause(false); startNewGame(); });
+quitBtn.addEventListener('click', () => {
+  togglePause(false);
+  gameOver = true;
+  pauseMenu.style.display = 'none';
+  titleScreen.style.display = 'flex';
+});
+titleStartBtn.addEventListener('click', () => {
+  titleScreen.style.display = 'none';
+  startNewGame();
+});
+document.addEventListener('keydown', e => {
+  if (e.code === 'Escape') togglePause();
+  if (e.code === 'KeyR' && gameOver) startNewGame();
+});
+banner.addEventListener('click', () => { if (gameOver) startNewGame(); });
+
+function endGame(didWin) {
+  gameOver = true;
+  won = didWin;
+  banner.style.display = 'block';
+  banner.innerHTML = didWin
+    ? `You win! <span>Press R or tap to play again</span>`
+    : `Game over <span>Press R or tap to play again</span>`;
+}
+
+function update() {
+  if (gameOver || paused) return;
+
+  if (keys['ArrowLeft']) paddle.x -= paddle.speed;
+  else if (keys['ArrowRight']) paddle.x += paddle.speed;
+  paddle.x = Math.max(0, Math.min(W - paddle.w, paddle.x));
+
+  if (!ball.launched) {
+    // ball rides on the paddle until launched
+    ball.x = paddle.x + paddle.w / 2;
+    ball.y = paddle.y - ball.r - 2;
+    return;
+  }
+
+  ball.x += ball.vx;
+  ball.y += ball.vy;
+
+  // wall bounces
+  if (ball.x - ball.r < 0) { ball.x = ball.r; ball.vx *= -1; }
+  if (ball.x + ball.r > W) { ball.x = W - ball.r; ball.vx *= -1; }
+  if (ball.y - ball.r < 0) { ball.y = ball.r; ball.vy *= -1; }
+
+  // paddle bounce — angle depends on where it hits the paddle
+  if (
+    ball.y + ball.r > paddle.y &&
+    ball.y + ball.r < paddle.y + paddle.h + ball.vy + 1 &&
+    ball.x > paddle.x && ball.x < paddle.x + paddle.w &&
+    ball.vy > 0
+  ) {
+    const hitPos = (ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2); // -1..1
+    const speed = Math.hypot(ball.vx, ball.vy);
+    const maxAngle = Math.PI / 3; // 60 degrees max
+    const angle = hitPos * maxAngle;
+    ball.vx = speed * Math.sin(angle);
+    ball.vy = -Math.abs(speed * Math.cos(angle));
+    ball.y = paddle.y - ball.r - 1;
+  }
+
+  // fell below paddle — lose a life
+  if (ball.y - ball.r > H) {
+    lives--;
+    updateHud();
+    if (lives <= 0) {
+      endGame(false);
+    } else {
+      resetBallAndPaddle();
+    }
+    return;
+  }
+
+  // brick collisions
+  for (const b of bricks) {
+    if (!b.alive) continue;
+    const withinX = ball.x + ball.r > b.x && ball.x - ball.r < b.x + b.w;
+    const withinY = ball.y + ball.r > b.y && ball.y - ball.r < b.y + b.h;
+    if (withinX && withinY) {
+      b.alive = false;
+      bricksRemaining--;
+      updateHud();
+
+      // figure out which side was hit for a reasonable bounce direction
+      const overlapLeft = (ball.x + ball.r) - b.x;
+      const overlapRight = (b.x + b.w) - (ball.x - ball.r);
+      const overlapTop = (ball.y + ball.r) - b.y;
+      const overlapBottom = (b.y + b.h) - (ball.y - ball.r);
+      const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+      if (minOverlap === overlapTop || minOverlap === overlapBottom) ball.vy *= -1;
+      else ball.vx *= -1;
+
+      if (bricksRemaining === 0) endGame(true);
+      break; // one brick per frame keeps physics simple and predictable
+    }
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  for (const b of bricks) {
+    if (!b.alive) continue;
+    ctx.fillStyle = b.color;
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+  }
+
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
+
+  ctx.fillStyle = '#f1c40f';
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (!ball.launched && !gameOver) {
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.font = '12px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Space or tap to launch', W / 2, H - 60);
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+pauseBtn.style.display = 'flex';
+if (fullscreenSupported) fullscreenBtn.style.display = 'flex';
+gameOver = true;
+titleScreen.style.display = 'flex';
+loop();
+</script>
+</body>
+</html>

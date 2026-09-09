@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Platform Foundation — Tetris</title>
+<style>
+  html, body {
+    margin: 0; height: 100%; background: #05050f;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: monospace; overflow: hidden;
+  }
+  #game-area {
+    display: flex; flex-direction: row; align-items: center; justify-content: center;
+    width: 100%; height: 100%; gap: 16px;
+  }
+  #board-wrap { display: flex; flex-direction: column; align-items: center; }
+  canvas#board {
+    background: #0a0a1a; border: 2px solid #0f3460; display: block;
+    width: min(48vh, 44vw, 320px);
+    height: min(96vh, 88vw, 640px);
+  }
+  #side-panel {
+    display: flex; flex-direction: column; gap: 12px; color: #fff;
+  }
+  .panel-box {
+    background: #16213e; border: 1px solid #0f3460; border-radius: 6px;
+    padding: 8px; text-align: center;
+  }
+  .panel-box .label { font-size: 11px; color: #9a9ab0; margin-bottom: 4px; }
+  canvas.mini { width: 88px; height: 66px; background: #0a0a1a; display: block; margin: 0 auto; }
+  #hint { position: fixed; top: 12px; left: 12px; color: #e94560; font-size: 13px; max-width: 220px; }
+  #hud { position: fixed; top: 12px; right: 12px; color: #f1c40f; font-size: 14px; text-align: right; line-height: 1.4; }
+  #pause-btn {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+    color: #fff; font-size: 20px; cursor: pointer; z-index: 6;
+    background: rgba(15, 52, 96, 0.85); border: 1px solid #0f3460;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center;
+  }
+  #fullscreen-btn {
+    position: fixed; top: 12px; left: calc(50% + 44px); transform: translateX(-50%);
+    color: #fff; font-size: 16px; cursor: pointer; z-index: 6;
+    background: rgba(15, 52, 96, 0.85); border: 1px solid #0f3460;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center;
+  }
+  #pause-menu {
+    position: fixed; inset: 0; z-index: 25; background: rgba(15, 15, 30, 0.9);
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; font-family: monospace; gap: 16px;
+  }
+  #pause-menu .pause-title { font-size: 24px; }
+  #pause-menu button {
+    padding: 10px 24px; font-size: 15px; font-family: monospace;
+    border: none; border-radius: 8px; cursor: pointer; color: #fff;
+  }
+  #resume-btn { background: #2ec4b6; }
+  #restart-btn { background: #f4a259; }
+  #quit-btn { background: #e94560; }
+  #pause-menu button, #pause-menu a {
+    text-decoration: none; display: inline-block; box-sizing: border-box; text-align: center;
+  }
+  #arcade-link { background: #16213e; border: 1px solid #0f3460; }
+  #title-screen {
+    position: fixed; inset: 0; z-index: 20; background: #05050f;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; font-family: monospace; gap: 18px;
+  }
+  #title-screen h1 { font-size: 22px; margin: 0; }
+  #title-screen button, #title-screen a {
+    padding: 10px 28px; background: #e94560; border: none; border-radius: 8px;
+    cursor: pointer; font-size: 16px; color: #fff; font-family: monospace;
+    text-decoration: none; display: inline-block; box-sizing: border-box;
+  }
+  #title-arcade-link { background: #16213e; border: 1px solid #0f3460; }
+  #banner {
+    position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
+    color: #fff; font-size: 26px; text-align: center; display: none;
+    text-shadow: 0 0 8px #000; z-index: 5; cursor: pointer;
+  }
+  #banner span { display: block; font-size: 14px; color: #ccc; margin-top: 8px; }
+
+  #touch-controls {
+    display: none;
+    flex-direction: column; align-items: center; gap: 8px;
+    z-index: 10; flex-shrink: 0; padding: 10px 0;
+    user-select: none; -webkit-user-select: none;
+  }
+  #touch-controls .row { display: flex; gap: 6px; }
+  #touch-controls .btn {
+    width: 46px; height: 46px; border-radius: 8px;
+    background: rgba(15, 52, 96, 0.85); border: 2px solid #e94560;
+    color: #fff; font-size: 16px; display: flex; align-items: center; justify-content: center;
+    touch-action: none;
+  }
+  #touch-controls .btn.spacer { visibility: hidden; }
+  @media (pointer: coarse) {
+    #touch-controls { display: flex; }
+    #hint { display: none; }
+    #side-panel { display: none; } /* hide next/hold panel on small touch screens to save space */
+  }
+  @media (pointer: coarse) and (max-height: 500px) {
+    canvas#board { width: min(70vh, 40vw); height: min(140vh, 80vw); }
+    #touch-controls .btn { width: 36px; height: 36px; font-size: 13px; }
+    #pause-btn, #fullscreen-btn { top: 6px; width: 28px; height: 28px; font-size: 14px; }
+    #fullscreen-btn { left: calc(50% + 36px); }
+  }
+</style>
+</head>
+<body>
+<div id="hint">Arrow keys move, Up rotates, Down soft drop, Space hard drop, C hold, Esc pause</div>
+<div id="hud">Score: 0<br>Lines: 0<br>Level: 1<br>Best: 0</div>
+<div id="pause-btn">⏸</div>
+<div id="fullscreen-btn">⛶</div>
+<div id="banner"></div>
+<div id="pause-menu">
+  <div class="pause-title">Paused</div>
+  <button id="resume-btn">Resume</button>
+  <button id="restart-btn">Restart</button>
+  <button id="quit-btn">Quit</button>
+  <a id="arcade-link" href="/culture/games/" target="_top">Back to Arcade</a>
+</div>
+<div id="title-screen">
+  <h1>Tetris</h1>
+  <button id="title-start-btn">Start</button>
+  <a id="title-arcade-link" href="/culture/games/" target="_top">Back to Arcade</a>
+</div>
+<div id="game-area">
+  <div id="board-wrap">
+    <canvas id="board" width="240" height="480"></canvas>
+    <div id="touch-controls">
+      <div class="row">
+        <div class="btn" id="btn-hold">Hold</div>
+        <div class="btn" id="btn-rotate">⟳</div>
+        <div class="btn" id="btn-drop">⇩</div>
+      </div>
+      <div class="row">
+        <div class="btn" id="btn-left">◀</div>
+        <div class="btn" id="btn-down">▼</div>
+        <div class="btn" id="btn-right">▶</div>
+      </div>
+    </div>
+  </div>
+  <div id="side-panel">
+    <div class="panel-box">
+      <div class="label">HOLD</div>
+      <canvas class="mini" id="hold-canvas" width="88" height="66"></canvas>
+    </div>
+    <div class="panel-box">
+      <div class="label">NEXT</div>
+      <canvas class="mini" id="next-canvas" width="88" height="66"></canvas>
+    </div>
+  </div>
+</div>
+<script>
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+const holdCanvas = document.getElementById('hold-canvas');
+const holdCtx = holdCanvas.getContext('2d');
+const nextCanvas = document.getElementById('next-canvas');
+const nextCtx = nextCanvas.getContext('2d');
+const hud = document.getElementById('hud');
+const banner = document.getElementById('banner');
+const pauseBtn = document.getElementById('pause-btn');
+const pauseMenu = document.getElementById('pause-menu');
+const resumeBtn = document.getElementById('resume-btn');
+const restartBtn = document.getElementById('restart-btn');
+const quitBtn = document.getElementById('quit-btn');
+const titleScreen = document.getElementById('title-screen');
+const titleStartBtn = document.getElementById('title-start-btn');
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+
+// ---- Fullscreen (vendor-prefixed, may still be blocked on some mobile/iframe combos) ----
+function getFullscreenElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+}
+function requestFs(el) {
+  const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  return fn ? fn.call(el) : Promise.reject(new Error('unsupported'));
+}
+function exitFs() {
+  const fn = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+  return fn ? fn.call(document) : Promise.reject(new Error('unsupported'));
+}
+function toggleFullscreen() {
+  if (!getFullscreenElement()) requestFs(document.documentElement).catch(() => {});
+  else exitFs();
+}
+fullscreenBtn.addEventListener('click', toggleFullscreen);
+const fullscreenSupported = !!(
+  document.documentElement.requestFullscreen ||
+  document.documentElement.webkitRequestFullscreen ||
+  document.documentElement.msRequestFullscreen
+);
+if (!fullscreenSupported) fullscreenBtn.style.display = 'none';
+
+// ---- Board setup ----
+const COLS = 10, ROWS = 20;
+const CELL = canvas.width / COLS; // 24px at native resolution
+
+const COLORS = {
+  I: '#2ec4b6', O: '#f1c40f', T: '#9b5de5',
+  S: '#2ecc71', Z: '#e94560', J: '#3498db', L: '#f4a259'
+};
+
+// each shape given as 4 rotation states, each a list of [x,y] cell offsets from a 4x4 box
+const SHAPES = {
+  I: [
+    [[0,1],[1,1],[2,1],[3,1]],
+    [[2,0],[2,1],[2,2],[2,3]],
+    [[0,2],[1,2],[2,2],[3,2]],
+    [[1,0],[1,1],[1,2],[1,3]]
+  ],
+  O: [
+    [[1,0],[2,0],[1,1],[2,1]],
+    [[1,0],[2,0],[1,1],[2,1]],
+    [[1,0],[2,0],[1,1],[2,1]],
+    [[1,0],[2,0],[1,1],[2,1]]
+  ],
+  T: [
+    [[1,0],[0,1],[1,1],[2,1]],
+    [[1,0],[1,1],[2,1],[1,2]],
+    [[0,1],[1,1],[2,1],[1,2]],
+    [[1,0],[0,1],[1,1],[1,2]]
+  ],
+  S: [
+    [[1,0],[2,0],[0,1],[1,1]],
+    [[1,0],[1,1],[2,1],[2,2]],
+    [[1,1],[2,1],[0,2],[1,2]],
+    [[0,0],[0,1],[1,1],[1,2]]
+  ],
+  Z: [
+    [[0,0],[1,0],[1,1],[2,1]],
+    [[2,0],[1,1],[2,1],[1,2]],
+    [[0,1],[1,1],[1,2],[2,2]],
+    [[1,0],[0,1],[1,1],[0,2]]
+  ],
+  J: [
+    [[0,0],[0,1],[1,1],[2,1]],
+    [[1,0],[2,0],[1,1],[1,2]],
+    [[0,1],[1,1],[2,1],[2,2]],
+    [[1,0],[1,1],[0,2],[1,2]]
+  ],
+  L: [
+    [[2,0],[0,1],[1,1],[2,1]],
+    [[1,0],[1,1],[1,2],[2,2]],
+    [[0,1],[1,1],[2,1],[0,2]],
+    [[0,0],[1,0],[1,1],[1,2]]
+  ]
+};
+const PIECE_TYPES = Object.keys(SHAPES);
+
+let board, bag, nextQueue, current, holdPiece, canHold;
+let score, lines, level, dropInterval, dropAccum, gameOver, paused;
+const BASE_DROP_MS = 800;
+
+function loadBest() {
+  const stored = Number(localStorage.getItem('tetris-best'));
+  return Number.isFinite(stored) ? stored : 0;
+}
+function saveBest(value) {
+  try { localStorage.setItem('tetris-best', String(value)); } catch (e) {}
+}
+let best = loadBest();
+
+// ---- 7-bag randomizer: shuffle one of each piece, refill when empty ----
+function refillBag() {
+  const b = [...PIECE_TYPES];
+  for (let i = b.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [b[i], b[j]] = [b[j], b[i]];
+  }
+  return b;
+}
+function nextFromBag() {
+  if (bag.length === 0) bag = refillBag();
+  return bag.pop();
+}
+
+function spawnPiece(type) {
+  return {
+    type, rotation: 0,
+    x: 3, y: -1 // spawn slightly above the visible board, classic guideline behavior
+  };
+}
+
+function getCells(piece) {
+  return SHAPES[piece.type][piece.rotation].map(([dx, dy]) => [piece.x + dx, piece.y + dy]);
+}
+
+function collides(piece) {
+  return getCells(piece).some(([x, y]) => {
+    if (x < 0 || x >= COLS || y >= ROWS) return true;
+    if (y < 0) return false; // above the board is fine, board only checked at y >= 0
+    return board[y][x] !== null;
+  });
+}
+
+function lockPiece() {
+  getCells(current).forEach(([x, y]) => {
+    if (y >= 0) board[y][x] = current.type;
+  });
+  clearLines();
+  spawnNext();
+}
+
+function clearLines() {
+  let cleared = 0;
+  for (let y = ROWS - 1; y >= 0; y--) {
+    if (board[y].every(cell => cell !== null)) {
+      board.splice(y, 1);
+      board.unshift(new Array(COLS).fill(null));
+      cleared++;
+      y++; // recheck this row index since rows shifted down
+    }
+  }
+  if (cleared > 0) {
+    const points = [0, 100, 300, 500, 800][cleared] * level;
+    score += points;
+    lines += cleared;
+    level = Math.floor(lines / 10) + 1;
+    dropInterval = Math.max(100, BASE_DROP_MS - (level - 1) * 60);
+    updateHud();
+  }
+}
+
+function spawnNext() {
+  current = spawnPiece(nextQueue.shift());
+  nextQueue.push(nextFromBag());
+  canHold = true;
+  if (collides(current)) {
+    endGame();
+  }
+  drawSidePanels();
+}
+
+function tryMove(dx, dy) {
+  const moved = { ...current, x: current.x + dx, y: current.y + dy };
+  if (!collides(moved)) {
+    current = moved;
+    return true;
+  }
+  return false;
+}
+
+// basic wall-kick attempt: try the raw rotation, then a few small offsets
+const KICK_OFFSETS = [[0,0], [-1,0], [1,0], [0,-1], [-2,0], [2,0]];
+function tryRotate() {
+  const newRotation = (current.rotation + 1) % 4;
+  for (const [ox, oy] of KICK_OFFSETS) {
+    const rotated = { ...current, rotation: newRotation, x: current.x + ox, y: current.y + oy };
+    if (!collides(rotated)) {
+      current = rotated;
+      return;
+    }
+  }
+  // no valid kick found — rotation fails silently, piece stays as-is
+}
+
+function hardDrop() {
+  let dropped = 0;
+  while (tryMove(0, 1)) dropped++;
+  score += dropped * 2;
+  lockPiece();
+  updateHud();
+}
+
+function holdCurrent() {
+  if (!canHold) return;
+  canHold = false;
+  if (holdPiece === null) {
+    holdPiece = current.type;
+    spawnNext();
+  } else {
+    const swap = holdPiece;
+    holdPiece = current.type;
+    current = spawnPiece(swap);
+  }
+  drawSidePanels();
+}
+
+function updateHud() {
+  hud.innerHTML = `Score: ${score}<br>Lines: ${lines}<br>Level: ${level}<br>Best: ${best}`;
+}
+
+function startNewGame() {
+  board = Array.from({ length: ROWS }, () => new Array(COLS).fill(null));
+  bag = refillBag();
+  nextQueue = [nextFromBag(), nextFromBag()];
+  current = spawnPiece(nextQueue.shift());
+  nextQueue.push(nextFromBag());
+  holdPiece = null;
+  canHold = true;
+  score = 0; lines = 0; level = 1;
+  dropInterval = BASE_DROP_MS;
+  dropAccum = 0;
+  gameOver = false;
+  paused = false;
+  pauseMenu.style.display = 'none';
+  banner.style.display = 'none';
+  updateHud();
+  drawSidePanels();
+}
+
+function endGame() {
+  gameOver = true;
+  if (score > best) { best = score; saveBest(best); }
+  updateHud();
+  banner.style.display = 'block';
+  banner.innerHTML = `Game over <span>Score ${score} — Press R or tap to retry</span>`;
+}
+
+// ---- input ----
+document.addEventListener('keydown', e => {
+  if (e.code === 'Escape') { togglePause(); return; }
+  if (e.code === 'KeyR' && gameOver) { startNewGame(); return; }
+  if (gameOver || paused) return;
+
+  if (e.code === 'ArrowLeft') tryMove(-1, 0);
+  else if (e.code === 'ArrowRight') tryMove(1, 0);
+  else if (e.code === 'ArrowDown') { if (tryMove(0, 1)) score += 1; }
+  else if (e.code === 'ArrowUp') tryRotate();
+  else if (e.code === 'Space') { e.preventDefault(); hardDrop(); }
+  else if (e.code === 'KeyC') holdCurrent();
+  updateHud();
+});
+
+function bindTapBtn(id, fn) {
+  const el = document.getElementById(id);
+  const handler = e => { e.preventDefault(); if (!gameOver && !paused) fn(); };
+  el.addEventListener('touchstart', handler, { passive: false });
+  el.addEventListener('mousedown', handler);
+}
+bindTapBtn('btn-left', () => tryMove(-1, 0));
+bindTapBtn('btn-right', () => tryMove(1, 0));
+bindTapBtn('btn-down', () => tryMove(0, 1));
+bindTapBtn('btn-rotate', () => tryRotate());
+bindTapBtn('btn-drop', () => hardDrop());
+bindTapBtn('btn-hold', () => holdCurrent());
+
+canvas.addEventListener('touchstart', () => { if (gameOver) startNewGame(); }, { passive: true });
+canvas.addEventListener('click', () => { if (gameOver) startNewGame(); });
+banner.addEventListener('click', () => { if (gameOver) startNewGame(); });
+
+function togglePause(forceState) {
+  if (gameOver) return;
+  paused = typeof forceState === 'boolean' ? forceState : !paused;
+  pauseMenu.style.display = paused ? 'flex' : 'none';
+  if (!paused) dropAccum = 0; // avoid an instant drop catch-up right after resuming
+}
+pauseBtn.addEventListener('click', () => togglePause());
+resumeBtn.addEventListener('click', () => togglePause(false));
+restartBtn.addEventListener('click', () => { togglePause(false); startNewGame(); });
+quitBtn.addEventListener('click', () => {
+  togglePause(false);
+  gameOver = true;
+  pauseMenu.style.display = 'none';
+  titleScreen.style.display = 'flex';
+});
+titleStartBtn.addEventListener('click', () => {
+  titleScreen.style.display = 'none';
+  startNewGame();
+});
+
+// ---- drawing ----
+function drawCell(context, x, y, size, color) {
+  context.fillStyle = color;
+  context.fillRect(x * size, y * size, size - 1, size - 1);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!board || !current) return; // nothing to draw yet — still on the title screen
+
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      if (board[y][x]) drawCell(ctx, x, y, CELL, COLORS[board[y][x]]);
+    }
+  }
+
+  // ghost piece: shows where the current piece would land on hard drop
+  const ghost = { ...current };
+  while (!collides({ ...ghost, y: ghost.y + 1 })) ghost.y++;
+  ctx.globalAlpha = 0.25;
+  getCells(ghost).forEach(([x, y]) => { if (y >= 0) drawCell(ctx, x, y, CELL, COLORS[current.type]); });
+  ctx.globalAlpha = 1;
+
+  getCells(current).forEach(([x, y]) => { if (y >= 0) drawCell(ctx, x, y, CELL, COLORS[current.type]); });
+}
+
+function drawMiniPiece(context, type) {
+  context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+  if (!type) return;
+  const miniCell = 16;
+  const cells = SHAPES[type][0];
+  const xs = cells.map(c => c[0]), ys = cells.map(c => c[1]);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const offsetX = (context.canvas.width / miniCell - (maxX - minX + 1)) / 2 - minX;
+  const offsetY = (context.canvas.height / miniCell - (maxY - minY + 1)) / 2 - minY;
+  context.fillStyle = COLORS[type];
+  cells.forEach(([x, y]) => {
+    context.fillRect((x + offsetX) * miniCell, (y + offsetY) * miniCell, miniCell - 1, miniCell - 1);
+  });
+}
+
+function drawSidePanels() {
+  drawMiniPiece(holdCtx, holdPiece);
+  drawMiniPiece(nextCtx, nextQueue[0]);
+}
+
+// ---- main loop ----
+let lastFrameTime = performance.now();
+function loop(now) {
+  const dt = Math.min(now - lastFrameTime, 100); // clamp to avoid a huge jump after tab-switch
+  lastFrameTime = now;
+
+  if (!gameOver && !paused) {
+    dropAccum += dt;
+    if (dropAccum >= dropInterval) {
+      dropAccum = 0;
+      if (!tryMove(0, 1)) {
+        lockPiece();
+      }
+    }
+  }
+
+  draw();
+  requestAnimationFrame(loop);
+}
+
+pauseBtn.style.display = 'flex';
+if (fullscreenSupported) fullscreenBtn.style.display = 'flex';
+gameOver = true;
+titleScreen.style.display = 'flex';
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

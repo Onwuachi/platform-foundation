@@ -1,5 +1,5 @@
 ---
-title: "Derrick's 2026 Birthday Family Smoke Session"
+title: "Elijah's 2026 Birthday Smoke Session"
 date: 2026-08-29T15:00:00-05:00
 draft: false
 image: "/images/recipes/2026-birthday-smoke-session.png"
