@@ -34,10 +34,11 @@ summary: "One-sentence summary of the fix/reference, similar to description but 
 
 Format: `KB-<CATEGORY>-<###>`, zero-padded three digits, sequential per category.
 
-Known categories in use: `OBS` (observability), `WEB` (web/CloudFront/S3/Hugo serving),
-`CLI` (command-line tooling), `NET` (networking/Docker), `REF` (reference/cheat sheets).
+Known categories in use (confirmed against the repo, not assumed): `GAME`, `HUGO`,
+`NET`, `OBS`, `REF`, `WEB`. Each currently at `-001` unless otherwise confirmed in-session.
 
-Examples on file: `KB-OBS-001`, `KB-WEB-001`, `KB-CLI-001`, `KB-NET-001`, `KB-REF-001`.
+Examples on file: `KB-GAME-001`, `KB-HUGO-001`, `KB-NET-001`, `KB-OBS-001`, `KB-REF-001`
+(now also `KB-REF-002`), `KB-WEB-001`.
 
 **To assign a new ID:** identify the right category from the topic, then ask Derrick to
 confirm the current highest number in that category (or check if he's pasted/shared the KB
