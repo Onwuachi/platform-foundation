@@ -75,3 +75,13 @@ paste-and-confirm workflow rather than claiming to execute anything.
   scotch content being present)
 - Confirm actual `create-*.sh` script usage/flags the first time each is
   invoked through the skill, rather than relying on inferred syntax
+
+## Update — same session, continued
+
+After the skill was built and pushed, this session also produced an unrelated
+but consequential change: branch protection on `main` was re-enabled (removing
+an admin bypass that had been in place), and the resulting PR-based workflow
+surfaced three real, previously-undetected CI bugs (stale `apps/hugo/site`
+paths, a duplicate CodeQL workflow). See
+`docs/branch-protection-and-ci-fixes-2026-09-08.md` for that full writeup —
+kept separate since it's a distinct subject from the KB writer skill itself.
