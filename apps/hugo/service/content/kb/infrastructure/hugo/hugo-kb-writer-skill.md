@@ -83,3 +83,5 @@ For any request, three things together:
 - `tools/claude-skills/hugo-kb-writer/SKILL.md`
 - `tools/git-hooks/pre-commit`
 - `docs/hugo-kb-writer-skill-2026-09-08.md` — session log for how this skill was built
+- `docs/branch-protection-and-ci-fixes-2026-09-08.md` — separate session log covering
+  branch protection re-enablement and the CI path bugs found via the resulting PR workflow
