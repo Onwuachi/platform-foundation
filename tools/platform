@@ -69,12 +69,31 @@ write_signal() {
   local DESC="$3"
   local ROOT
   ROOT=$(git rev-parse --show-toplevel)
+  local SIGNALS_DIR="$ROOT/apps/hugo/service/content/signals"
 
   echo
   echo "==> Logging signal: $TITLE"
 
-  "$ROOT/tools/hugo/create-signal.sh" "$TITLE" "$TYPE" "$DESC" || \
+  if "$ROOT/tools/hugo/create-signal.sh" "$TITLE" "$TYPE" "$DESC"; then
+    (
+      cd "$ROOT" && \
+      git add "$SIGNALS_DIR"/*.md 2>/dev/null
+      git diff --cached --quiet -- "$SIGNALS_DIR" || \
+        git commit -m "content: log signal - ${TITLE}" >/dev/null
+    ) || echo "⚠️  Signal auto-commit failed (non-fatal), continuing"
+
+    (
+      cd "$SIGNALS_DIR" && \
+      ls -t refreshed-hugo-*.md 2>/dev/null | tail -n +11 | while read -r OLD; do
+        git rm -q "$OLD" 2>/dev/null || rm -f "$OLD"
+      done
+      cd "$ROOT" && \
+      git diff --cached --quiet -- "$SIGNALS_DIR" || \
+        git commit -m "content: prune refreshed-hugo signals, keep last 10" >/dev/null
+    ) || echo "⚠️  Signal pruning failed (non-fatal), continuing"
+  else
     echo "⚠️  Signal logging failed (non-fatal), continuing"
+  fi
 }
 
 ########################################
