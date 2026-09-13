@@ -18,6 +18,38 @@
   </ul>
 </div>
 
+{{ $animeSection := site.GetPage "private/anime" }}
+{{ if $animeSection }}
+  {{ $watching := where $animeSection.Pages "Params.status" "watching" }}
+  {{ $completed := where $animeSection.Pages "Params.status" "completed" }}
+
+  {{ if $watching }}
+  <div class="side-note highlight-section">
+    <p><strong>Currently Watching 📺</strong></p>
+    <ul>
+      {{ range $watching }}
+        <li>{{ .Params.title_english | default .Title }}
+          {{ with .Params.episodes_watched }} — ep {{ . }}{{ with $.Params.episodes_total }}/{{ . }}{{ end }}{{ end }}
+        </li>
+      {{ end }}
+    </ul>
+  </div>
+  {{ end }}
+
+  {{ if $completed }}
+  <div class="side-note highlight-section">
+    <p><strong>Recently Completed ✅</strong></p>
+    <ul>
+      {{ range first 5 (sort $completed "Date" "desc") }}
+        <li>{{ .Params.title_english | default .Title }}
+          {{ with .Params.rating }} — {{ . }}/10{{ end }}
+        </li>
+      {{ end }}
+    </ul>
+  </div>
+  {{ end }}
+{{ end }}
+
 <div class="grid-2">
   {{ range site.Data.culture.links.anime_links }}
     <div class="card">

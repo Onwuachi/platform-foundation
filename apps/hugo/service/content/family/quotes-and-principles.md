@@ -41,6 +41,8 @@ The actual game.
 
 > **How much of a person's life should have to be sold to receive access to housing, food, healthcare, security, education and leisure?**
 
+> **Need is not desire. Provision is not intimacy. Staying is not choosing. Functioning is not flourishing.**
+
 ---
 
 ## Playing the Game
