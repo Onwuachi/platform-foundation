@@ -159,6 +159,8 @@ The actual game.
 
 ## Core Principles
 
+> **Build yourself. Build ownership. Protect your freedom. Don't trade your principles for attachment. Don't confuse being useful with being loved. And don't keep carrying something simply because you've already carried it for a long time.**
+
 > **Do not become so attached to another person that you become willing to betray yourself.**
 
 > **Don't sacrifice your future to preserve your present attachment.**
@@ -169,4 +171,3 @@ The actual game.
 
 > **Value yourself enough to walk away from what repeatedly destroys your peace, dignity, or principles.**
 
-> **Build yourself. Build ownership. Protect your freedom. Don't trade your principles for attachment. Don't confuse being useful with being loved. And don't keep carrying something simply because you've al ready carried it for a long time.**
