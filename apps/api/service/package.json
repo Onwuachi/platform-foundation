@@ -8,6 +8,8 @@
   "dependencies": {
     "express": "^4.19.2",
     "prom-client": "^15.1.0"
+  },
+  "overrides": {
+    "qs": "6.16.0"
   }
 }
-
