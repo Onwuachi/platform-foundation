@@ -17,7 +17,7 @@ summary: "Adds Access Analyzer, account-level S3 Block Public Access, EBS defaul
 
 # AWS Free Security and Cost Baseline — Plan and Runbook
 
-**Status: planned. Nothing below has been applied yet.** Tick each checkbox only after its verification step passes.
+**Status: steps 1 and 2 applied on 2026-10-17; steps 3 to 8 pending.** Tick each checkbox only after its verification step passes.
 
 ---
 
@@ -65,7 +65,7 @@ aws accessanalyzer list-findings-v2 --region us-east-1 \
   --analyzer-arn <ANALYZER_ARN> --query 'findings[].{resource:resource,status:status}'
 ```
 
-- [ ] Applied
+- [x] Applied 2026-10-17 (`arn:aws:access-analyzer:us-east-1:046685909731:analyzer/platform-external-access`)
 - [ ] Findings reviewed
 
 ## 2. S3 Block Public Access (account level)
@@ -96,34 +96,43 @@ aws s3control get-public-access-block --account-id <ACCOUNT_ID>
 curl -sI https://onwua.com/ | head -n 1
 ```
 
-- [ ] Origin confirmed OAC-based
-- [ ] Applied
-- [ ] onwua.com returns 200
+- [x] Origin confirmed OAC-based (distribution `E127HW59AHJWZG`, OAC `E1YHH1E7J1YLK8`, no OAI; `onwua-portfolio-site` reports `IsPublic: false`; every other bucket is private or has no bucket policy)
+- [x] Applied 2026-10-17, all four settings true
+- [x] onwua.com returns HTTP 200 afterward
 
-## 3. EBS encryption by default
+## 3. EBS encryption for `ops-01` (Terraform, not the account default)
 
-Uses the AWS-managed `aws/ebs` key (free). Applies to **new** volumes only, per region.
+Revised: do **not** turn on the account-level default yet. It applies to every new volume in the account, including Packer build instances in CI, and a build failure from a missing KMS permission is a confusing way to learn that. Encrypt the one volume that matters instead, with the AWS-managed `aws/ebs` key (free; a customer-managed key costs $1/month, so don't use one).
 
-```bash
-aws ec2 enable-ebs-encryption-by-default --region us-east-1
-aws ec2 get-ebs-encryption-by-default --region us-east-1
+In `infra/ops/main.tf`, inside `aws_instance.ops`:
+
+```hcl
+  root_block_device {
+    encrypted = true
+    # keep the existing volume_size / volume_type settings as they are
+  }
 ```
 
-Existing volumes stay as they are. The `ops-01` root volume becomes encrypted at the next rehydrate (AMI change plus `terraform apply`). Do not use a customer-managed KMS key; that adds $1/month.
+Changing `encrypted` on an existing root volume forces instance replacement, which is the same event as a rehydrate. Apply it together with the next Packer AMI roll, not as a standalone change.
 
-- [ ] Applied
-- [ ] Next rehydrate: `aws ec2 describe-volumes --filters Name=attachment.instance-id,Values=<INSTANCE_ID> --query 'Volumes[].Encrypted'` returns `true`
-
-## 4. IMDSv2 required
-
-Account default for new launches:
+Verify after the replacement:
 
 ```bash
-aws ec2 modify-instance-metadata-defaults --region us-east-1 \
-  --http-tokens required --http-put-response-hop-limit 1
+aws ec2 describe-volumes --filters Name=attachment.instance-id,Values=<INSTANCE_ID> \
+  --query 'Volumes[].{id:VolumeId,encrypted:Encrypted}'
 ```
 
-And in `infra/ops/main.tf`, inside `aws_instance.ops`:
+Optional later, once a Packer build has been confirmed to work with it: `aws ec2 enable-ebs-encryption-by-default --region us-east-1`.
+
+- [ ] Terraform block added
+- [ ] Applied with the next AMI roll
+- [ ] Volume shows `encrypted: true`
+
+## 4. IMDSv2 required on `ops-01` (Terraform, not the account default)
+
+Revised: skip `modify-instance-metadata-defaults`. As an account default it would also hit Packer build instances, and any provisioning script that reads the metadata service without a token would fail mid-build. Set it on the one instance instead.
+
+In `infra/ops/main.tf`, inside `aws_instance.ops`:
 
 ```hcl
   metadata_options {
@@ -133,7 +142,7 @@ And in `infra/ops/main.tf`, inside `aws_instance.ops`:
   }
 ```
 
-**Hop limit caveat:** with a limit of 1, containers on Docker's bridge network cannot reach the metadata service. Grafana and Prometheus run with `--network host` and are unaffected. If any bridge-networked container needs instance credentials, raise the limit to 2 for that reason only.
+This is an in-place change (no replacement). **Hop limit caveat:** with a limit of 1, containers on Docker's bridge network cannot reach the metadata service. Grafana and Prometheus run with `--network host` and are unaffected. If any bridge-networked container needs instance credentials, raise the limit to 2 for that reason only.
 
 Verify after `terraform apply`:
 
@@ -142,7 +151,6 @@ aws ec2 describe-instances --instance-ids <INSTANCE_ID> \
   --query 'Reservations[].Instances[].MetadataOptions'
 ```
 
-- [ ] Account default set
 - [ ] Terraform block added and applied
 - [ ] `HttpTokens` shows `required`
 - [ ] Hugo, HAProxy, Grafana, Prometheus still healthy
@@ -253,7 +261,7 @@ aws s3 ls s3://platform-cloudtrail-<ACCOUNT_ID>/AWSLogs/ --recursive | head
 
 Allow up to about 15 minutes for the first delivery.
 
-- [ ] No pre-existing trail confirmed
+- [x] No pre-existing trail confirmed 2026-10-17 (`trailList` was empty)
 - [ ] Applied
 - [ ] `IsLogging` true, first log object present
 
