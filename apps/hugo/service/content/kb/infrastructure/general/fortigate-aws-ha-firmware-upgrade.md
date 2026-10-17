@@ -128,7 +128,7 @@ The cluster upgrades members in sequence and **role changes are normal**. Expect
 
 1. The GUI on one node disconnects with "Lost Connection to FortiGate."
 2. The other node shows "System Rebooting" and stays unreachable for several minutes.
-3. A browser reconnect may land on a **setup wizard** page (FortiCare registration, automatic patch upgrade options) on a node that has just rebooted onto the new version. Don't use the wizard to change configuration. Decline or skip automatic patch upgrades unless you actually want them.
+3. A browser reconnect may land on a **setup wizard** page (FortiCare registration, password setup, automatic patch upgrade options) on a node that has just rebooted onto the new version. Don't click through it blindly, and don't use it to change unrelated configuration. After the upgrade is validated, confirm the remaining setup items with Fortinet Support. In the real change, FortiCare registration and password setup were completed after TAC confirmed them, and Automatic Patch Upgrades were reviewed and deliberately left disabled for the maintenance.
 4. The GUI may show an "Image upgrade failed" style message even though the HA upgrade is still proceeding. The target release's Known Issues documented a case where a secondary taking several minutes to boot triggers a misleading GUI error. Check actual node state before acting.
 
 **Rule of thumb: wait, then verify the real state from the CLI. Don't intervene based on the GUI alone.**
@@ -237,6 +237,7 @@ Record when the failover started, when the new primary became active, the sessio
 - [ ] CPU/memory normal, licenses valid, no unresolved errors
 - [ ] Routing, NAT, and VPN verified as applicable
 - [ ] SIP/VoIP and application traffic validated
+- [ ] Post-upgrade setup-wizard items resolved (FortiCare registration, password setup confirmed with Support; Automatic Patch Upgrades reviewed and the decision recorded)
 - [ ] No unnecessary HA changes made, no rollback required
 - [ ] CLI output and timestamps saved with the change record
 - [ ] Support ticket updated
