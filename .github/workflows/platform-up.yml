@@ -60,7 +60,7 @@ jobs:
           echo "=== VERIFYING PLATFORM ==="
 
           aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=platform-ops" \
+            --filters "Name=tag:Role,Values=ops" \
             --query "Reservations[*].Instances[*].[State.Name,PublicIpAddress]" \
             --output table
 
