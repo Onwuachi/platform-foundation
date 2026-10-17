@@ -144,6 +144,12 @@ resource "aws_instance" "ops" {
   iam_instance_profile        = var.iam_instance_profile
   key_name                    = var.key_name
   associate_public_ip_address = true
+  # IMDSv2 required; hop limit 2 lets bridge-networked containers reach IMDS
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
+  }
 
   depends_on = [
     aws_s3_bucket.platform_state,
