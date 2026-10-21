@@ -1,7 +1,7 @@
 aws_account_id = "046685909731"
 aws_region     = "us-east-1"
 key_name       = "onwua_key"
-admin_ip       = "47.12.88.38/32"
+admin_ip       = "108.250.35.114/32"
 
 environment = "dev"
 
