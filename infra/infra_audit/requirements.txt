@@ -16,4 +16,4 @@ s3transfer==0.16.0
 shellingham==1.5.4
 six==1.17.0
 typer==0.24.1
-urllib3==2.7.0
+urllib3==2.8.0
