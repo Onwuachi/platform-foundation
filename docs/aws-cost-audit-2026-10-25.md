@@ -3,7 +3,7 @@ title: "AWS Cost Audit: Surplus CPU Credits, Orphaned AMIs, and Prune Hardening"
 date: 2026-10-25
 description: "Session writeup: why the AWS bill read higher, what was actually driving EC2 Other, cleanup of five legacy AMIs and snapshots, a new cost-hygiene script, and a hardened Packer AMI prune."
 tags: ["aws", "cost", "ebs", "snapshots", "ami", "packer", "cloudwatch", "t3", "finops", "runbook"]
-categories: ["infrastructure"]
+categories: ["infra"]
 summary: "The bill was not climbing steadily. A three-day t3 surplus-credit spike (~$1.63) and five orphaned legacy AMIs (~$1.00-1.40/month in snapshots) explained the increase. Both addressed; remaining cost is mostly fixed."
 ---
 
