@@ -367,11 +367,17 @@ build {
         "KEEP=${var.ami_keep_last}",
         "DELETE_COUNT=$((AMI_COUNT-KEEP))",
         "if [ \"$DELETE_COUNT\" -le 0 ]; then exit 0; fi",
+        "IN_USE=$(aws ec2 describe-instances --region ${var.region} --filters Name=instance-state-name,Values=pending,running,stopping,stopped --query 'Reservations[].Instances[].ImageId' --output text) || { echo 'WARN: cannot list instances, skipping prune'; exit 0; }",
+        "IN_USE=$(echo $IN_USE)",
         "OLD_AMIS=$(echo \"$AMI_LIST\" | awk '{for(i=1;i<=NF-'$KEEP';i++) printf $i\" \"}')",
         "for AMI in $OLD_AMIS; do",
-        "  SNAPSHOT_ID=$(aws ec2 describe-images --image-ids $AMI --region ${var.region} --query 'Images[0].BlockDeviceMappings[0].Ebs.SnapshotId' --output text)",
+        "  case \" $IN_USE \" in *\" $AMI \"*) echo \"Keeping $AMI (used by an instance)\"; continue;; esac",
+        "  SNAPSHOTS=$(aws ec2 describe-images --image-ids $AMI --region ${var.region} --query 'Images[0].BlockDeviceMappings[].Ebs.SnapshotId' --output text)",
+        "  echo \"Deregistering $AMI\"",
         "  aws ec2 deregister-image --image-id $AMI --region ${var.region}",
-        "  if [ \"$SNAPSHOT_ID\" != \"None\" ]; then aws ec2 delete-snapshot --snapshot-id $SNAPSHOT_ID --region ${var.region}; fi",
+        "  for SNAPSHOT_ID in $SNAPSHOTS; do",
+        "    if [ \"$SNAPSHOT_ID\" != \"None\" ]; then echo \"Deleting $SNAPSHOT_ID\"; aws ec2 delete-snapshot --snapshot-id $SNAPSHOT_ID --region ${var.region}; fi",
+        "  done",
         "done"
       ]
     }
