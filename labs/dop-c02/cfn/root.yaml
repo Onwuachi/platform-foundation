@@ -1,9 +1,13 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: dop-lab root stack - nests storage and iam
+Description: dop-lab root stack - nests storage, iam and custom
 Parameters:
   ProjectName:
     Type: String
     Default: dop-lab
+  FailMode:
+    Type: String
+    Default: none
+    AllowedValues: [none, fail]
 Resources:
   StorageStack:
     Type: AWS::CloudFormation::Stack
@@ -18,6 +22,15 @@ Resources:
       Parameters:
         BucketArn: !GetAtt StorageStack.Outputs.BucketArn
         TableArn: !GetAtt StorageStack.Outputs.TableArn
+  CustomStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: nested/custom.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        FailMode: !Ref FailMode
 Outputs:
   RoleArn:
     Value: !GetAtt IamStack.Outputs.RoleArn
+  GreetingMessage:
+    Value: !GetAtt CustomStack.Outputs.Message

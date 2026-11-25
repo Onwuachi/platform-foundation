@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: dop-lab nested stack - Lambda-backed custom resource
+Parameters:
+  ProjectName:
+    Type: String
+  FailMode:
+    Type: String
+    Default: none
+    AllowedValues: [none, fail]
+Resources:
+  FnRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+  GreeterFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt FnRole.Arn
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import cfnresponse
+          PID = 'dop-lab-greeting'
+          def handler(event, context):
+              try:
+                  props = event['ResourceProperties']
+                  if event['RequestType'] == 'Delete':
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {}, PID)
+                      return
+                  if props.get('FailMode') == 'fail':
+                      cfnresponse.send(event, context, cfnresponse.FAILED, {}, PID,
+                                       reason='Deliberate failure from FailMode=fail')
+                      return
+                  msg = 'Hello ' + props.get('Name', 'world')
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {'Message': msg}, PID)
+              except Exception as e:
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {}, PID, reason=str(e))
+  GreeterLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${GreeterFunction}'
+      RetentionInDays: 3
+  Greeting:
+    Type: Custom::Greeting
+    DependsOn: GreeterLogGroup
+    Properties:
+      ServiceToken: !GetAtt GreeterFunction.Arn
+      Name: !Ref ProjectName
+      FailMode: !Ref FailMode
+Outputs:
+  Message:
+    Value: !GetAtt Greeting.Message
