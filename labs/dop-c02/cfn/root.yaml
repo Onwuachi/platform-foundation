@@ -1,0 +1,23 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: dop-lab root stack - nests storage and iam
+Parameters:
+  ProjectName:
+    Type: String
+    Default: dop-lab
+Resources:
+  StorageStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: nested/storage.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+  IamStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: nested/iam.yaml
+      Parameters:
+        BucketArn: !GetAtt StorageStack.Outputs.BucketArn
+        TableArn: !GetAtt StorageStack.Outputs.TableArn
+Outputs:
+  RoleArn:
+    Value: !GetAtt IamStack.Outputs.RoleArn
