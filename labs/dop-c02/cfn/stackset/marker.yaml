@@ -1,0 +1,9 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: dop-lab StackSet payload - one SSM parameter per region
+Resources:
+  Marker:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /dop-lab/stackset/marker
+      Type: String
+      Value: !Sub 'v2-${AWS::Region}'
